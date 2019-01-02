@@ -59,3 +59,9 @@ typings/
 
 # next.js build output
 .next
+
+# Ignores compiled TypeScript files
+src/**/*.js
+src/**/*.map
+test/**/*.js
+test/**/*.map
