@@ -1,1 +1,0 @@
-{"version":3,"file":"event-bus.js","sourceRoot":"","sources":["../src/event-bus.ts"],"names":[],"mappings":"","sourcesContent":["import { EdaEvent } from \"./eda-event\";\n\n// public\nexport interface EventBus\n{\n    publish(event: EdaEvent): Promise<void>;\n}"]}

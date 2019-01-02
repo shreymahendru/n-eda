@@ -1,1 +1,0 @@
-{"version":3,"file":"eda-event.js","sourceRoot":"","sources":["../src/eda-event.ts"],"names":[],"mappings":"","sourcesContent":["// public\nexport interface EdaEvent\n{\n    id: string;\n    name: string;\n}"]}

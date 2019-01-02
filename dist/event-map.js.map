@@ -1,1 +1,0 @@
-{"version":3,"file":"event-map.js","sourceRoot":"","sources":["../src/event-map.ts"],"names":[],"mappings":"","sourcesContent":["// public\nexport interface EventMap\n{\n    [eventName: string]: string;\n}"]}

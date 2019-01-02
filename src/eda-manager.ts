@@ -8,7 +8,7 @@ import { EventBus } from "./event-bus";
 import { EventSubMgr } from "./event-sub-mgr";
 
 // public
-export class EdaArchitect
+export class EdaManager
 {
     private readonly _eventBusKey = "EventBus";
     private readonly _eventSubMgrKey = "EventSubMgr";
