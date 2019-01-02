@@ -1,0 +1,1 @@
+{"version":3,"file":"eda-event-handler.js","sourceRoot":"","sources":["../src/eda-event-handler.ts"],"names":[],"mappings":"","sourcesContent":["import { EdaEvent } from \"./eda-event\";\n\n// public\nexport interface EdaEventHandler<TEvent extends EdaEvent>\n{\n    handle(event: TEvent): Promise<void>;\n}"]}
