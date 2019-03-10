@@ -1,4 +1,5 @@
 import { EdaEvent } from "./eda-event";
-export interface EventBus {
+import { Disposable } from "@nivinjoseph/n-util";
+export interface EventBus extends Disposable {
     publish(event: EdaEvent): Promise<void>;
 }

@@ -8,18 +8,30 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_util_1 = require("@nivinjoseph/n-util");
 const in_memory_event_bus_1 = require("./in-memory-event-bus");
+const n_exception_1 = require("@nivinjoseph/n-exception");
 let InMemoryEventSubMgr = class InMemoryEventSubMgr {
     constructor(logger) {
+        this._isDisposed = false;
         n_defensive_1.given(logger, "logger").ensureHasValue().ensureIsObject();
         this._logger = logger;
         this._processor = new n_util_1.BackgroundProcessor((e) => this._logger.logError(e));
     }
     initialize(container, eventMap, eventBus) {
+        if (this._isDisposed)
+            throw new n_exception_1.ObjectDisposedException(this);
         n_defensive_1.given(container, "container").ensureHasValue().ensureIsType(n_ject_1.Container);
         n_defensive_1.given(eventMap, "eventMap").ensureHasValue().ensureIsObject();
         n_defensive_1.given(eventBus, "eventBus").ensureHasValue().ensureIsType(in_memory_event_bus_1.InMemoryEventBus);
@@ -34,7 +46,12 @@ let InMemoryEventSubMgr = class InMemoryEventSubMgr {
         });
     }
     dispose() {
-        return this._processor.dispose(false);
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this._isDisposed)
+                return;
+            this._isDisposed = true;
+            yield this._processor.dispose(false);
+        });
     }
 };
 InMemoryEventSubMgr = __decorate([
