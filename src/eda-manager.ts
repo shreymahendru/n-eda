@@ -48,6 +48,7 @@ export class EdaManager implements Disposable
     {
         await this._eventBus.dispose();
         await this._eventSubMgr.dispose();
+        await this._container.dispose();
     }
     
     
