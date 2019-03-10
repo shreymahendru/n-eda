@@ -33,6 +33,7 @@ class EdaManager {
         return __awaiter(this, void 0, void 0, function* () {
             yield this._eventBus.dispose();
             yield this._eventSubMgr.dispose();
+            yield this._container.dispose();
         });
     }
     initialize(eventBus, eventSubMgr, eventHandlerClasses) {
