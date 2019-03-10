@@ -8,6 +8,7 @@ import { InMemoryEventBus } from "./in-memory-event-bus";
 import { EdaEventHandler } from "../eda-event-handler";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
+import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 
 // public
 @inject("Logger")
@@ -15,6 +16,7 @@ export class InMemoryEventSubMgr implements EventSubMgr
 {
     private readonly _logger: Logger;
     private readonly _processor: BackgroundProcessor;
+    private _isDisposed = false;
 
 
     public constructor(logger: Logger)
@@ -28,6 +30,9 @@ export class InMemoryEventSubMgr implements EventSubMgr
     
     public initialize(container: Container, eventMap: EventMap, eventBus: EventBus): void
     {
+        if (this._isDisposed)
+            throw new ObjectDisposedException(this);
+        
         given(container, "container").ensureHasValue().ensureIsType(Container);
         given(eventMap, "eventMap").ensureHasValue().ensureIsObject();
         given(eventBus, "eventBus").ensureHasValue().ensureIsType(InMemoryEventBus);
@@ -46,8 +51,13 @@ export class InMemoryEventSubMgr implements EventSubMgr
         });
     }
     
-    public dispose(): Promise<void>
+    public async dispose(): Promise<void>
     {
-        return this._processor.dispose(false);
+        if (this._isDisposed)
+            return;
+        
+        this._isDisposed = true;
+        
+        await  this._processor.dispose(false);
     }
 }

@@ -6,9 +6,10 @@ import { eventSymbol } from "./event";
 import { ApplicationException } from "@nivinjoseph/n-exception";
 import { EventBus } from "./event-bus";
 import { EventSubMgr } from "./event-sub-mgr";
+import { Disposable } from "@nivinjoseph/n-util";
 
 // public
-export class EdaManager
+export class EdaManager implements Disposable
 {
     private readonly _eventBusKey = "EventBus";
     private readonly _eventSubMgrKey = "EventSubMgr";
@@ -43,9 +44,10 @@ export class EdaManager
     }
     
     
-    public dispose(): Promise<void>
+    public async dispose(): Promise<void>
     {
-        return this._eventSubMgr.dispose();
+        await this._eventBus.dispose();
+        await this._eventSubMgr.dispose();
     }
     
     
