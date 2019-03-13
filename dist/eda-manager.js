@@ -26,6 +26,7 @@ class EdaManager {
     static get eventBusKey() { return "EventBus"; }
     static get eventSubMgrKey() { return "EventSubMgr"; }
     get containerRegistry() { return this._container; }
+    get serviceLocator() { return this._container; }
     bootstrap() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);

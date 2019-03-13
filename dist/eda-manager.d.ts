@@ -1,5 +1,5 @@
 import { EdaConfig } from "./eda-config";
-import { Registry } from "@nivinjoseph/n-ject";
+import { Registry, ServiceLocator } from "@nivinjoseph/n-ject";
 import { Disposable } from "@nivinjoseph/n-util";
 export declare class EdaManager implements Disposable {
     private readonly _container;
@@ -9,6 +9,7 @@ export declare class EdaManager implements Disposable {
     static readonly eventBusKey: string;
     static readonly eventSubMgrKey: string;
     readonly containerRegistry: Registry;
+    readonly serviceLocator: ServiceLocator;
     constructor(config: EdaConfig);
     bootstrap(): void;
     dispose(): Promise<void>;
