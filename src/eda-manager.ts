@@ -15,6 +15,7 @@ export class EdaManager implements Disposable
     private readonly _eventMap: EventMap;
     
     private _isDisposed = false;
+    private _isBootstrapped = false;
     
     
     public static get eventBusKey(): string { return "EventBus"; }
@@ -37,14 +38,18 @@ export class EdaManager implements Disposable
     
     
     public bootstrap(): void
-    {
+    {    
         if (this._isDisposed)
             throw new ObjectDisposedException(this);
+        
+        given(this, "this").ensure(t => !t._isBootstrapped, "bootstrapping more than once");
         
         this._container.bootstrap();
         
         this._container.resolve<EventSubMgr>(EdaManager.eventSubMgrKey)
             .initialize(this._container, this._eventMap);
+        
+        this._isBootstrapped = true;
     }
     
     public async dispose(): Promise<void>
