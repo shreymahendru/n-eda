@@ -1,6 +1,6 @@
 import { EdaConfig } from "./eda-config";
 import { given } from "@nivinjoseph/n-defensive";
-import { Container, Registry } from "@nivinjoseph/n-ject";
+import { Container, Registry, ServiceLocator } from "@nivinjoseph/n-ject";
 import { EventMap } from "./event-map";
 import { eventSymbol } from "./event";
 import { ApplicationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
@@ -22,6 +22,7 @@ export class EdaManager implements Disposable
     public static get eventSubMgrKey(): string { return "EventSubMgr"; }
     
     public get containerRegistry(): Registry { return this._container; }
+    public get serviceLocator(): ServiceLocator { return this._container; }
     
     
     public constructor(config: EdaConfig)
