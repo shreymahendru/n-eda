@@ -1,9 +1,9 @@
 import { EdaConfig } from "./eda-config";
 import { given } from "@nivinjoseph/n-defensive";
-import { Container } from "@nivinjoseph/n-ject";
+import { Container, Registry } from "@nivinjoseph/n-ject";
 import { EventMap } from "./event-map";
 import { eventSymbol } from "./event";
-import { ApplicationException } from "@nivinjoseph/n-exception";
+import { ApplicationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { EventBus } from "./event-bus";
 import { EventSubMgr } from "./event-sub-mgr";
 import { Disposable } from "@nivinjoseph/n-util";
@@ -11,20 +11,16 @@ import { Disposable } from "@nivinjoseph/n-util";
 // public
 export class EdaManager implements Disposable
 {
-    private readonly _eventBusKey = "EventBus";
-    private readonly _eventSubMgrKey = "EventSubMgr";
     private readonly _container: Container;
     private readonly _eventMap: EventMap;
     
-    private readonly _eventBus: EventBus;
-    private readonly _eventSubMgr: EventSubMgr;
+    private _isDisposed = false;
     
     
-    public get eventBusKey(): string { return this._eventBusKey; }
-    public get eventBus(): EventBus { return this._eventBus; }
+    public static get eventBusKey(): string { return "EventBus"; }
+    public static get eventSubMgrKey(): string { return "EventSubMgr"; }
     
-    public get eventSubMgrKey(): string { return this._eventSubMgrKey; }
-    public get eventSubMgr(): EventSubMgr { return this._eventSubMgr; }
+    public get containerRegistry(): Registry { return this._container; }
     
     
     public constructor(config: EdaConfig)
@@ -35,57 +31,69 @@ export class EdaManager implements Disposable
         if (config.iocInstaller)
             this._container.install(config.iocInstaller);
         
-        this._eventMap = this.initialize(config.eventBus, config.eventSubMgr, config.eventHandlerClasses);
-        
-        this._eventBus = this._container.resolve<EventBus>(this._eventBusKey);
-        this._eventSubMgr = this._container.resolve<EventSubMgr>(this._eventSubMgrKey);
-        
-        this._eventSubMgr.initialize(this._container, this._eventMap, this._eventBus);
+        this._eventMap = this.createEventMap(config.eventHandlerClasses);
+        this.registerBusAndMgr(config.eventBus, config.eventSubMgr);
     }
     
     
+    public bootstrap(): void
+    {
+        if (this._isDisposed)
+            throw new ObjectDisposedException(this);
+        
+        this._container.bootstrap();
+        
+        this._container.resolve<EventSubMgr>(EdaManager.eventSubMgrKey)
+            .initialize(this._container, this._eventMap);
+    }
+    
     public async dispose(): Promise<void>
     {
-        await this._eventBus.dispose();
-        await this._eventSubMgr.dispose();
+        if (this._isDisposed)
+            return;
+        
+        this._isDisposed = true;
+        
         await this._container.dispose();
     }
     
     
-    private initialize(eventBus: EventBus | Function, eventSubMgr: EventSubMgr | Function,
-        eventHandlerClasses: ReadonlyArray<Function>): EventMap
+    private createEventMap(eventHandlerClasses: ReadonlyArray<Function>): EventMap
     {
-        given(eventBus, "eventBus").ensureHasValue();
-        given(eventSubMgr, "eventSubMgr").ensureHasValue();
         given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
-        
-        if (typeof eventBus === "function")
-            this._container.registerSingleton(this._eventBusKey, eventBus);
-        else
-            this._container.registerInstance(this._eventBusKey, eventBus);
-        
-        if (typeof eventSubMgr === "function")
-            this._container.registerSingleton(this._eventSubMgrKey, eventSubMgr);
-        else
-            this._container.registerInstance(this._eventSubMgrKey, eventSubMgr);
-        
+
         const eventRegistrations = eventHandlerClasses.map(t => new EventHandlerRegistration(t));
         const eventMap: EventMap = {};
-        
+
         eventRegistrations.forEach(t =>
         {
             if (eventMap[t.eventTypeName])
                 throw new ApplicationException(`Multiple handlers detected for event '${t.eventTypeName}'.`);
-            
+
             eventMap[t.eventTypeName] = t.eventHandlerTypeName;
             this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType);
         });
         
-        this._container.bootstrap();
-        
         return eventMap;
     }
+    
+    private registerBusAndMgr(eventBus: EventBus | Function, eventSubMgr: EventSubMgr | Function): void
+    {
+        given(eventBus, "eventBus").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+        given(eventSubMgr, "eventSubMgr").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+
+        if (typeof eventBus === "function")
+            this._container.registerSingleton(EdaManager.eventBusKey, eventBus);
+        else
+            this._container.registerInstance(EdaManager.eventBusKey, eventBus);
+
+        if (typeof eventSubMgr === "function")
+            this._container.registerSingleton(EdaManager.eventSubMgrKey, eventSubMgr);
+        else
+            this._container.registerInstance(EdaManager.eventSubMgrKey, eventSubMgr);
+    }
 }
+
 
 class EventHandlerRegistration
 {

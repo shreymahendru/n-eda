@@ -1,14 +1,14 @@
 import { EventSubMgr } from "../event-sub-mgr";
-import { Container, inject } from "@nivinjoseph/n-ject";
+import { Container, inject, Scope } from "@nivinjoseph/n-ject";
 import { EventMap } from "../event-map";
-import { EventBus } from "../event-bus";
 import { given } from "@nivinjoseph/n-defensive";
 import { BackgroundProcessor } from "@nivinjoseph/n-util";
 import { InMemoryEventBus } from "./in-memory-event-bus";
 import { EdaEventHandler } from "../eda-event-handler";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
-import { ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
+import { EdaManager } from "../eda-manager";
 
 // public
 @inject("Logger")
@@ -17,6 +17,7 @@ export class InMemoryEventSubMgr implements EventSubMgr
     private readonly _logger: Logger;
     private readonly _processor: BackgroundProcessor;
     private _isDisposed = false;
+    private _isInitialized = false;
 
 
     public constructor(logger: Logger)
@@ -28,16 +29,19 @@ export class InMemoryEventSubMgr implements EventSubMgr
     }
     
     
-    public initialize(container: Container, eventMap: EventMap, eventBus: EventBus): void
+    public initialize(container: Container, eventMap: EventMap): void
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);
         
         given(container, "container").ensureHasValue().ensureIsType(Container);
         given(eventMap, "eventMap").ensureHasValue().ensureIsObject();
-        given(eventBus, "eventBus").ensureHasValue().ensureIsType(InMemoryEventBus);
+        given(this, "this").ensure(t => !t._isInitialized, "initializing more than once");
         
-        const inMemoryEventBus = eventBus as InMemoryEventBus;
+        const inMemoryEventBus = container.resolve<InMemoryEventBus>(EdaManager.eventBusKey);
+        if (!(inMemoryEventBus instanceof InMemoryEventBus))
+            throw new ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
+        
         inMemoryEventBus.onPublish((e) =>
         {
             if (!eventMap[e.name])
@@ -45,10 +49,24 @@ export class InMemoryEventSubMgr implements EventSubMgr
             
             const scope = container.createScope();
             (<any>e).$scope = scope;
-            const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventMap[e.name]);
             
-            this._processor.processAction(() => handler.handle(e));
+            this.onEventReceived(scope, e);
+            
+            const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventMap[e.name]);
+            this._processor.processAction(async () =>
+            {
+                try 
+                {
+                    await handler.handle(e);    
+                }
+                finally
+                {
+                    await scope.dispose();
+                }
+            });
         });
+        
+        this._isInitialized = true;
     }
     
     public async dispose(): Promise<void>
@@ -59,5 +77,11 @@ export class InMemoryEventSubMgr implements EventSubMgr
         this._isDisposed = true;
         
         await  this._processor.dispose(false);
+    }
+    
+    protected onEventReceived(scope: Scope, event: EdaEvent): void
+    {
+        given(scope, "scope").ensureHasValue().ensureIsObject();
+        given(event, "event").ensureHasValue().ensureIsObject();
     }
 }
