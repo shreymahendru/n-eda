@@ -22,28 +22,41 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_util_1 = require("@nivinjoseph/n-util");
 const in_memory_event_bus_1 = require("./in-memory-event-bus");
 const n_exception_1 = require("@nivinjoseph/n-exception");
+const eda_manager_1 = require("../eda-manager");
 let InMemoryEventSubMgr = class InMemoryEventSubMgr {
     constructor(logger) {
         this._isDisposed = false;
+        this._isInitialized = false;
         n_defensive_1.given(logger, "logger").ensureHasValue().ensureIsObject();
         this._logger = logger;
         this._processor = new n_util_1.BackgroundProcessor((e) => this._logger.logError(e));
     }
-    initialize(container, eventMap, eventBus) {
+    initialize(container, eventMap) {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
         n_defensive_1.given(container, "container").ensureHasValue().ensureIsType(n_ject_1.Container);
         n_defensive_1.given(eventMap, "eventMap").ensureHasValue().ensureIsObject();
-        n_defensive_1.given(eventBus, "eventBus").ensureHasValue().ensureIsType(in_memory_event_bus_1.InMemoryEventBus);
-        const inMemoryEventBus = eventBus;
+        n_defensive_1.given(this, "this").ensure(t => !t._isInitialized, "initializing more than once");
+        const inMemoryEventBus = container.resolve(eda_manager_1.EdaManager.eventBusKey);
+        if (!(inMemoryEventBus instanceof in_memory_event_bus_1.InMemoryEventBus))
+            throw new n_exception_1.ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
         inMemoryEventBus.onPublish((e) => {
             if (!eventMap[e.name])
                 return;
             const scope = container.createScope();
             e.$scope = scope;
+            this.onEventReceived(scope, e);
             const handler = scope.resolve(eventMap[e.name]);
-            this._processor.processAction(() => handler.handle(e));
+            this._processor.processAction(() => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    yield handler.handle(e);
+                }
+                finally {
+                    yield scope.dispose();
+                }
+            }));
         });
+        this._isInitialized = true;
     }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -52,6 +65,10 @@ let InMemoryEventSubMgr = class InMemoryEventSubMgr {
             this._isDisposed = true;
             yield this._processor.dispose(false);
         });
+    }
+    onEventReceived(scope, event) {
+        n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
+        n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
     }
 };
 InMemoryEventSubMgr = __decorate([

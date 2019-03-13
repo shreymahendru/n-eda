@@ -14,40 +14,37 @@ const event_1 = require("./event");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 class EdaManager {
     constructor(config) {
-        this._eventBusKey = "EventBus";
-        this._eventSubMgrKey = "EventSubMgr";
+        this._isDisposed = false;
+        this._isBootstrapped = false;
         n_defensive_1.given(config, "config").ensureHasValue().ensureIsObject();
         this._container = new n_ject_1.Container();
         if (config.iocInstaller)
             this._container.install(config.iocInstaller);
-        this._eventMap = this.initialize(config.eventBus, config.eventSubMgr, config.eventHandlerClasses);
-        this._eventBus = this._container.resolve(this._eventBusKey);
-        this._eventSubMgr = this._container.resolve(this._eventSubMgrKey);
-        this._eventSubMgr.initialize(this._container, this._eventMap, this._eventBus);
+        this._eventMap = this.createEventMap(config.eventHandlerClasses);
+        this.registerBusAndMgr(config.eventBus, config.eventSubMgr);
     }
-    get eventBusKey() { return this._eventBusKey; }
-    get eventBus() { return this._eventBus; }
-    get eventSubMgrKey() { return this._eventSubMgrKey; }
-    get eventSubMgr() { return this._eventSubMgr; }
+    static get eventBusKey() { return "EventBus"; }
+    static get eventSubMgrKey() { return "EventSubMgr"; }
+    get containerRegistry() { return this._container; }
+    bootstrap() {
+        if (this._isDisposed)
+            throw new n_exception_1.ObjectDisposedException(this);
+        n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "bootstrapping more than once");
+        this._container.bootstrap();
+        this._container.resolve(EdaManager.eventSubMgrKey)
+            .initialize(this._container, this._eventMap);
+        this._isBootstrapped = true;
+    }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this._eventBus.dispose();
-            yield this._eventSubMgr.dispose();
+            if (this._isDisposed)
+                return;
+            this._isDisposed = true;
             yield this._container.dispose();
         });
     }
-    initialize(eventBus, eventSubMgr, eventHandlerClasses) {
-        n_defensive_1.given(eventBus, "eventBus").ensureHasValue();
-        n_defensive_1.given(eventSubMgr, "eventSubMgr").ensureHasValue();
+    createEventMap(eventHandlerClasses) {
         n_defensive_1.given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
-        if (typeof eventBus === "function")
-            this._container.registerSingleton(this._eventBusKey, eventBus);
-        else
-            this._container.registerInstance(this._eventBusKey, eventBus);
-        if (typeof eventSubMgr === "function")
-            this._container.registerSingleton(this._eventSubMgrKey, eventSubMgr);
-        else
-            this._container.registerInstance(this._eventSubMgrKey, eventSubMgr);
         const eventRegistrations = eventHandlerClasses.map(t => new EventHandlerRegistration(t));
         const eventMap = {};
         eventRegistrations.forEach(t => {
@@ -56,8 +53,19 @@ class EdaManager {
             eventMap[t.eventTypeName] = t.eventHandlerTypeName;
             this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType);
         });
-        this._container.bootstrap();
         return eventMap;
+    }
+    registerBusAndMgr(eventBus, eventSubMgr) {
+        n_defensive_1.given(eventBus, "eventBus").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+        n_defensive_1.given(eventSubMgr, "eventSubMgr").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+        if (typeof eventBus === "function")
+            this._container.registerSingleton(EdaManager.eventBusKey, eventBus);
+        else
+            this._container.registerInstance(EdaManager.eventBusKey, eventBus);
+        if (typeof eventSubMgr === "function")
+            this._container.registerSingleton(EdaManager.eventSubMgrKey, eventSubMgr);
+        else
+            this._container.registerInstance(EdaManager.eventSubMgrKey, eventSubMgr);
     }
 }
 exports.EdaManager = EdaManager;
