@@ -1,1 +1,1 @@
-{"version":3,"file":"event-bus.js","sourceRoot":"","sources":["../src/event-bus.ts"],"names":[],"mappings":"","sourcesContent":["import { EdaEvent } from \"./eda-event\";\nimport { Disposable } from \"@nivinjoseph/n-util\";\n\n// public\nexport interface EventBus extends Disposable\n{\n    publish(event: EdaEvent): Promise<void>;\n}"]}
+{"version":3,"file":"event-bus.js","sourceRoot":"","sources":["../src/event-bus.ts"],"names":[],"mappings":""}
