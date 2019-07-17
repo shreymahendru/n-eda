@@ -1,6 +1,5 @@
 import { EventSubMgr } from "../event-sub-mgr";
 import { Container, inject, Scope } from "@nivinjoseph/n-ject";
-import { EventMap } from "../event-map";
 import { given } from "@nivinjoseph/n-defensive";
 import { BackgroundProcessor } from "@nivinjoseph/n-util";
 import { InMemoryEventBus } from "./in-memory-event-bus";
@@ -9,6 +8,7 @@ import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
 import { EdaManager } from "../eda-manager";
+import { EventRegistration } from "../event-registration";
 
 // public
 @inject("Logger")
@@ -29,7 +29,7 @@ export class InMemoryEventSubMgr implements EventSubMgr
     }
     
     
-    public initialize(container: Container, eventMap: EventMap): void
+    public initialize(container: Container, eventMap: ReadonlyMap<string, EventRegistration>): void
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);
@@ -42,9 +42,21 @@ export class InMemoryEventSubMgr implements EventSubMgr
         if (!(inMemoryEventBus instanceof InMemoryEventBus))
             throw new ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
         
+        const wildKeys = [...eventMap.values()].filter(t => t.isWild).map(t => t.eventTypeName);
+        
         inMemoryEventBus.onPublish((e) =>
-        {
-            if (!eventMap[e.name])
+        {    
+            let eventRegistration: EventRegistration | null = null;
+            if (eventMap.has(e.name))
+                eventRegistration = eventMap.get(e.name) as EventRegistration;
+            else
+            {
+                const wildKey = wildKeys.find(t => e.name.startsWith(t));
+                if (wildKey)
+                    eventRegistration = eventMap.get(wildKey) as EventRegistration;
+            }
+            
+            if (!eventRegistration)
                 return;
             
             const scope = container.createScope();
@@ -52,7 +64,7 @@ export class InMemoryEventSubMgr implements EventSubMgr
             
             this.onEventReceived(scope, e);
             
-            const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventMap[e.name]);
+            const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
             this._processor.processAction(async () =>
             {
                 try 

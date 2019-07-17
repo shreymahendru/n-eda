@@ -2,7 +2,7 @@ import { EdaConfig } from "./eda-config";
 import { EdaEvent } from "./eda-event";
 import { EdaEventHandler } from "./eda-event-handler";
 import { event } from "./event";
-import { EventMap } from "./event-map";
+import { EventRegistration } from "./event-registration";
 import { EventBus } from "./event-bus";
 import { EventSubMgr } from "./event-sub-mgr";
 import { EdaManager } from "./eda-manager";
@@ -12,7 +12,7 @@ import { InMemoryEventSubMgr } from "./in-memory-implementation/in-memory-event-
 
 export
 {
-    EdaConfig, EdaEvent, EdaEventHandler, event, EventMap, EventBus, EventSubMgr, EdaManager,
+    EdaConfig, EdaEvent, EdaEventHandler, event, EventRegistration, EventBus, EventSubMgr, EdaManager,
     
     InMemoryEventBus, InMemoryEventSubMgr
 };

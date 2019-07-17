@@ -1,9 +1,9 @@
 import { Container } from "@nivinjoseph/n-ject";
-import { EventMap } from "./event-map";
 import { Disposable } from "@nivinjoseph/n-util";
+import { EventRegistration } from "./event-registration";
 
 // public
 export interface EventSubMgr extends Disposable
 {
-    initialize(container: Container, eventMap: EventMap): void;
+    initialize(container: Container, eventMap: ReadonlyMap<string, EventRegistration>): void;
 }

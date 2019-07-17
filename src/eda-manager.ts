@@ -1,18 +1,17 @@
 import { EdaConfig } from "./eda-config";
 import { given } from "@nivinjoseph/n-defensive";
 import { Container, Registry, ServiceLocator } from "@nivinjoseph/n-ject";
-import { EventMap } from "./event-map";
-import { eventSymbol } from "./event";
 import { ApplicationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { EventBus } from "./event-bus";
 import { EventSubMgr } from "./event-sub-mgr";
 import { Disposable } from "@nivinjoseph/n-util";
+import { EventRegistration } from "./event-registration";
 
 // public
 export class EdaManager implements Disposable
 {
     private readonly _container: Container;
-    private readonly _eventMap: EventMap;
+    private readonly _eventMap: ReadonlyMap<string, EventRegistration>;
     
     private _isDisposed = false;
     private _isBootstrapped = false;
@@ -64,19 +63,32 @@ export class EdaManager implements Disposable
     }
     
     
-    private createEventMap(eventHandlerClasses: ReadonlyArray<Function>): EventMap
+    private createEventMap(eventHandlerClasses: ReadonlyArray<Function>): Map<string, EventRegistration>
     {
         given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
 
-        const eventRegistrations = eventHandlerClasses.map(t => new EventHandlerRegistration(t));
-        const eventMap: EventMap = {};
+        const eventRegistrations = eventHandlerClasses.map(t => new EventRegistration(t));
+        const eventMap = new Map<string, EventRegistration>();
 
         eventRegistrations.forEach(t =>
         {
-            if (eventMap[t.eventTypeName])
+            if (eventMap.has(t.eventTypeName))
                 throw new ApplicationException(`Multiple handlers detected for event '${t.eventTypeName}'.`);
-
-            eventMap[t.eventTypeName] = t.eventHandlerTypeName;
+            
+            eventMap.set(t.eventTypeName, t);
+        });
+        
+        const keys = [...eventMap.keys()];
+        
+        eventMap.forEach(t =>
+        {
+            if (t.isWild)
+            {
+                const conflicts = keys.filter(u => u !== t.eventTypeName && u.startsWith(t.eventTypeName));
+                if (conflicts.length > 0)
+                    throw new ApplicationException(`Handler conflict detected between wildcard '${t.eventTypeName}' and events '${conflicts.join(",")}'.`);    
+            }
+            
             this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType);
         });
         
@@ -97,33 +109,5 @@ export class EdaManager implements Disposable
             this._container.registerSingleton(EdaManager.eventSubMgrKey, eventSubMgr);
         else
             this._container.registerInstance(EdaManager.eventSubMgrKey, eventSubMgr);
-    }
-}
-
-
-class EventHandlerRegistration
-{
-    private readonly _eventTypeName: string;
-    private readonly _eventHandlerTypeName: string;
-    private readonly _eventHandlerType: Function;
-
-
-    public get eventTypeName(): string { return this._eventTypeName; }
-    public get eventHandlerTypeName(): string { return this._eventHandlerTypeName; }
-    public get eventHandlerType(): Function { return this._eventHandlerType; }
-
-
-    public constructor(eventHandlerType: Function)
-    {
-        given(eventHandlerType, "eventHandlerType").ensureHasValue().ensureIsFunction();
-
-        this._eventHandlerTypeName = (<Object>eventHandlerType).getTypeName();
-        this._eventHandlerType = eventHandlerType;
-
-        if (!Reflect.hasOwnMetadata(eventSymbol, this._eventHandlerType))
-            throw new ApplicationException("EventHandler '{0}' does not have event applied."
-                .format(this._eventHandlerTypeName));
-
-        this._eventTypeName = Reflect.getOwnMetadata(eventSymbol, this._eventHandlerType);
     }
 }
