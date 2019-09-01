@@ -15,17 +15,20 @@ class InMemoryEventBus {
         this._isDisposed = false;
         this._onPublish = null;
     }
-    publish(event) {
+    publish(...events) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this._isDisposed)
                 throw new n_exception_1.ObjectDisposedException(this);
-            n_defensive_1.given(event, "event").ensureHasValue()
+            n_defensive_1.given(events, "events").ensureHasValue().ensureIsArray();
+            events.forEach(event => n_defensive_1.given(event, "event")
+                .ensureHasValue()
+                .ensureIsObject()
                 .ensureHasStructure({
                 id: "string",
                 name: "string",
-            });
+            }));
             n_defensive_1.given(this, "this").ensure(t => !!t._onPublish, "onPublish callback has not been registered");
-            this._onPublish(event);
+            this._onPublish(events);
         });
     }
     onPublish(callback) {

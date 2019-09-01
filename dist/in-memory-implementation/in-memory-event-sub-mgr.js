@@ -24,12 +24,16 @@ const in_memory_event_bus_1 = require("./in-memory-event-bus");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const eda_manager_1 = require("../eda-manager");
 let InMemoryEventSubMgr = class InMemoryEventSubMgr {
-    constructor(logger) {
+    constructor(logger, processorCount = 25) {
+        this._processorIndex = 0;
         this._isDisposed = false;
         this._isInitialized = false;
         n_defensive_1.given(logger, "logger").ensureHasValue().ensureIsObject();
         this._logger = logger;
-        this._processor = new n_util_1.BackgroundProcessor((e) => this._logger.logError(e));
+        n_defensive_1.given(processorCount, "processorCount").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
+        const processors = new Array();
+        n_util_1.Make.loop(() => processors.push(new n_util_1.BackgroundProcessor((e) => this._logger.logError(e))), processorCount);
+        this._processors = processors;
     }
     initialize(container, eventMap) {
         if (this._isDisposed)
@@ -41,29 +45,36 @@ let InMemoryEventSubMgr = class InMemoryEventSubMgr {
         if (!(inMemoryEventBus instanceof in_memory_event_bus_1.InMemoryEventBus))
             throw new n_exception_1.ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
         const wildKeys = [...eventMap.values()].filter(t => t.isWild).map(t => t.eventTypeName);
-        inMemoryEventBus.onPublish((e) => {
-            let eventRegistration = null;
-            if (eventMap.has(e.name))
-                eventRegistration = eventMap.get(e.name);
-            else {
-                const wildKey = wildKeys.find(t => e.name.startsWith(t));
-                if (wildKey)
-                    eventRegistration = eventMap.get(wildKey);
-            }
-            if (!eventRegistration)
-                return;
-            const scope = container.createScope();
-            e.$scope = scope;
-            this.onEventReceived(scope, e);
-            const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
-            this._processor.processAction(() => __awaiter(this, void 0, void 0, function* () {
-                try {
-                    yield handler.handle(e);
+        inMemoryEventBus.onPublish((events) => {
+            const processor = this._processors[this._processorIndex];
+            let isUsed = false;
+            events.forEach(e => {
+                let eventRegistration = null;
+                if (eventMap.has(e.name))
+                    eventRegistration = eventMap.get(e.name);
+                else {
+                    const wildKey = wildKeys.find(t => e.name.startsWith(t));
+                    if (wildKey)
+                        eventRegistration = eventMap.get(wildKey);
                 }
-                finally {
-                    yield scope.dispose();
-                }
-            }));
+                if (!eventRegistration)
+                    return;
+                const scope = container.createScope();
+                e.$scope = scope;
+                this.onEventReceived(scope, e);
+                const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
+                processor.processAction(() => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                        yield handler.handle(e);
+                    }
+                    finally {
+                        yield scope.dispose();
+                    }
+                }));
+                isUsed = true;
+            });
+            if (isUsed)
+                this.rotateProcessor();
         });
         this._isInitialized = true;
     }
@@ -72,17 +83,23 @@ let InMemoryEventSubMgr = class InMemoryEventSubMgr {
             if (this._isDisposed)
                 return;
             this._isDisposed = true;
-            yield this._processor.dispose(false);
+            yield Promise.all(this._processors.map(t => t.dispose(false)));
         });
     }
     onEventReceived(scope, event) {
         n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
         n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
     }
+    rotateProcessor() {
+        if (this._processorIndex < (this._processors.length - 1))
+            this._processorIndex++;
+        else
+            this._processorIndex = 0;
+    }
 };
 InMemoryEventSubMgr = __decorate([
     n_ject_1.inject("Logger"),
-    __metadata("design:paramtypes", [Object])
+    __metadata("design:paramtypes", [Object, Number])
 ], InMemoryEventSubMgr);
 exports.InMemoryEventSubMgr = InMemoryEventSubMgr;
 //# sourceMappingURL=in-memory-event-sub-mgr.js.map
