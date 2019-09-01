@@ -7,26 +7,30 @@ import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 export class InMemoryEventBus implements EventBus
 {
     private _isDisposed = false;
-    private _onPublish: (e: EdaEvent) => void = null as any;
+    private _onPublish: (events: ReadonlyArray<EdaEvent>) => void = null as any;
     
     
-    public async publish(event: EdaEvent): Promise<void>
+    public async publish(...events: EdaEvent[]): Promise<void>
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);
         
-        given(event, "event").ensureHasValue()
+        given(events, "events").ensureHasValue().ensureIsArray();
+        
+        events.forEach(event => given(event, "event")
+            .ensureHasValue()
+            .ensureIsObject()
             .ensureHasStructure({
                 id: "string",
                 name: "string",
-            });   
+            }));   
         
         given(this, "this").ensure(t => !!t._onPublish, "onPublish callback has not been registered");
         
-        this._onPublish(event);
+        this._onPublish(events);
     }
     
-    public onPublish(callback: (e: EdaEvent) => void): void
+    public onPublish(callback: (events: ReadonlyArray<EdaEvent>) => void): void
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);

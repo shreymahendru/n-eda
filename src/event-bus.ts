@@ -4,5 +4,5 @@ import { Disposable } from "@nivinjoseph/n-util";
 // public
 export interface EventBus extends Disposable
 {
-    publish(event: EdaEvent): Promise<void>;
+    publish(...events: EdaEvent[]): Promise<void>;
 }
