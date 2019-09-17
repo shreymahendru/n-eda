@@ -51,6 +51,9 @@ export class InMemoryEventSubMgr implements EventSubMgr
         
         inMemoryEventBus.onPublish((events) =>
         {   
+            if (this._isDisposed)
+                throw new ObjectDisposedException(this);
+            
             const processor = this._processors[this._processorIndex];
             let isUsed = false;
             
