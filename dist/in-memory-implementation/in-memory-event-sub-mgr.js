@@ -46,6 +46,8 @@ let InMemoryEventSubMgr = class InMemoryEventSubMgr {
             throw new n_exception_1.ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
         const wildKeys = [...eventMap.values()].filter(t => t.isWild).map(t => t.eventTypeName);
         inMemoryEventBus.onPublish((events) => {
+            if (this._isDisposed)
+                throw new n_exception_1.ObjectDisposedException(this);
             const processor = this._processors[this._processorIndex];
             let isUsed = false;
             events.forEach(e => {
