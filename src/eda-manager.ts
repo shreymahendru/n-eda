@@ -82,7 +82,7 @@ export class EdaManager implements Disposable
         return this;
     }
     
-    public registerEventHandlerClasses(...eventHandlerClasses: Function[]): this
+    public registerEventHandlers(...eventHandlerClasses: Function[]): this
     {
         given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
         given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
