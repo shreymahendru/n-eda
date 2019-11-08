@@ -101,8 +101,9 @@ class EdaManager {
             throw new n_exception_1.ObjectDisposedException(this);
         n_defensive_1.given(this, "this")
             .ensure(t => !t._isBootstrapped, "bootstrapping more than once")
-            .ensure(t => t._eventBusRegistered, "no event bus registered")
-            .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set");
+            .ensure(t => t._topics.length > 0, "no topics registered")
+            .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
+            .ensure(t => t._eventBusRegistered, "no event bus registered");
         this._topics.map(t => this._topicMap.set(t.name, t));
         const keys = [...this._eventMap.keys()];
         this._eventMap.forEach(t => {
@@ -128,7 +129,7 @@ class EdaManager {
             throw new n_exception_1.ObjectDisposedException(this);
         n_defensive_1.given(this, "this")
             .ensure(t => t._isBootstrapped, "not bootstrapped");
-        const partitionKey = this._partitionKeyMapper(event);
+        const partitionKey = this._partitionKeyMapper(event).trim();
         return MurmurHash.x86.hash32(partitionKey) % this._topicMap.get(topic).numPartitions;
     }
     getEventRegistration(event) {
