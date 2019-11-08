@@ -49,7 +49,7 @@
         "@nivinjoseph/n-ext": "^1.1.9",
         "@nivinjoseph/n-ject": "^1.1.8",
         "@nivinjoseph/n-log": "^1.0.9",
-        "@nivinjoseph/n-util": "^1.0.31",
+        "@nivinjoseph/n-util": "^1.0.34",
         "murmurhash3js": "^3.0.1",
         "reflect-metadata": "^0.1.13"
     }
