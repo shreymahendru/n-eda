@@ -1,0 +1,36 @@
+import { Registry, ServiceLocator, ComponentInstaller } from "@nivinjoseph/n-ject";
+import { EventBus } from "./event-bus";
+import { EventSubMgr } from "./event-sub-mgr";
+import { Disposable } from "@nivinjoseph/n-util";
+import { EventRegistration } from "./event-registration";
+import { Topic } from "./topic";
+import { EdaEvent } from "./eda-event";
+export declare class EdaManager implements Disposable {
+    private readonly _container;
+    private readonly _topics;
+    private readonly _topicMap;
+    private readonly _eventMap;
+    private _partitionKeyMapper;
+    private _eventBusRegistered;
+    private _eventSubMgrRegistered;
+    private _consumerGroupId;
+    private _isDisposed;
+    private _isBootstrapped;
+    static readonly eventBusKey: string;
+    static readonly eventSubMgrKey: string;
+    readonly containerRegistry: Registry;
+    readonly serviceLocator: ServiceLocator;
+    readonly topics: ReadonlyArray<Topic>;
+    readonly eventMap: ReadonlyMap<string, EventRegistration>;
+    readonly consumerGroupId: string | null;
+    constructor();
+    useInstaller(installer: ComponentInstaller): this;
+    registerTopics(...topics: Topic[]): this;
+    usePartitionKeyMapper(func: (event: EdaEvent) => string): this;
+    registerEventHandlerClasses(...eventHandlerClasses: Function[]): this;
+    registerEventBus(eventBus: EventBus | Function): this;
+    registerEventSubscriptionManager(eventSubMgr: EventSubMgr | Function, consumerGroupId: string): this;
+    bootstrap(): void;
+    mapToPartition(topic: string, event: EdaEvent): number;
+    dispose(): Promise<void>;
+}
