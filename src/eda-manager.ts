@@ -168,6 +168,8 @@ export class EdaManager implements Disposable
         
         this._container.bootstrap();
         
+        this._container.resolve<EventBus>(EdaManager.eventBusKey).initialize(this);
+        
         if (this._eventSubMgrRegistered)
             this._container.resolve<EventSubMgr>(EdaManager.eventSubMgrKey)
                 .initialize(this);
