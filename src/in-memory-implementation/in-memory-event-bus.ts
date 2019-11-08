@@ -2,35 +2,45 @@ import { EventBus } from "../event-bus";
 import { EdaEvent } from "../eda-event";
 import { given } from "@nivinjoseph/n-defensive";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { EdaManager } from "../eda-manager";
 
 // public
 export class InMemoryEventBus implements EventBus
 {
     private _isDisposed = false;
-    private _onPublish: (events: ReadonlyArray<EdaEvent>) => void = null as any;
+    private _onPublish: (topic: string, partition: number, event: EdaEvent) => void = null as any;
+    private _manager: EdaManager = null as any;
     
+ 
+    public initialize(manager: EdaManager): void
+    {
+        given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
+        given(this, "this").ensure(t => !t._manager, "already initialized");
+        
+        this._manager = manager;
+    }
     
-    public async publish(...events: EdaEvent[]): Promise<void>
+    public async publish(topic: string, event: EdaEvent): Promise<void>
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);
+
+        given(this, "this")
+            .ensure(t => !!t._manager, "not initialized")
+            .ensure(t => !!t._onPublish, "onPublish callback has not been registered");
         
-        given(events, "events").ensureHasValue().ensureIsArray();
-        
-        events.forEach(event => given(event, "event")
-            .ensureHasValue()
-            .ensureIsObject()
+        given(topic, "topic").ensureHasValue().ensureIsString()
+            .ensure(t => this._manager.topics.some(u => u.name === t));
+        given(event, "event").ensureHasValue().ensureIsObject()
             .ensureHasStructure({
                 id: "string",
                 name: "string",
-            }));   
+            });       
         
-        given(this, "this").ensure(t => !!t._onPublish, "onPublish callback has not been registered");
-        
-        this._onPublish(events);
+        this._onPublish(topic, this._manager.mapToPartition(topic, event), event);
     }
     
-    public onPublish(callback: (events: ReadonlyArray<EdaEvent>) => void): void
+    public onPublish(callback: (topic: string, partition: number, event: EdaEvent) => void): void
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);

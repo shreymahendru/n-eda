@@ -1,5 +1,5 @@
 import { EventSubMgr } from "../event-sub-mgr";
-import { Container, inject, Scope } from "@nivinjoseph/n-ject";
+import { inject, ServiceLocator } from "@nivinjoseph/n-ject";
 import { given } from "@nivinjoseph/n-defensive";
 import { BackgroundProcessor, Make } from "@nivinjoseph/n-util";
 import { InMemoryEventBus } from "./in-memory-event-bus";
@@ -15,86 +15,89 @@ import { EventRegistration } from "../event-registration";
 export class InMemoryEventSubMgr implements EventSubMgr
 {
     private readonly _logger: Logger;
-    private readonly _processors: ReadonlyArray<BackgroundProcessor>;
-    private _processorIndex = 0;
+    private readonly _consumers = new Map<string, Array<BackgroundProcessor>>();
     private _isDisposed = false;
+    private _edaManager: EdaManager = null as any;
     private _isInitialized = false;
 
 
-    public constructor(logger: Logger, processorCount: number = 25)
+    public constructor(logger: Logger)
     {
         given(logger, "logger").ensureHasValue().ensureIsObject();
         this._logger = logger;
-        
-        given(processorCount, "processorCount").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
-        
-        const processors = new Array<BackgroundProcessor>();
-        Make.loop(() => processors.push(new BackgroundProcessor((e) => this._logger.logError(e as any))), processorCount);
-        this._processors = processors;
     }
     
     
-    public initialize(container: Container, eventMap: ReadonlyMap<string, EventRegistration>): void
+    public initialize(manager: EdaManager): void
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);
         
-        given(container, "container").ensureHasValue().ensureIsType(Container);
-        given(eventMap, "eventMap").ensureHasValue().ensureIsObject();
+        given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
         given(this, "this").ensure(t => !t._isInitialized, "initializing more than once");
         
-        const inMemoryEventBus = container.resolve<InMemoryEventBus>(EdaManager.eventBusKey);
+        this._edaManager = manager;
+        
+        this._edaManager.topics.forEach(topic =>
+        {
+            const processors = new Array<BackgroundProcessor>();
+            Make.loop(() => processors.push(new BackgroundProcessor((e) => this._logger.logError(e as any))), topic.numPartitions);
+            this._consumers.set(topic.name, processors);
+        });
+        
+        const inMemoryEventBus = this._edaManager.serviceLocator.resolve<InMemoryEventBus>(EdaManager.eventBusKey);
         if (!(inMemoryEventBus instanceof InMemoryEventBus))
             throw new ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
         
-        const wildKeys = [...eventMap.values()].filter(t => t.isWild).map(t => t.eventTypeName);
+        const wildKeys = [...this._edaManager.eventMap.values()].filter(t => t.isWild).map(t => t.eventTypeName);
         
-        inMemoryEventBus.onPublish((events) =>
+        inMemoryEventBus.onPublish((topic: string, partition: number, event: EdaEvent) =>
         {   
             if (this._isDisposed)
                 throw new ObjectDisposedException(this);
             
-            const processor = this._processors[this._processorIndex];
-            let isUsed = false;
+            const topicProcessors = this._consumers.get(topic) as ReadonlyArray<BackgroundProcessor>;
+            const processor = topicProcessors[partition];
             
-            events.forEach(e =>
+            let eventRegistration: EventRegistration | null = null;
+            if (this._edaManager.eventMap.has(event.name))
+                eventRegistration = this._edaManager.eventMap.get(event.name) as EventRegistration;
+            else
             {
-                let eventRegistration: EventRegistration | null = null;
-                if (eventMap.has(e.name))
-                    eventRegistration = eventMap.get(e.name) as EventRegistration;
-                else
-                {
-                    const wildKey = wildKeys.find(t => e.name.startsWith(t));
-                    if (wildKey)
-                        eventRegistration = eventMap.get(wildKey) as EventRegistration;
-                }
+                const wildKey = wildKeys.find(t => event.name.startsWith(t));
+                if (wildKey)
+                    eventRegistration = this._edaManager.eventMap.get(wildKey) as EventRegistration;
+            }
 
-                if (!eventRegistration)
-                    return;
+            if (!eventRegistration)
+                return;
 
-                const scope = container.createScope();
-                (<any>e).$scope = scope;
+            const scope = this._edaManager.serviceLocator.createScope();
+            (<any>event).$scope = scope;
 
-                this.onEventReceived(scope, e);
+            try 
+            {
+                this.onEventReceived(scope, topic, event);
 
                 const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
                 processor.processAction(async () =>
                 {
                     try 
                     {
-                        await handler.handle(e);
+                        await handler.handle(event);
                     }
                     finally
                     {
                         await scope.dispose();
                     }
                 });
-                
-                isUsed = true;
-            });
-            
-            if (isUsed)
-                this.rotateProcessor();
+            }
+            catch (error)
+            {
+                this._logger.logError(error)
+                    .then(() => scope.dispose())
+                    .catch(() => { });
+            }
         });
         
         this._isInitialized = true;
@@ -107,20 +110,25 @@ export class InMemoryEventSubMgr implements EventSubMgr
         
         this._isDisposed = true;
         
-        await Promise.all(this._processors.map(t => t.dispose(false)));
+        await Promise.all([...this._consumers.values()].reduce((acc, processors) =>
+        {
+            acc.push(...processors.map(t => t.dispose(false)));
+            return acc;
+        }, new Array<Promise<void>>()));
     }
     
-    protected onEventReceived(scope: Scope, event: EdaEvent): void
+    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
     {
         given(scope, "scope").ensureHasValue().ensureIsObject();
+        given(topic, "topic").ensureHasValue().ensureIsString();
         given(event, "event").ensureHasValue().ensureIsObject();
     }
     
-    private rotateProcessor(): void
-    {
-        if (this._processorIndex < (this._processors.length - 1))
-            this._processorIndex++;
-        else
-            this._processorIndex = 0;
-    }
+    // private rotateProcessor(): void
+    // {
+    //     if (this._processorIndex < (this._processors.length - 1))
+    //         this._processorIndex++;
+    //     else
+    //         this._processorIndex = 0;
+    // }
 }
