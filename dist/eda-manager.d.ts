@@ -27,7 +27,7 @@ export declare class EdaManager implements Disposable {
     useInstaller(installer: ComponentInstaller): this;
     registerTopics(...topics: Topic[]): this;
     usePartitionKeyMapper(func: (event: EdaEvent) => string): this;
-    registerEventHandlerClasses(...eventHandlerClasses: Function[]): this;
+    registerEventHandlers(...eventHandlerClasses: Function[]): this;
     registerEventBus(eventBus: EventBus | Function): this;
     registerEventSubscriptionManager(eventSubMgr: EventSubMgr | Function, consumerGroupId: string): this;
     bootstrap(): void;

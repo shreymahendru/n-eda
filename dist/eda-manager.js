@@ -58,7 +58,7 @@ class EdaManager {
         this._partitionKeyMapper = func;
         return this;
     }
-    registerEventHandlerClasses(...eventHandlerClasses) {
+    registerEventHandlers(...eventHandlerClasses) {
         n_defensive_1.given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
         n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
         for (let eventHandler of eventHandlerClasses) {
