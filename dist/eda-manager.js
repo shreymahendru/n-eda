@@ -116,6 +116,7 @@ class EdaManager {
             this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType);
         });
         this._container.bootstrap();
+        this._container.resolve(EdaManager.eventBusKey).initialize(this);
         if (this._eventSubMgrRegistered)
             this._container.resolve(EdaManager.eventSubMgrKey)
                 .initialize(this);
