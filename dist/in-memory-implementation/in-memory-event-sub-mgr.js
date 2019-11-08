@@ -46,20 +46,12 @@ let InMemoryEventSubMgr = class InMemoryEventSubMgr {
         const inMemoryEventBus = this._edaManager.serviceLocator.resolve(eda_manager_1.EdaManager.eventBusKey);
         if (!(inMemoryEventBus instanceof in_memory_event_bus_1.InMemoryEventBus))
             throw new n_exception_1.ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
-        const wildKeys = [...this._edaManager.eventMap.values()].filter(t => t.isWild).map(t => t.eventTypeName);
         inMemoryEventBus.onPublish((topic, partition, event) => {
             if (this._isDisposed)
                 throw new n_exception_1.ObjectDisposedException(this);
             const topicProcessors = this._consumers.get(topic);
             const processor = topicProcessors[partition];
-            let eventRegistration = null;
-            if (this._edaManager.eventMap.has(event.name))
-                eventRegistration = this._edaManager.eventMap.get(event.name);
-            else {
-                const wildKey = wildKeys.find(t => event.name.startsWith(t));
-                if (wildKey)
-                    eventRegistration = this._edaManager.eventMap.get(wildKey);
-            }
+            const eventRegistration = this._edaManager.getEventRegistration(event);
             if (!eventRegistration)
                 return;
             const scope = this._edaManager.serviceLocator.createScope();

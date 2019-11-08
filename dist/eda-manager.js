@@ -25,6 +25,7 @@ class EdaManager {
         this._topics = new Array();
         this._topicMap = new Map();
         this._eventMap = new Map();
+        this._wildKeys = new Array();
     }
     static get eventBusKey() { return "EventBus"; }
     static get eventSubMgrKey() { return "EventSubMgr"; }
@@ -109,6 +110,7 @@ class EdaManager {
                 const conflicts = keys.filter(u => u !== t.eventTypeName && u.startsWith(t.eventTypeName));
                 if (conflicts.length > 0)
                     throw new n_exception_1.ApplicationException(`Handler conflict detected between wildcard '${t.eventTypeName}' and events '${conflicts.join(",")}'.`);
+                this._wildKeys.push(t.eventTypeName);
             }
             this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType);
         });
@@ -128,6 +130,17 @@ class EdaManager {
             .ensure(t => t._isBootstrapped, "not bootstrapped");
         const partitionKey = this._partitionKeyMapper(event);
         return MurmurHash.x86.hash32(partitionKey) % this._topicMap.get(topic).numPartitions;
+    }
+    getEventRegistration(event) {
+        let eventRegistration = null;
+        if (this._eventMap.has(event.name))
+            eventRegistration = this._eventMap.get(event.name);
+        else {
+            const wildKey = this._wildKeys.find(t => event.name.startsWith(t));
+            if (wildKey)
+                eventRegistration = this._eventMap.get(wildKey);
+        }
+        return eventRegistration || false;
     }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {

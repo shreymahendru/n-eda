@@ -10,6 +10,7 @@ export declare class EdaManager implements Disposable {
     private readonly _topics;
     private readonly _topicMap;
     private readonly _eventMap;
+    private readonly _wildKeys;
     private _partitionKeyMapper;
     private _eventBusRegistered;
     private _eventSubMgrRegistered;
@@ -32,5 +33,6 @@ export declare class EdaManager implements Disposable {
     registerEventSubscriptionManager(eventSubMgr: EventSubMgr | Function, consumerGroupId: string): this;
     bootstrap(): void;
     mapToPartition(topic: string, event: EdaEvent): number;
+    getEventRegistration(event: EdaEvent): EventRegistration | false;
     dispose(): Promise<void>;
 }
