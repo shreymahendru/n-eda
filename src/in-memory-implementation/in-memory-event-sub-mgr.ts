@@ -8,7 +8,6 @@ import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
 import { EdaManager } from "../eda-manager";
-import { EventRegistration } from "../event-registration";
 
 // public
 @inject("Logger")
@@ -49,8 +48,6 @@ export class InMemoryEventSubMgr implements EventSubMgr
         if (!(inMemoryEventBus instanceof InMemoryEventBus))
             throw new ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
         
-        const wildKeys = [...this._edaManager.eventMap.values()].filter(t => t.isWild).map(t => t.eventTypeName);
-        
         inMemoryEventBus.onPublish((topic: string, partition: number, event: EdaEvent) =>
         {   
             if (this._isDisposed)
@@ -59,17 +56,8 @@ export class InMemoryEventSubMgr implements EventSubMgr
             const topicProcessors = this._consumers.get(topic) as ReadonlyArray<BackgroundProcessor>;
             const processor = topicProcessors[partition];
             
-            let eventRegistration: EventRegistration | null = null;
-            if (this._edaManager.eventMap.has(event.name))
-                eventRegistration = this._edaManager.eventMap.get(event.name) as EventRegistration;
-            else
-            {
-                const wildKey = wildKeys.find(t => event.name.startsWith(t));
-                if (wildKey)
-                    eventRegistration = this._edaManager.eventMap.get(wildKey) as EventRegistration;
-            }
-
-            if (!eventRegistration)
+            const eventRegistration = this._edaManager.getEventRegistration(event);
+            if (!eventRegistration) // we are doing the event filter here but it could have also been done in the publisher
                 return;
 
             const scope = this._edaManager.serviceLocator.createScope();
@@ -123,12 +111,4 @@ export class InMemoryEventSubMgr implements EventSubMgr
         given(topic, "topic").ensureHasValue().ensureIsString();
         given(event, "event").ensureHasValue().ensureIsObject();
     }
-    
-    // private rotateProcessor(): void
-    // {
-    //     if (this._processorIndex < (this._processors.length - 1))
-    //         this._processorIndex++;
-    //     else
-    //         this._processorIndex = 0;
-    // }
 }
