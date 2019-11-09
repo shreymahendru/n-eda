@@ -49,12 +49,12 @@ class Consumer {
                     const writeIndex = yield this.getPartitionWriteIndex();
                     const readIndex = yield this.getConsumerPartitionReadIndex();
                     if (readIndex >= writeIndex) {
-                        yield n_util_1.Delay.milliseconds(500);
+                        yield n_util_1.Delay.milliseconds(200);
                         continue;
                     }
                     const indexToRead = readIndex + 1;
                     const event = yield this.retrieveEvent(indexToRead);
-                    const eventRegistration = this._manager.eventMap.get(event.name);
+                    const eventRegistration = this._manager.eventMap.get(event.name || event.$name);
                     const deserializedEvent = eventRegistration.eventType.deserializeEvent(event);
                     const scope = this._manager.serviceLocator.createScope();
                     event.$scope = scope;
@@ -67,6 +67,7 @@ class Consumer {
                     catch (error) {
                         yield this._logger.logWarning(`Error while handling event of type '${event.name}'.`);
                         yield this._logger.logError(error);
+                        yield n_util_1.Delay.minutes(1);
                     }
                     finally {
                         yield scope.dispose();
@@ -75,6 +76,7 @@ class Consumer {
                 catch (error) {
                     yield this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition}`);
                     yield this._logger.logError(error);
+                    yield n_util_1.Delay.minutes(1);
                 }
             }
         });
