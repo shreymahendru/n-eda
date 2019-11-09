@@ -6,7 +6,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import { Consumer } from "./consumer";
 import { Delay } from "@nivinjoseph/n-util";
 
-
+// public
 export class RedisEventSubMgr implements EventSubMgr
 {
     private readonly _client: Redis.RedisClient;

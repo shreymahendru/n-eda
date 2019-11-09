@@ -6,7 +6,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 
-
+// public
 export class RedisEventBus implements EventBus
 {
     private readonly _edaPrefix = "n-eda";
