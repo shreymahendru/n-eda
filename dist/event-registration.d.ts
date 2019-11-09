@@ -1,11 +1,11 @@
 export declare class EventRegistration {
+    private readonly _eventType;
     private readonly _eventTypeName;
     private readonly _eventHandlerTypeName;
     private readonly _eventHandlerType;
-    private readonly _isWild;
+    readonly eventType: Function;
     readonly eventTypeName: string;
     readonly eventHandlerTypeName: string;
     readonly eventHandlerType: Function;
-    readonly isWild: boolean;
     constructor(eventHandlerType: Function);
 }
