@@ -5,6 +5,8 @@ import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { given } from "@nivinjoseph/n-defensive";
 import { Consumer } from "./consumer";
 import { Delay } from "@nivinjoseph/n-util";
+import { ServiceLocator } from "@nivinjoseph/n-ject";
+import { EdaEvent } from "../eda-event";
 
 // public
 export class RedisEventSubMgr implements EventSubMgr
@@ -35,13 +37,15 @@ export class RedisEventSubMgr implements EventSubMgr
         {
             if (topic.partitionAffinity != null)
             {
-                this._consumers.push(new Consumer(this._client, this._manager, topic.name, topic.partitionAffinity));
+                this._consumers.push(new Consumer(this._client, this._manager, topic.name, topic.partitionAffinity,
+                    this.onEventReceived.bind(this)));
             }
             else
             {
                 for (let partition = 0; partition < topic.numPartitions; partition++)
                 {
-                    this._consumers.push(new Consumer(this._client, this._manager, topic.name, partition));
+                    this._consumers.push(new Consumer(this._client, this._manager, topic.name, partition,
+                        this.onEventReceived.bind(this)));
                 }
             }
         });
@@ -69,4 +73,12 @@ export class RedisEventSubMgr implements EventSubMgr
 
         return this._disposePromise as Promise<void>;
     }    
+    
+    
+    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
+    {
+        given(scope, "scope").ensureHasValue().ensureIsObject();
+        given(topic, "topic").ensureHasValue().ensureIsString();
+        given(event, "event").ensureHasValue().ensureIsObject();
+    }
 }

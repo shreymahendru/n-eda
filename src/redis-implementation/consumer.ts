@@ -18,12 +18,14 @@ export class Consumer implements Disposable
     private readonly _logger: Logger;
     private readonly _topic: string;
     private readonly _partition: number;
+    private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
     
     private _isDisposed = false;
     private _consumePromise: Promise<void> | null = null;
     
     
-    public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number)
+    public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number,
+        onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -38,6 +40,9 @@ export class Consumer implements Disposable
         
         given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
+        
+        given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
+        this._onEventReceived = onEventReceived;
     }
     
     
@@ -59,12 +64,7 @@ export class Consumer implements Disposable
         return this._consumePromise || Promise.resolve();
     }
     
-    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
-    {
-        given(scope, "scope").ensureHasValue().ensureIsObject();
-        given(topic, "topic").ensureHasValue().ensureIsString();
-        given(event, "event").ensureHasValue().ensureIsObject();
-    }
+    
     
     private async beginConsume(): Promise<void>
     {
@@ -96,7 +96,7 @@ export class Consumer implements Disposable
 
                 try 
                 {
-                    this.onEventReceived(scope, this._topic, deserializedEvent);
+                    this._onEventReceived(scope, this._topic, deserializedEvent);
 
                     const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
                     await handler.handle(deserializedEvent);
