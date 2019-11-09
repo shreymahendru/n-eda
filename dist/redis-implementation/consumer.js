@@ -54,22 +54,22 @@ class Consumer {
                     }
                     const indexToRead = readIndex + 1;
                     const event = yield this.retrieveEvent(indexToRead);
-                    const eventRegistration = this._manager.eventMap.get(event.name || event.$name);
+                    const eventName = event.name || event.$name;
+                    const eventRegistration = this._manager.eventMap.get(eventName);
                     const deserializedEvent = eventRegistration.eventType.deserializeEvent(event);
                     const scope = this._manager.serviceLocator.createScope();
-                    event.$scope = scope;
+                    deserializedEvent.$scope = scope;
+                    this._onEventReceived(scope, this._topic, deserializedEvent);
+                    const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
                     try {
-                        this._onEventReceived(scope, this._topic, deserializedEvent);
-                        const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
                         yield handler.handle(deserializedEvent);
-                        yield this.incrementConsumerPartitionReadIndex();
                     }
                     catch (error) {
-                        yield this._logger.logWarning(`Error while handling event of type '${event.name}'.`);
+                        yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify(event)}.`);
                         yield this._logger.logError(error);
-                        yield n_util_1.Delay.minutes(1);
                     }
                     finally {
+                        yield this.incrementConsumerPartitionReadIndex();
                         yield scope.dispose();
                     }
                 }
