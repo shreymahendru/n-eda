@@ -10,12 +10,12 @@ export declare class Consumer implements Disposable {
     private readonly _logger;
     private readonly _topic;
     private readonly _partition;
+    private readonly _onEventReceived;
     private _isDisposed;
     private _consumePromise;
-    constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number);
+    constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number, onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void);
     consume(): void;
     dispose(): Promise<void>;
-    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void;
     private beginConsume;
     private getPartitionWriteIndex;
     private getConsumerPartitionReadIndex;

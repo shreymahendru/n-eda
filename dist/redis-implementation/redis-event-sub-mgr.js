@@ -29,11 +29,11 @@ class RedisEventSubMgr {
         this._manager = manager;
         this._manager.topics.forEach(topic => {
             if (topic.partitionAffinity != null) {
-                this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, topic.partitionAffinity));
+                this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, topic.partitionAffinity, this.onEventReceived.bind(this)));
             }
             else {
                 for (let partition = 0; partition < topic.numPartitions; partition++) {
-                    this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition));
+                    this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this)));
                 }
             }
         });
@@ -53,6 +53,11 @@ class RedisEventSubMgr {
                 .then(() => new Promise((resolve, _) => this._client.quit(() => resolve())));
         }
         return this._disposePromise;
+    }
+    onEventReceived(scope, topic, event) {
+        n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
+        n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
+        n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
     }
 }
 exports.RedisEventSubMgr = RedisEventSubMgr;

@@ -13,7 +13,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 class Consumer {
-    constructor(client, manager, topic, partition) {
+    constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
         this._isDisposed = false;
         this._consumePromise = null;
@@ -26,6 +26,8 @@ class Consumer {
         this._topic = topic;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
+        n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
+        this._onEventReceived = onEventReceived;
     }
     consume() {
         if (this._isDisposed)
@@ -37,11 +39,6 @@ class Consumer {
         if (!this._isDisposed)
             this._isDisposed = true;
         return this._consumePromise || Promise.resolve();
-    }
-    onEventReceived(scope, topic, event) {
-        n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
-        n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
-        n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
     }
     beginConsume() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -62,7 +59,7 @@ class Consumer {
                     const scope = this._manager.serviceLocator.createScope();
                     event.$scope = scope;
                     try {
-                        this.onEventReceived(scope, this._topic, deserializedEvent);
+                        this._onEventReceived(scope, this._topic, deserializedEvent);
                         const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
                         yield handler.handle(deserializedEvent);
                         yield this.incrementConsumerPartitionReadIndex();
