@@ -80,14 +80,14 @@ export class Consumer implements Disposable
 
                 if (readIndex >= writeIndex)
                 {
-                    await Delay.milliseconds(500);
+                    await Delay.milliseconds(200);
                     continue;
                 }
 
                 const indexToRead = readIndex + 1;
                 const event = await this.retrieveEvent(indexToRead);
 
-                const eventRegistration = this._manager.eventMap.get((<any>event).name) as EventRegistration;
+                const eventRegistration = this._manager.eventMap.get((<any>event).name || (<any>event).$name) as EventRegistration;
 
                 const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
 
@@ -107,6 +107,7 @@ export class Consumer implements Disposable
                 {
                     await this._logger.logWarning(`Error while handling event of type '${(<any>event).name}'.`);
                     await this._logger.logError(error);
+                    await Delay.minutes(1);
                 }
                 finally
                 {
@@ -117,6 +118,7 @@ export class Consumer implements Disposable
             {
                 await this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition}`);
                 await this._logger.logError(error);
+                await Delay.minutes(1);
             }
         }
     }
