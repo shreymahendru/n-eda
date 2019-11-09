@@ -86,31 +86,29 @@ export class Consumer implements Disposable
 
                 const indexToRead = readIndex + 1;
                 const event = await this.retrieveEvent(indexToRead);
-
-                const eventRegistration = this._manager.eventMap.get((<any>event).name || (<any>event).$name) as EventRegistration;
-
+                const eventName = (<any>event).name || (<any>event).$name; // for compatibility with n-domain DomainEvent
+                const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
                 const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
 
                 const scope = this._manager.serviceLocator.createScope();
-                (<any>event).$scope = scope;
+                deserializedEvent.$scope = scope;
+
+                this._onEventReceived(scope, this._topic, deserializedEvent);
+
+                const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
 
                 try 
                 {
-                    this._onEventReceived(scope, this._topic, deserializedEvent);
-
-                    const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
                     await handler.handle(deserializedEvent);
-
-                    await this.incrementConsumerPartitionReadIndex();
                 }
                 catch (error)
                 {
-                    await this._logger.logWarning(`Error while handling event of type '${(<any>event).name}'.`);
+                    await this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify(event)}.`);
                     await this._logger.logError(error);
-                    await Delay.minutes(1);
                 }
                 finally
                 {
+                    await this.incrementConsumerPartitionReadIndex();
                     await scope.dispose();
                 }
             }
