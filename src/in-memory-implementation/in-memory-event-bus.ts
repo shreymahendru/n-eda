@@ -35,7 +35,10 @@ export class InMemoryEventBus implements EventBus
             .ensureHasStructure({
                 id: "string",
                 name: "string",
-            });       
+            });  
+        
+        if (!this._manager.eventMap.has(event.name))
+            return;
         
         this._onPublish(topic, this._manager.mapToPartition(topic, event), event);
     }

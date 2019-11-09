@@ -1,30 +1,23 @@
 import { EventSubMgr } from "../event-sub-mgr";
-import { inject, ServiceLocator } from "@nivinjoseph/n-ject";
+import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { given } from "@nivinjoseph/n-defensive";
-import { BackgroundProcessor, Make } from "@nivinjoseph/n-util";
+import { BackgroundProcessor, Make, Delay } from "@nivinjoseph/n-util";
 import { InMemoryEventBus } from "./in-memory-event-bus";
 import { EdaEventHandler } from "../eda-event-handler";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
 import { EdaManager } from "../eda-manager";
+import { EventRegistration } from "../event-registration";
 
 // public
-@inject("Logger")
 export class InMemoryEventSubMgr implements EventSubMgr
 {
-    private readonly _logger: Logger;
     private readonly _consumers = new Map<string, Array<BackgroundProcessor>>();
     private _isDisposed = false;
-    private _edaManager: EdaManager = null as any;
+    private _manager: EdaManager = null as any;
+    private _logger: Logger = null as any;
     private _isInitialized = false;
-
-
-    public constructor(logger: Logger)
-    {
-        given(logger, "logger").ensureHasValue().ensureIsObject();
-        this._logger = logger;
-    }
     
     
     public initialize(manager: EdaManager): void
@@ -35,16 +28,17 @@ export class InMemoryEventSubMgr implements EventSubMgr
         given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
         given(this, "this").ensure(t => !t._isInitialized, "initializing more than once");
         
-        this._edaManager = manager;
+        this._manager = manager;
+        this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
         
-        this._edaManager.topics.forEach(topic =>
+        this._manager.topics.forEach(topic =>
         {
             const processors = new Array<BackgroundProcessor>();
             Make.loop(() => processors.push(new BackgroundProcessor((e) => this._logger.logError(e as any))), topic.numPartitions);
             this._consumers.set(topic.name, processors);
         });
         
-        const inMemoryEventBus = this._edaManager.serviceLocator.resolve<InMemoryEventBus>(EdaManager.eventBusKey);
+        const inMemoryEventBus = this._manager.serviceLocator.resolve<InMemoryEventBus>(EdaManager.eventBusKey);
         if (!(inMemoryEventBus instanceof InMemoryEventBus))
             throw new ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
         
@@ -56,11 +50,9 @@ export class InMemoryEventSubMgr implements EventSubMgr
             const topicProcessors = this._consumers.get(topic) as ReadonlyArray<BackgroundProcessor>;
             const processor = topicProcessors[partition];
             
-            const eventRegistration = this._edaManager.getEventRegistration(event);
-            if (!eventRegistration) // we are doing the event filter here but it could have also been done in the publisher
-                return;
+            const eventRegistration = this._manager.eventMap.get(event.name) as EventRegistration;
 
-            const scope = this._edaManager.serviceLocator.createScope();
+            const scope = this._manager.serviceLocator.createScope();
             (<any>event).$scope = scope;
 
             try 
@@ -89,6 +81,14 @@ export class InMemoryEventSubMgr implements EventSubMgr
         });
         
         this._isInitialized = true;
+    }
+    
+    public async wait(): Promise<void>
+    {
+        while (!this._isDisposed)
+        {
+            await Delay.seconds(2);
+        }
     }
     
     public async dispose(): Promise<void>

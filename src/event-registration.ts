@@ -5,16 +5,16 @@ import { eventSymbol } from "./event";
 // public
 export class EventRegistration
 {
+    private readonly _eventType: Function;
     private readonly _eventTypeName: string;
     private readonly _eventHandlerTypeName: string;
     private readonly _eventHandlerType: Function;
-    private readonly _isWild: boolean;
 
 
+    public get eventType(): Function { return this._eventType; }
     public get eventTypeName(): string { return this._eventTypeName; }
     public get eventHandlerTypeName(): string { return this._eventHandlerTypeName; }
     public get eventHandlerType(): Function { return this._eventHandlerType; }
-    public get isWild(): boolean { return this._isWild; }
 
 
     public constructor(eventHandlerType: Function)
@@ -28,19 +28,22 @@ export class EventRegistration
             throw new ApplicationException("EventHandler '{0}' does not have event applied."
                 .format(this._eventHandlerTypeName));
 
-        let eventTypeName: string = Reflect.getOwnMetadata(eventSymbol, this._eventHandlerType);
-        eventTypeName = eventTypeName.trim();
+        this._eventType = Reflect.getOwnMetadata(eventSymbol, this._eventHandlerType);
+        this._eventTypeName = (<Object>this._eventType).getTypeName();
+        
+        // let eventTypeName: string = Reflect.getOwnMetadata(eventSymbol, this._eventHandlerType);
+        // eventTypeName = eventTypeName.trim();
 
-        if (eventTypeName.endsWith("*"))
-        {
-            eventTypeName = eventTypeName.substr(0, eventTypeName.length - 1);
-            this._isWild = true;
-        }
-        else
-        {
-            this._isWild = false;
-        }
+        // if (eventTypeName.endsWith("*"))
+        // {
+        //     eventTypeName = eventTypeName.substr(0, eventTypeName.length - 1);
+        //     this._isWild = true;
+        // }
+        // else
+        // {
+        //     this._isWild = false;
+        // }
 
-        this._eventTypeName = eventTypeName.trim();
+        // this._eventTypeName = eventTypeName.trim();
     }
 }

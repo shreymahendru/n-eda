@@ -1,0 +1,116 @@
+import { EventBus } from "../event-bus";
+import { EdaManager } from "../eda-manager";
+import { EdaEvent } from "../eda-event";
+import { ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { given } from "@nivinjoseph/n-defensive";
+import * as Redis from "redis";
+import { ConfigurationManager } from "@nivinjoseph/n-config";
+
+
+export class RedisEventBus implements EventBus
+{
+    private readonly _edaPrefix = "n-eda";
+    private readonly _client: Redis.RedisClient;
+    
+    private _isDisposed = false;
+    private _disposePromise: Promise<void> | null = null;
+    private _manager: EdaManager = null as any;
+    
+    
+    public constructor()
+    {
+        this._client = ConfigurationManager.getConfig<string>("env") === "dev"
+            ? Redis.createClient() : Redis.createClient(ConfigurationManager.getConfig<string>("REDIS_URL"));
+    }
+    
+    
+    public initialize(manager: EdaManager): void
+    {
+        given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
+        given(this, "this").ensure(t => !t._manager, "already initialized");
+
+        this._manager = manager;
+    }
+    
+    public async publish(topic: string, event: EdaEvent): Promise<void>
+    {
+        if (this._isDisposed)
+            throw new ObjectDisposedException(this);
+        
+        given(this, "this")
+            .ensure(t => !!t._manager, "not initialized");
+        
+        given(topic, "topic").ensureHasValue().ensureIsString()
+            .ensure(t => this._manager.topics.some(u => u.name === t));
+        given(event, "event").ensureHasValue().ensureIsObject()
+            .ensureHasStructure({
+                id: "string",
+                name: "string"
+            });       
+        
+        if (!this._manager.eventMap.has(event.name))
+            return;
+        
+        const partition = this._manager.mapToPartition(topic, event);
+        const writeIndex = await this.incrementPartitionWriteIndex(topic, partition);
+        
+        await this.storeEvent(topic, partition, writeIndex, event);
+    }
+    
+    public async dispose(): Promise<void>
+    {
+        if (!this._isDisposed)
+        {
+            this._isDisposed = true;
+            this._disposePromise = new Promise((resolve, _) => this._client.quit(() => resolve()));
+        }
+
+        return this._disposePromise as Promise<void>;
+    }
+    
+    private incrementPartitionWriteIndex(topic: string, partition: number): Promise<number>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            given(topic, "topic").ensureHasValue().ensureIsString();
+            given(partition, "partition").ensureHasValue().ensureIsNumber();
+            
+            const key = `${this._edaPrefix}-${topic}-${partition}-write-index`;
+            
+            this._client.incr(key, (err, val) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+
+                resolve(val);
+            });
+        });
+    }
+    
+    private storeEvent(topic: string, partition: number, writeIndex: number, event: EdaEvent): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            given(topic, "topic").ensureHasValue().ensureIsString();
+            given(partition, "partition").ensureHasValue().ensureIsNumber();
+            given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
+            given(event, "event").ensureHasValue().ensureIsObject();
+            
+            const key = `${this._edaPrefix}-${topic}-${partition}-${writeIndex}`;
+            const expirySeconds = 60 * 60 * 4;
+            this._client.setex(key.trim(), expirySeconds, JSON.stringify(event.serialize()), (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+
+                resolve();
+            });
+        });
+    }
+}

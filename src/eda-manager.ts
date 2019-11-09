@@ -16,7 +16,7 @@ export class EdaManager implements Disposable
     private readonly _topics: Array<Topic>;
     private readonly _topicMap: Map<string, Topic>;
     private readonly _eventMap: Map<string, EventRegistration>;
-    private readonly _wildKeys: Array<string>;
+    // private readonly _wildKeys: Array<string>;
     
     private _partitionKeyMapper: (event: EdaEvent) => string = null as any;
     private _eventBusRegistered = false;
@@ -42,7 +42,7 @@ export class EdaManager implements Disposable
         this._topics = new Array<Topic>();
         this._topicMap = new Map<string, Topic>();
         this._eventMap = new Map<string, EventRegistration>();
-        this._wildKeys = new Array<string>();
+        // this._wildKeys = new Array<string>();
     }
     
     
@@ -151,20 +151,7 @@ export class EdaManager implements Disposable
         
         this._topics.map(t => this._topicMap.set(t.name, t));
         
-        const keys = [...this._eventMap.keys()];
-        this._eventMap.forEach(t =>
-        {
-            if (t.isWild)
-            {
-                const conflicts = keys.filter(u => u !== t.eventTypeName && u.startsWith(t.eventTypeName));
-                if (conflicts.length > 0)
-                    throw new ApplicationException(`Handler conflict detected between wildcard '${t.eventTypeName}' and events '${conflicts.join(",")}'.`);
-                
-                this._wildKeys.push(t.eventTypeName);
-            }
-
-            this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType);
-        });
+        this._eventMap.forEach(t => this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType));
         
         this._container.bootstrap();
         
@@ -194,20 +181,20 @@ export class EdaManager implements Disposable
         return MurmurHash.x86.hash32(partitionKey) % (this._topicMap.get(topic) as Topic).numPartitions;
     }
     
-    public getEventRegistration(event: EdaEvent): EventRegistration | false
-    {
-        let eventRegistration: EventRegistration | null = null;
-        if (this._eventMap.has(event.name))
-            eventRegistration = this._eventMap.get(event.name) as EventRegistration;
-        else
-        {
-            const wildKey = this._wildKeys.find(t => event.name.startsWith(t));
-            if (wildKey)
-                eventRegistration = this._eventMap.get(wildKey) as EventRegistration;
-        }
+    // public getEventRegistration(event: EdaEvent): EventRegistration | false
+    // {
+    //     let eventRegistration: EventRegistration | null = null;
+    //     if (this._eventMap.has(event.name))
+    //         eventRegistration = this._eventMap.get(event.name) as EventRegistration;
+    //     else
+    //     {
+    //         const wildKey = this._wildKeys.find(t => event.name.startsWith(t));
+    //         if (wildKey)
+    //             eventRegistration = this._eventMap.get(wildKey) as EventRegistration;
+    //     }
 
-        return eventRegistration || false;
-    }
+    //     return eventRegistration || false;
+    // }
     
     public async dispose(): Promise<void>
     {
