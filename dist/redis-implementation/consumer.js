@@ -54,6 +54,10 @@ class Consumer {
                     }
                     const indexToRead = readIndex + 1;
                     const event = yield this.retrieveEvent(indexToRead);
+                    if (event == null) {
+                        yield n_util_1.Delay.seconds(1);
+                        continue;
+                    }
                     const eventName = event.name || event.$name;
                     const eventRegistration = this._manager.eventMap.get(eventName);
                     const deserializedEvent = eventRegistration.eventType.deserializeEvent(event);

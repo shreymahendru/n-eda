@@ -55,7 +55,7 @@ class RedisEventBus {
                     yield this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
                     yield this._logger.logError(error);
                 }
-            }), 20, 2000)();
+            }), 20, 1000)();
         });
     }
     dispose() {
