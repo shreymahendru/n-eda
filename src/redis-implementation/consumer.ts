@@ -86,6 +86,12 @@ export class Consumer implements Disposable
 
                 const indexToRead = readIndex + 1;
                 const event = await this.retrieveEvent(indexToRead);
+                if (event == null) // we need to do this to deal with race condition
+                {
+                    await Delay.seconds(1);
+                    continue;
+                }
+                
                 const eventName = (<any>event).name || (<any>event).$name; // for compatibility with n-domain DomainEvent
                 const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
                 const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);

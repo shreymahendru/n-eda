@@ -70,7 +70,7 @@ export class RedisEventBus implements EventBus
                 await this._logger.logError(error);
             }
             
-        }, 20, 2000)();
+        }, 20, 1000)();
     }
     
     public async dispose(): Promise<void>
