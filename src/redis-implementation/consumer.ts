@@ -114,7 +114,7 @@ export class Consumer implements Disposable
             }
             catch (error)
             {
-                await this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition}`);
+                await this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
                 await this._logger.logError(error);
                 await Delay.minutes(1);
             }

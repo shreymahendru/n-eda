@@ -5,6 +5,8 @@ import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
+import { Make } from "@nivinjoseph/n-util";
+import { Logger } from "@nivinjoseph/n-log";
 
 // public
 export class RedisEventBus implements EventBus
@@ -15,6 +17,7 @@ export class RedisEventBus implements EventBus
     private _isDisposed = false;
     private _disposePromise: Promise<void> | null = null;
     private _manager: EdaManager = null as any;
+    private _logger: Logger = null as any;
     
     
     public constructor()
@@ -30,6 +33,7 @@ export class RedisEventBus implements EventBus
         given(this, "this").ensure(t => !t._manager, "already initialized");
 
         this._manager = manager;
+        this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
     }
     
     public async publish(topic: string, event: EdaEvent): Promise<void>
@@ -54,7 +58,19 @@ export class RedisEventBus implements EventBus
         const partition = this._manager.mapToPartition(topic, event);
         const writeIndex = await this.incrementPartitionWriteIndex(topic, partition);
         
-        await this.storeEvent(topic, partition, writeIndex, event);
+        await Make.retryWithDelay(async () =>
+        {
+            try 
+            {
+                await this.storeEvent(topic, partition, writeIndex, event);
+            }
+            catch (error)
+            {
+                await this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
+                await this._logger.logError(error);
+            }
+            
+        }, 20, 2000)();
     }
     
     public async dispose(): Promise<void>
