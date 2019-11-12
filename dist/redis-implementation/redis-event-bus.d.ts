@@ -7,6 +7,7 @@ export declare class RedisEventBus implements EventBus {
     private _isDisposed;
     private _disposePromise;
     private _manager;
+    private _logger;
     constructor();
     initialize(manager: EdaManager): void;
     publish(topic: string, event: EdaEvent): Promise<void>;

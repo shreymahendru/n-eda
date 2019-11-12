@@ -74,7 +74,7 @@ class Consumer {
                     }
                 }
                 catch (error) {
-                    yield this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition}`);
+                    yield this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
                     yield this._logger.logError(error);
                     yield n_util_1.Delay.minutes(1);
                 }

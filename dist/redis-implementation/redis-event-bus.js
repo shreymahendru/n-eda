@@ -13,12 +13,14 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const Redis = require("redis");
 const n_config_1 = require("@nivinjoseph/n-config");
+const n_util_1 = require("@nivinjoseph/n-util");
 class RedisEventBus {
     constructor() {
         this._edaPrefix = "n-eda";
         this._isDisposed = false;
         this._disposePromise = null;
         this._manager = null;
+        this._logger = null;
         this._client = n_config_1.ConfigurationManager.getConfig("env") === "dev"
             ? Redis.createClient() : Redis.createClient(n_config_1.ConfigurationManager.getConfig("REDIS_URL"));
     }
@@ -26,6 +28,7 @@ class RedisEventBus {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
         n_defensive_1.given(this, "this").ensure(t => !t._manager, "already initialized");
         this._manager = manager;
+        this._logger = this._manager.serviceLocator.resolve("Logger");
     }
     publish(topic, event) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -44,7 +47,15 @@ class RedisEventBus {
                 return;
             const partition = this._manager.mapToPartition(topic, event);
             const writeIndex = yield this.incrementPartitionWriteIndex(topic, partition);
-            yield this.storeEvent(topic, partition, writeIndex, event);
+            yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    yield this.storeEvent(topic, partition, writeIndex, event);
+                }
+                catch (error) {
+                    yield this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
+                    yield this._logger.logError(error);
+                }
+            }), 20, 2000)();
         });
     }
     dispose() {
