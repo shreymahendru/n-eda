@@ -56,7 +56,20 @@ export class RedisEventBus implements EventBus
             return;
         
         const partition = this._manager.mapToPartition(topic, event);
-        const writeIndex = await this.incrementPartitionWriteIndex(topic, partition);
+        const writeIndex = await Make.retryWithDelay(async () =>
+        {
+            try 
+            {
+                return await this.incrementPartitionWriteIndex(topic, partition);    
+            }
+            catch (error)
+            {
+                await this._logger.logWarning(`Error while incrementing partition write index => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
+                await this._logger.logError(error);
+                throw error;
+            }
+            
+        }, 20, 1000)();
         
         await Make.retryWithDelay(async () =>
         {
@@ -68,9 +81,10 @@ export class RedisEventBus implements EventBus
             {
                 await this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
                 await this._logger.logError(error);
+                throw error;
             }
             
-        }, 20, 1000)();
+        }, 10, 500)();
     }
     
     public async dispose(): Promise<void>
