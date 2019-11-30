@@ -16,6 +16,7 @@ class Consumer {
     constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
         this._isDisposed = false;
+        this._trackedIds = new Array();
         this._consumePromise = null;
         n_defensive_1.given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -49,32 +50,46 @@ class Consumer {
                     const writeIndex = yield this.getPartitionWriteIndex();
                     const readIndex = yield this.getConsumerPartitionReadIndex();
                     if (readIndex >= writeIndex) {
-                        yield n_util_1.Delay.milliseconds(200);
-                        continue;
-                    }
-                    const indexToRead = readIndex + 1;
-                    const event = yield this.retrieveEvent(indexToRead);
-                    if (event == null) {
                         yield n_util_1.Delay.seconds(1);
                         continue;
                     }
+                    const indexToRead = readIndex + 1;
+                    let event = yield this.retrieveEvent(indexToRead);
+                    let numReadAttempts = 1;
+                    const maxReadAttempts = 10;
+                    while (event == null && numReadAttempts < maxReadAttempts) {
+                        yield n_util_1.Delay.milliseconds(500);
+                        event = yield this.retrieveEvent(indexToRead);
+                        numReadAttempts++;
+                    }
+                    if (event == null) {
+                        try {
+                            throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${indexToRead};`);
+                        }
+                        catch (error) {
+                            yield this._logger.logError(error);
+                        }
+                        yield this.incrementConsumerPartitionReadIndex();
+                        continue;
+                    }
+                    const eventId = event.id || event.$id;
                     const eventName = event.name || event.$name;
                     const eventRegistration = this._manager.eventMap.get(eventName);
                     const deserializedEvent = eventRegistration.eventType.deserializeEvent(event);
-                    const scope = this._manager.serviceLocator.createScope();
-                    deserializedEvent.$scope = scope;
-                    this._onEventReceived(scope, this._topic, deserializedEvent);
-                    const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
+                    if (this._trackedIds.contains(eventId)) {
+                        yield this.incrementConsumerPartitionReadIndex();
+                        continue;
+                    }
                     try {
-                        yield handler.handle(deserializedEvent);
+                        yield n_util_1.Make.retryWithDelay(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5, 500)();
                     }
                     catch (error) {
-                        yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify(event)}.`);
+                        yield this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
                         yield this._logger.logError(error);
                     }
                     finally {
+                        this.track(eventId);
                         yield this.incrementConsumerPartitionReadIndex();
-                        yield scope.dispose();
                     }
                 }
                 catch (error) {
@@ -132,6 +147,31 @@ class Consumer {
                 resolve(JSON.parse(value));
             });
         });
+    }
+    processEvent(eventName, eventRegistration, event) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const scope = this._manager.serviceLocator.createScope();
+            event.$scope = scope;
+            this._onEventReceived(scope, this._topic, event);
+            const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
+            try {
+                yield handler.handle(event);
+            }
+            catch (error) {
+                yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify(event)}.`);
+                yield this._logger.logError(error);
+                throw error;
+            }
+            finally {
+                yield scope.dispose();
+            }
+        });
+    }
+    track(eventId) {
+        n_defensive_1.given(eventId, "eventId").ensureHasValue().ensureIsString();
+        if (this._trackedIds.length >= 50)
+            this._trackedIds = this._trackedIds.skip(25).take(50);
+        this._trackedIds.push(eventId);
     }
 }
 exports.Consumer = Consumer;

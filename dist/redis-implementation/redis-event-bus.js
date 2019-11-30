@@ -46,7 +46,16 @@ class RedisEventBus {
             if (!this._manager.eventMap.has(event.name))
                 return;
             const partition = this._manager.mapToPartition(topic, event);
-            const writeIndex = yield this.incrementPartitionWriteIndex(topic, partition);
+            const writeIndex = yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    return yield this.incrementPartitionWriteIndex(topic, partition);
+                }
+                catch (error) {
+                    yield this._logger.logWarning(`Error while incrementing partition write index => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
+                    yield this._logger.logError(error);
+                    throw error;
+                }
+            }), 20, 1000)();
             yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
                 try {
                     yield this.storeEvent(topic, partition, writeIndex, event);
@@ -54,8 +63,9 @@ class RedisEventBus {
                 catch (error) {
                     yield this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
                     yield this._logger.logError(error);
+                    throw error;
                 }
-            }), 20, 1000)();
+            }), 10, 500)();
         });
     }
     dispose() {
