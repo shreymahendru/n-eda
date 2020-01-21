@@ -7,6 +7,7 @@ import { Consumer } from "./consumer";
 import { Delay } from "@nivinjoseph/n-util";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
+import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 
 // public
 export class RedisEventSubMgr implements EventSubMgr
@@ -17,6 +18,7 @@ export class RedisEventSubMgr implements EventSubMgr
     private _isDisposed = false;
     private _disposePromise: Promise<void> | null = null;
     private _manager: EdaManager = null as any;
+    private _isConsuming = false;
     
     
     public constructor()
@@ -29,32 +31,46 @@ export class RedisEventSubMgr implements EventSubMgr
     public initialize(manager: EdaManager): void
     {
         given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
+        
+        if (this._isDisposed)
+            throw new ObjectDisposedException(this);
+        
         given(this, "this").ensure(t => !t._manager, "already initialized");
 
         this._manager = manager;
-        
-        this._manager.topics.forEach(topic =>
-        {
-            if (topic.partitionAffinity != null)
-            {
-                this._consumers.push(new Consumer(this._client, this._manager, topic.name, topic.partitionAffinity,
-                    this.onEventReceived.bind(this)));
-            }
-            else
-            {
-                for (let partition = 0; partition < topic.numPartitions; partition++)
-                {
-                    this._consumers.push(new Consumer(this._client, this._manager, topic.name, partition,
-                        this.onEventReceived.bind(this)));
-                }
-            }
-        });
-        
-        this._consumers.forEach(t => t.consume());
     }
     
-    public async wait(): Promise<void>
+    public async consume(): Promise<void>
     {
+        if (this._isDisposed)
+            throw new ObjectDisposedException(this);
+
+        given(this, "this").ensure(t => !!t._manager, "not initialized");
+        
+        if (!this._isConsuming)
+        {
+            this._isConsuming = true;
+            
+            this._manager.topics.forEach(topic =>
+            {
+                if (topic.partitionAffinity != null)
+                {
+                    this._consumers.push(new Consumer(this._client, this._manager, topic.name, topic.partitionAffinity,
+                        this.onEventReceived.bind(this)));
+                }
+                else
+                {
+                    for (let partition = 0; partition < topic.numPartitions; partition++)
+                    {
+                        this._consumers.push(new Consumer(this._client, this._manager, topic.name, partition,
+                            this.onEventReceived.bind(this)));
+                    }
+                }
+            });
+
+            this._consumers.forEach(t => t.consume());
+        }
+        
         while (!this._isDisposed)
         {
             await Delay.seconds(2);
