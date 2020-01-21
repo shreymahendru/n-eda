@@ -20,53 +20,58 @@ class InMemoryEventSubMgr {
         this._isDisposed = false;
         this._manager = null;
         this._logger = null;
-        this._isInitialized = false;
+        this._isConsuming = false;
     }
     initialize(manager) {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
-        n_defensive_1.given(this, "this").ensure(t => !t._isInitialized, "initializing more than once");
+        n_defensive_1.given(this, "this").ensure(t => !t._manager, "already initialized");
         this._manager = manager;
         this._logger = this._manager.serviceLocator.resolve("Logger");
-        this._manager.topics.forEach(topic => {
-            const processors = new Array();
-            n_util_1.Make.loop(() => processors.push(new n_util_1.BackgroundProcessor((e) => this._logger.logError(e))), topic.numPartitions);
-            this._consumers.set(topic.name, processors);
-        });
-        const inMemoryEventBus = this._manager.serviceLocator.resolve(eda_manager_1.EdaManager.eventBusKey);
-        if (!(inMemoryEventBus instanceof in_memory_event_bus_1.InMemoryEventBus))
-            throw new n_exception_1.ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
-        inMemoryEventBus.onPublish((topic, partition, event) => {
+    }
+    consume() {
+        return __awaiter(this, void 0, void 0, function* () {
             if (this._isDisposed)
                 throw new n_exception_1.ObjectDisposedException(this);
-            const topicProcessors = this._consumers.get(topic);
-            const processor = topicProcessors[partition];
-            const eventRegistration = this._manager.eventMap.get(event.name);
-            const scope = this._manager.serviceLocator.createScope();
-            event.$scope = scope;
-            try {
-                this.onEventReceived(scope, topic, event);
-                const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
-                processor.processAction(() => __awaiter(this, void 0, void 0, function* () {
+            n_defensive_1.given(this, "this").ensure(t => !!t._manager, "not initialized");
+            if (!this._isConsuming) {
+                this._isConsuming = true;
+                this._manager.topics.forEach(topic => {
+                    const processors = new Array();
+                    n_util_1.Make.loop(() => processors.push(new n_util_1.BackgroundProcessor((e) => this._logger.logError(e))), topic.numPartitions);
+                    this._consumers.set(topic.name, processors);
+                });
+                const inMemoryEventBus = this._manager.serviceLocator.resolve(eda_manager_1.EdaManager.eventBusKey);
+                if (!(inMemoryEventBus instanceof in_memory_event_bus_1.InMemoryEventBus))
+                    throw new n_exception_1.ApplicationException("InMemoryEventSubMgr can only work with InMemoryEventBus.");
+                inMemoryEventBus.onPublish((topic, partition, event) => {
+                    if (this._isDisposed)
+                        throw new n_exception_1.ObjectDisposedException(this);
+                    const topicProcessors = this._consumers.get(topic);
+                    const processor = topicProcessors[partition];
+                    const eventRegistration = this._manager.eventMap.get(event.name);
+                    const scope = this._manager.serviceLocator.createScope();
+                    event.$scope = scope;
                     try {
-                        yield handler.handle(event);
+                        this.onEventReceived(scope, topic, event);
+                        const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
+                        processor.processAction(() => __awaiter(this, void 0, void 0, function* () {
+                            try {
+                                yield handler.handle(event);
+                            }
+                            finally {
+                                yield scope.dispose();
+                            }
+                        }));
                     }
-                    finally {
-                        yield scope.dispose();
+                    catch (error) {
+                        this._logger.logError(error)
+                            .then(() => scope.dispose())
+                            .catch(() => { });
                     }
-                }));
+                });
             }
-            catch (error) {
-                this._logger.logError(error)
-                    .then(() => scope.dispose())
-                    .catch(() => { });
-            }
-        });
-        this._isInitialized = true;
-    }
-    wait() {
-        return __awaiter(this, void 0, void 0, function* () {
             while (!this._isDisposed) {
                 yield n_util_1.Delay.seconds(2);
             }

@@ -7,9 +7,9 @@ export declare class InMemoryEventSubMgr implements EventSubMgr {
     private _isDisposed;
     private _manager;
     private _logger;
-    private _isInitialized;
+    private _isConsuming;
     initialize(manager: EdaManager): void;
-    wait(): Promise<void>;
+    consume(): Promise<void>;
     dispose(): Promise<void>;
     protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void;
 }

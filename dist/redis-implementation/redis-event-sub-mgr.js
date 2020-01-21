@@ -15,33 +15,43 @@ const n_config_1 = require("@nivinjoseph/n-config");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const consumer_1 = require("./consumer");
 const n_util_1 = require("@nivinjoseph/n-util");
+const n_exception_1 = require("@nivinjoseph/n-exception");
 class RedisEventSubMgr {
     constructor() {
         this._consumers = new Array();
         this._isDisposed = false;
         this._disposePromise = null;
         this._manager = null;
+        this._isConsuming = false;
         this._client = n_config_1.ConfigurationManager.getConfig("env") === "dev"
             ? Redis.createClient() : Redis.createClient(n_config_1.ConfigurationManager.getConfig("REDIS_URL"));
     }
     initialize(manager) {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
+        if (this._isDisposed)
+            throw new n_exception_1.ObjectDisposedException(this);
         n_defensive_1.given(this, "this").ensure(t => !t._manager, "already initialized");
         this._manager = manager;
-        this._manager.topics.forEach(topic => {
-            if (topic.partitionAffinity != null) {
-                this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, topic.partitionAffinity, this.onEventReceived.bind(this)));
-            }
-            else {
-                for (let partition = 0; partition < topic.numPartitions; partition++) {
-                    this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this)));
-                }
-            }
-        });
-        this._consumers.forEach(t => t.consume());
     }
-    wait() {
+    consume() {
         return __awaiter(this, void 0, void 0, function* () {
+            if (this._isDisposed)
+                throw new n_exception_1.ObjectDisposedException(this);
+            n_defensive_1.given(this, "this").ensure(t => !!t._manager, "not initialized");
+            if (!this._isConsuming) {
+                this._isConsuming = true;
+                this._manager.topics.forEach(topic => {
+                    if (topic.partitionAffinity != null) {
+                        this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, topic.partitionAffinity, this.onEventReceived.bind(this)));
+                    }
+                    else {
+                        for (let partition = 0; partition < topic.numPartitions; partition++) {
+                            this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this)));
+                        }
+                    }
+                });
+                this._consumers.forEach(t => t.consume());
+            }
             while (!this._isDisposed) {
                 yield n_util_1.Delay.seconds(2);
             }
