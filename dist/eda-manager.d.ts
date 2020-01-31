@@ -5,6 +5,7 @@ import { Disposable } from "@nivinjoseph/n-util";
 import { EventRegistration } from "./event-registration";
 import { Topic } from "./topic";
 import { EdaEvent } from "./eda-event";
+import { EdaEventHandler } from "./eda-event-handler";
 export declare class EdaManager implements Disposable {
     private readonly _container;
     private readonly _topics;
@@ -27,10 +28,11 @@ export declare class EdaManager implements Disposable {
     useInstaller(installer: ComponentInstaller): this;
     registerTopics(...topics: Topic[]): this;
     usePartitionKeyMapper(func: (event: EdaEvent) => string): this;
-    registerEventHandlers(...eventHandlerClasses: Function[]): this;
-    registerEventBus(eventBus: EventBus | Function): this;
-    registerEventSubscriptionManager(eventSubMgr: EventSubMgr | Function, consumerGroupId: string): this;
+    registerEventHandlers<TClass extends new (...args: any[]) => EdaEventHandler<any>>(...eventHandlerClasses: TClass[]): this;
+    registerEventBus<TClass extends new (...args: any[]) => EventBus>(eventBus: EventBus | TClass): this;
+    registerEventSubscriptionManager<TClass extends new (...args: any[]) => EventSubMgr>(eventSubMgr: EventSubMgr | TClass, consumerGroupId: string): this;
     bootstrap(): void;
+    beginConsumption(): Promise<void>;
     mapToPartition(topic: string, event: EdaEvent): number;
     dispose(): Promise<void>;
 }

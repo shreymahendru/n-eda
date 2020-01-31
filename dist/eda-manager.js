@@ -113,6 +113,17 @@ class EdaManager {
                 .initialize(this);
         this._isBootstrapped = true;
     }
+    beginConsumption() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this._isDisposed)
+                throw new n_exception_1.ObjectDisposedException(this);
+            n_defensive_1.given(this, "this")
+                .ensure(t => t._isBootstrapped, "not bootstrapped")
+                .ensure(t => t._eventSubMgrRegistered, "no EventSubMgr registered");
+            const eventSubMgr = this.serviceLocator.resolve(EdaManager.eventSubMgrKey);
+            yield eventSubMgr.consume();
+        });
+    }
     mapToPartition(topic, event) {
         n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString()
             .ensure(t => this._topicMap.has(t));
