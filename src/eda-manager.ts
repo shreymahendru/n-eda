@@ -8,6 +8,7 @@ import { EventRegistration } from "./event-registration";
 import { Topic } from "./topic";
 import { EdaEvent } from "./eda-event";
 import * as MurmurHash from "murmurhash3js";
+import { EdaEventHandler } from "./eda-event-handler";
 
 // public
 export class EdaManager implements Disposable
@@ -84,7 +85,7 @@ export class EdaManager implements Disposable
         return this;
     }
     
-    public registerEventHandlers(...eventHandlerClasses: Function[]): this
+    public registerEventHandlers<TClass extends new(...args: any[]) => EdaEventHandler<any>>(...eventHandlerClasses: TClass[]): this
     {
         given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
         given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
@@ -102,7 +103,7 @@ export class EdaManager implements Disposable
         return this;
     }
     
-    public registerEventBus(eventBus: EventBus | Function): this
+    public registerEventBus<TClass extends new (...args: any[]) => EventBus>(eventBus: EventBus | TClass): this
     {
         given(eventBus, "eventBus").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
         given(this, "this")
@@ -119,7 +120,7 @@ export class EdaManager implements Disposable
         return this;
     }
     
-    public registerEventSubscriptionManager(eventSubMgr: EventSubMgr | Function, consumerGroupId: string): this
+    public registerEventSubscriptionManager<TClass extends new (...args: any[]) => EventSubMgr>(eventSubMgr: EventSubMgr | TClass, consumerGroupId: string): this
     {
         given(eventSubMgr, "eventSubMgr").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
         given(consumerGroupId, "consumerGroupId").ensureHasValue().ensureIsString();
@@ -162,6 +163,19 @@ export class EdaManager implements Disposable
                 .initialize(this);
         
         this._isBootstrapped = true;
+    }
+    
+    public async beginConsumption(): Promise<void>
+    {
+        if (this._isDisposed)
+            throw new ObjectDisposedException(this);
+        
+        given(this, "this")
+            .ensure(t => t._isBootstrapped, "not bootstrapped")
+            .ensure(t => t._eventSubMgrRegistered, "no EventSubMgr registered");
+        
+        const eventSubMgr = this.serviceLocator.resolve<EventSubMgr>(EdaManager.eventSubMgrKey);
+        await eventSubMgr.consume();
     }
     
     public mapToPartition(topic: string, event: EdaEvent): number
