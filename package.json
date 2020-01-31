@@ -51,7 +51,7 @@
         "@nivinjoseph/n-ext": "^1.1.10",
         "@nivinjoseph/n-ject": "^1.1.9",
         "@nivinjoseph/n-log": "^1.0.10",
-        "@nivinjoseph/n-util": "^1.0.37",
+        "@nivinjoseph/n-util": "^1.0.38",
         "murmurhash3js": "^3.0.1",
         "redis": "^2.8.0",
         "reflect-metadata": "^0.1.13"
