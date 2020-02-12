@@ -110,8 +110,8 @@ export class Consumer implements Disposable
                     continue;
                 }
                 
-                const eventId = (<any>event).id || (<any>event).$id; // for compatibility with n-domain DomainEvent
-                const eventName = (<any>event).name || (<any>event).$name; // for compatibility with n-domain DomainEvent
+                const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
+                const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                 const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
                 const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
 
