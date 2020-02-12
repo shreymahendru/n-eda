@@ -73,8 +73,8 @@ class Consumer {
                         yield this.incrementConsumerPartitionReadIndex();
                         continue;
                     }
-                    const eventId = event.id || event.$id;
-                    const eventName = event.name || event.$name;
+                    const eventId = event.$id || event.id;
+                    const eventName = event.$name || event.name;
                     const eventRegistration = this._manager.eventMap.get(eventName);
                     const deserializedEvent = eventRegistration.eventType.deserializeEvent(event);
                     if (this._trackedIds.contains(eventId)) {
