@@ -7,8 +7,9 @@ class Topic {
         this._name = name.trim();
         n_defensive_1.given(numPartitions, "numPartitions").ensureIsNumber().ensure(t => t > 0);
         this._numPartitions = numPartitions || 1;
-        n_defensive_1.given(partitionAffinity, "partitionAffinity").ensureIsNumber()
-            .ensure(t => t >= 0 && t < this._numPartitions);
+        n_defensive_1.given(partitionAffinity, "partitionAffinity").ensureIsArray()
+            .ensure(t => t.isNotEmpty)
+            .ensure(t => t.every(item => item >= 0 && item < this._numPartitions));
         this._partitionAffinity = partitionAffinity == null ? null : partitionAffinity;
     }
     get name() { return this._name; }
