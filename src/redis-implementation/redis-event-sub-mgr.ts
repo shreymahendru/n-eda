@@ -55,8 +55,9 @@ export class RedisEventSubMgr implements EventSubMgr
             {
                 if (topic.partitionAffinity != null)
                 {
-                    this._consumers.push(new Consumer(this._client, this._manager, topic.name, topic.partitionAffinity,
-                        this.onEventReceived.bind(this)));
+                    topic.partitionAffinity.forEach(partition =>
+                        this._consumers.push(new Consumer(this._client, this._manager, topic.name, partition,
+                            this.onEventReceived.bind(this))));
                 }
                 else
                 {

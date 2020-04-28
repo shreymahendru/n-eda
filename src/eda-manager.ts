@@ -242,7 +242,7 @@ export class EdaManager implements Disposable
     //     {
     //         if (t.isWild)
     //         {
-    //             const conflicts = keys.filter(u => u !== t.eventTypeName && u.startsWith(t.eventTypeName));
+    //             const conflicts = keys.where(u => u !== t.eventTypeName && u.startsWith(t.eventTypeName));
     //             if (conflicts.length > 0)
     //                 throw new ApplicationException(`Handler conflict detected between wildcard '${t.eventTypeName}' and events '${conflicts.join(",")}'.`);    
     //         }
