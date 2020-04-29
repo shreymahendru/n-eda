@@ -1,15 +1,15 @@
 import { EventSubMgr } from "../event-sub-mgr";
 import { EdaManager } from "../eda-manager";
 import * as Redis from "redis";
-import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { given } from "@nivinjoseph/n-defensive";
 import { Consumer } from "./consumer";
 import { Delay } from "@nivinjoseph/n-util";
-import { ServiceLocator } from "@nivinjoseph/n-ject";
+import { ServiceLocator, inject } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 
 // public
+@inject("RedisClient")
 export class RedisEventSubMgr implements EventSubMgr
 {
     private readonly _client: Redis.RedisClient;
@@ -21,10 +21,10 @@ export class RedisEventSubMgr implements EventSubMgr
     private _isConsuming = false;
     
     
-    public constructor()
+    public constructor(redisClient: Redis.RedisClient)
     {
-        this._client = ConfigurationManager.getConfig<string>("env") === "dev"
-            ? Redis.createClient() : Redis.createClient(ConfigurationManager.getConfig<string>("REDIS_URL"));
+        given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
+        this._client = redisClient;
     }
     
     

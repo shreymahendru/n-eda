@@ -4,11 +4,12 @@ import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
-import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { Make } from "@nivinjoseph/n-util";
 import { Logger } from "@nivinjoseph/n-log";
+import { inject } from "@nivinjoseph/n-ject";
 
 // public
+@inject("RedisClient")
 export class RedisEventBus implements EventBus
 {
     private readonly _edaPrefix = "n-eda";
@@ -20,10 +21,10 @@ export class RedisEventBus implements EventBus
     private _logger: Logger = null as any;
     
     
-    public constructor()
+    public constructor(redisClient: Redis.RedisClient)
     {
-        this._client = ConfigurationManager.getConfig<string>("env") === "dev"
-            ? Redis.createClient() : Redis.createClient(ConfigurationManager.getConfig<string>("REDIS_URL"));
+        given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
+        this._client = redisClient;
     }
     
     
