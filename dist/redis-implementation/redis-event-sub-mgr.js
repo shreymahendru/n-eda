@@ -1,4 +1,13 @@
 "use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -11,20 +20,20 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const eda_manager_1 = require("../eda-manager");
 const Redis = require("redis");
-const n_config_1 = require("@nivinjoseph/n-config");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const consumer_1 = require("./consumer");
 const n_util_1 = require("@nivinjoseph/n-util");
+const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
-class RedisEventSubMgr {
-    constructor() {
+let RedisEventSubMgr = class RedisEventSubMgr {
+    constructor(redisClient) {
         this._consumers = new Array();
         this._isDisposed = false;
         this._disposePromise = null;
         this._manager = null;
         this._isConsuming = false;
-        this._client = n_config_1.ConfigurationManager.getConfig("env") === "dev"
-            ? Redis.createClient() : Redis.createClient(n_config_1.ConfigurationManager.getConfig("REDIS_URL"));
+        n_defensive_1.given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
+        this._client = redisClient;
     }
     initialize(manager) {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
@@ -70,6 +79,10 @@ class RedisEventSubMgr {
         n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
         n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
     }
-}
+};
+RedisEventSubMgr = __decorate([
+    n_ject_1.inject("RedisClient"),
+    __metadata("design:paramtypes", [Redis.RedisClient])
+], RedisEventSubMgr);
 exports.RedisEventSubMgr = RedisEventSubMgr;
 //# sourceMappingURL=redis-event-sub-mgr.js.map
