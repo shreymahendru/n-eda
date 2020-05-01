@@ -65,7 +65,7 @@ export class RedisEventBus implements EventBus
             }
             catch (error)
             {
-                await this._logger.logWarning(`Error while incrementing partition write index => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
+                await this._logger.logWarning(`Error while incrementing partition write index => Topic: ${topic}; Partition: ${partition};`);
                 await this._logger.logError(error);
                 throw error;
             }

@@ -250,8 +250,8 @@ export class Consumer implements Disposable
     {
         given(eventId, "eventId").ensureHasValue().ensureIsString();
         
-        if (this._trackedIds.length >= 50)
-            this._trackedIds = this._trackedIds.skip(25).take(50); // 50 is deliberate, we are just taking the rest
+        if (this._trackedIds.length >= 500)
+            this._trackedIds = this._trackedIds.skip(200);
         
         this._trackedIds.push(eventId);
     }

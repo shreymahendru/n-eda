@@ -44,13 +44,13 @@
         "typescript-tslint-plugin": "^0.5.5"
     },
     "dependencies": {
-        "@types/redis": "^2.8.18",
         "@nivinjoseph/n-defensive": "^1.0.32",
         "@nivinjoseph/n-exception": "^1.0.19",
-        "@nivinjoseph/n-ext": "^1.1.18",
+        "@nivinjoseph/n-ext": "^1.1.19",
         "@nivinjoseph/n-ject": "^1.1.11",
         "@nivinjoseph/n-log": "^1.0.10",
         "@nivinjoseph/n-util": "^1.0.39",
+        "@types/redis": "^2.8.18",
         "murmurhash3js": "^3.0.1",
         "redis": "^3.0.2",
         "reflect-metadata": "^0.1.13"
