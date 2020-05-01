@@ -170,8 +170,8 @@ class Consumer {
     }
     track(eventId) {
         n_defensive_1.given(eventId, "eventId").ensureHasValue().ensureIsString();
-        if (this._trackedIds.length >= 50)
-            this._trackedIds = this._trackedIds.skip(25).take(50);
+        if (this._trackedIds.length >= 500)
+            this._trackedIds = this._trackedIds.skip(200);
         this._trackedIds.push(eventId);
     }
 }

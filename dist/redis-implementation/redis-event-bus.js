@@ -61,7 +61,7 @@ let RedisEventBus = class RedisEventBus {
                     return yield this.incrementPartitionWriteIndex(topic, partition);
                 }
                 catch (error) {
-                    yield this._logger.logWarning(`Error while incrementing partition write index => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
+                    yield this._logger.logWarning(`Error while incrementing partition write index => Topic: ${topic}; Partition: ${partition};`);
                     yield this._logger.logError(error);
                     throw error;
                 }
