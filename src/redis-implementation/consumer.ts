@@ -1,4 +1,4 @@
-import { Disposable, Delay, Make } from "@nivinjoseph/n-util";
+import { Disposable, Delay, Make, Deserializer } from "@nivinjoseph/n-util";
 import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { EdaManager } from "../eda-manager";
@@ -113,7 +113,8 @@ export class Consumer implements Disposable
                 const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
                 const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                 const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
-                const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
+                // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
+                const deserializedEvent = Deserializer.deserialize(event);
 
                 if (this._trackedIds.contains(eventId))
                 {
