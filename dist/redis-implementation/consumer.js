@@ -9,6 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Consumer = void 0;
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
@@ -76,7 +77,7 @@ class Consumer {
                     const eventId = event.$id || event.id;
                     const eventName = event.$name || event.name;
                     const eventRegistration = this._manager.eventMap.get(eventName);
-                    const deserializedEvent = eventRegistration.eventType.deserializeEvent(event);
+                    const deserializedEvent = n_util_1.Deserializer.deserialize(event);
                     if (this._trackedIds.contains(eventId)) {
                         yield this.incrementConsumerPartitionReadIndex();
                         continue;

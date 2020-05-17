@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Topic = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 class Topic {
     constructor(name, numPartitions, partitionAffinity) {
