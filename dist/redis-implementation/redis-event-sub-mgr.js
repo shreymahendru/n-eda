@@ -26,67 +26,64 @@ const consumer_1 = require("./consumer");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
-let RedisEventSubMgr = (() => {
-    let RedisEventSubMgr = class RedisEventSubMgr {
-        constructor(redisClient) {
-            this._consumers = new Array();
-            this._isDisposed = false;
-            this._disposePromise = null;
-            this._manager = null;
-            this._isConsuming = false;
-            n_defensive_1.given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
-            this._client = redisClient;
-        }
-        initialize(manager) {
-            n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
+let RedisEventSubMgr = class RedisEventSubMgr {
+    constructor(redisClient) {
+        this._consumers = new Array();
+        this._isDisposed = false;
+        this._disposePromise = null;
+        this._manager = null;
+        this._isConsuming = false;
+        n_defensive_1.given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
+        this._client = redisClient;
+    }
+    initialize(manager) {
+        n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
+        if (this._isDisposed)
+            throw new n_exception_1.ObjectDisposedException(this);
+        n_defensive_1.given(this, "this").ensure(t => !t._manager, "already initialized");
+        this._manager = manager;
+    }
+    consume() {
+        return __awaiter(this, void 0, void 0, function* () {
             if (this._isDisposed)
                 throw new n_exception_1.ObjectDisposedException(this);
-            n_defensive_1.given(this, "this").ensure(t => !t._manager, "already initialized");
-            this._manager = manager;
-        }
-        consume() {
-            return __awaiter(this, void 0, void 0, function* () {
-                if (this._isDisposed)
-                    throw new n_exception_1.ObjectDisposedException(this);
-                n_defensive_1.given(this, "this").ensure(t => !!t._manager, "not initialized");
-                if (!this._isConsuming) {
-                    this._isConsuming = true;
-                    this._manager.topics.forEach(topic => {
-                        if (topic.partitionAffinity != null) {
-                            topic.partitionAffinity.forEach(partition => this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this))));
+            n_defensive_1.given(this, "this").ensure(t => !!t._manager, "not initialized");
+            if (!this._isConsuming) {
+                this._isConsuming = true;
+                this._manager.topics.forEach(topic => {
+                    if (topic.partitionAffinity != null) {
+                        topic.partitionAffinity.forEach(partition => this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this))));
+                    }
+                    else {
+                        for (let partition = 0; partition < topic.numPartitions; partition++) {
+                            this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this)));
                         }
-                        else {
-                            for (let partition = 0; partition < topic.numPartitions; partition++) {
-                                this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this)));
-                            }
-                        }
-                    });
-                    this._consumers.forEach(t => t.consume());
-                }
-                while (!this._isDisposed) {
-                    yield n_util_1.Delay.seconds(2);
-                }
-            });
-        }
-        dispose() {
-            if (!this._isDisposed) {
-                this._isDisposed = true;
-                this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()))
-                    .then(() => new Promise((resolve, _) => this._client.quit(() => resolve())));
+                    }
+                });
+                this._consumers.forEach(t => t.consume());
             }
-            return this._disposePromise;
+            while (!this._isDisposed) {
+                yield n_util_1.Delay.seconds(2);
+            }
+        });
+    }
+    dispose() {
+        if (!this._isDisposed) {
+            this._isDisposed = true;
+            this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()))
+                .then(() => new Promise((resolve, _) => this._client.quit(() => resolve())));
         }
-        onEventReceived(scope, topic, event) {
-            n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
-            n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
-            n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
-        }
-    };
-    RedisEventSubMgr = __decorate([
-        n_ject_1.inject("RedisClient"),
-        __metadata("design:paramtypes", [Redis.RedisClient])
-    ], RedisEventSubMgr);
-    return RedisEventSubMgr;
-})();
+        return this._disposePromise;
+    }
+    onEventReceived(scope, topic, event) {
+        n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
+        n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
+        n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
+    }
+};
+RedisEventSubMgr = __decorate([
+    n_ject_1.inject("RedisClient"),
+    __metadata("design:paramtypes", [Redis.RedisClient])
+], RedisEventSubMgr);
 exports.RedisEventSubMgr = RedisEventSubMgr;
 //# sourceMappingURL=redis-event-sub-mgr.js.map
