@@ -160,7 +160,7 @@ export class Consumer implements Disposable
                     return;
                 }
 
-                resolve(JSON.parse(value) || 0);
+                resolve(value != null ? JSON.parse(value) : 0);
             });
         });
     }
@@ -179,7 +179,7 @@ export class Consumer implements Disposable
                     return;
                 }
 
-                resolve(JSON.parse(value) || 0);
+                resolve(value != null ? JSON.parse(value) : 0);
             });
         });
     }
@@ -217,7 +217,7 @@ export class Consumer implements Disposable
                     return;
                 }
 
-                resolve(JSON.parse(value));
+                resolve(JSON.parse(value as string));
             });
         });
     }
