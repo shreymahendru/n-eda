@@ -110,7 +110,7 @@ class Consumer {
                     reject(err);
                     return;
                 }
-                resolve(JSON.parse(value) || 0);
+                resolve(value != null ? JSON.parse(value) : 0);
             });
         });
     }
@@ -122,7 +122,7 @@ class Consumer {
                     reject(err);
                     return;
                 }
-                resolve(JSON.parse(value) || 0);
+                resolve(value != null ? JSON.parse(value) : 0);
             });
         });
     }
