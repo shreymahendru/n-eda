@@ -7,6 +7,7 @@ import * as Redis from "redis";
 import { Make } from "@nivinjoseph/n-util";
 import { Logger } from "@nivinjoseph/n-log";
 import { inject } from "@nivinjoseph/n-ject";
+import * as Zlib from "zlib";
 
 // public
 @inject("RedisClient")
@@ -56,6 +57,8 @@ export class RedisEventBus implements EventBus
         if (!this._manager.eventMap.has(event.name))
             return;
         
+        const compressedEvent = await this.compressEvent(event.serialize());
+        
         const partition = this._manager.mapToPartition(topic, event);
         const writeIndex = await Make.retryWithDelay(async () =>
         {
@@ -76,7 +79,7 @@ export class RedisEventBus implements EventBus
         {
             try 
             {
-                await this.storeEvent(topic, partition, writeIndex, event);
+                await this.storeEvent(topic, partition, writeIndex, compressedEvent);
             }
             catch (error)
             {
@@ -121,18 +124,19 @@ export class RedisEventBus implements EventBus
         });
     }
     
-    private storeEvent(topic: string, partition: number, writeIndex: number, event: EdaEvent): Promise<void>
+    private storeEvent(topic: string, partition: number, writeIndex: number, eventData: string): Promise<void>
     {
         return new Promise((resolve, reject) =>
         {
             given(topic, "topic").ensureHasValue().ensureIsString();
             given(partition, "partition").ensureHasValue().ensureIsNumber();
             given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-            given(event, "event").ensureHasValue().ensureIsObject();
+            given(eventData, "eventData").ensureHasValue().ensureIsString();
             
             const key = `${this._edaPrefix}-${topic}-${partition}-${writeIndex}`;
             const expirySeconds = 60 * 60 * 4;
-            this._client.setex(key.trim(), expirySeconds, JSON.stringify(event.serialize()), (err) =>
+            
+            this._client.setex(key.trim(), expirySeconds, eventData, (err) =>
             {
                 if (err)
                 {
@@ -143,5 +147,15 @@ export class RedisEventBus implements EventBus
                 resolve();
             });
         });
+    }
+    
+    private async compressEvent(event: object): Promise<string>
+    {
+        given(event, "event").ensureHasValue().ensureIsObject();
+        
+        const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
+            { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+        
+        return compressed.toString("base64");
     }
 }

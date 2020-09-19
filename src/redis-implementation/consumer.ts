@@ -8,6 +8,7 @@ import { EdaEvent } from "../eda-event";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
+import * as Zlib from "zlib";
 
 
 export class Consumer implements Disposable
@@ -85,17 +86,17 @@ export class Consumer implements Disposable
 
                 const indexToRead = readIndex + 1;
                 
-                let event = await this.retrieveEvent(indexToRead);
+                let eventData = await this.retrieveEvent(indexToRead);
                 let numReadAttempts = 1;
                 const maxReadAttempts = 10;
-                while (event == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
+                while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                 {
                     await Delay.milliseconds(500);
-                    event = await this.retrieveEvent(indexToRead);
+                    eventData = await this.retrieveEvent(indexToRead);
                     numReadAttempts++;
                 }
                 
-                if (event == null)
+                if (eventData == null)
                 {
                     try 
                     {
@@ -110,6 +111,7 @@ export class Consumer implements Disposable
                     continue;
                 }
                 
+                const event = await this.decompressEvent(eventData);
                 const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
                 const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                 const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
@@ -203,7 +205,7 @@ export class Consumer implements Disposable
         });
     }
     
-    private retrieveEvent(indexToRead: number): Promise<object>
+    private retrieveEvent(indexToRead: number): Promise<string>
     {
         return new Promise((resolve, reject) =>
         {
@@ -217,7 +219,7 @@ export class Consumer implements Disposable
                     return;
                 }
 
-                resolve(JSON.parse(value as string));
+                resolve(value as string);
             });
         });
     }
@@ -255,5 +257,15 @@ export class Consumer implements Disposable
             this._trackedIds = this._trackedIds.skip(200);
         
         this._trackedIds.push(eventId);
+    }
+    
+    private async decompressEvent(eventData: string): Promise<object>
+    {
+        given(eventData, "eventData").ensureHasValue().ensureIsString();
+        
+        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
+            { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+
+        return JSON.parse(decompressed.toString("utf8"));
     }
 }
