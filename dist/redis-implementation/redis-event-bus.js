@@ -25,6 +25,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const Redis = require("redis");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_ject_1 = require("@nivinjoseph/n-ject");
+const Zlib = require("zlib");
 let RedisEventBus = class RedisEventBus {
     constructor(redisClient) {
         this._edaPrefix = "n-eda";
@@ -56,6 +57,7 @@ let RedisEventBus = class RedisEventBus {
             });
             if (!this._manager.eventMap.has(event.name))
                 return;
+            const compressedEvent = yield this.compressEvent(event.serialize());
             const partition = this._manager.mapToPartition(topic, event);
             const writeIndex = yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
                 try {
@@ -69,7 +71,7 @@ let RedisEventBus = class RedisEventBus {
             }), 20, 1000)();
             yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
                 try {
-                    yield this.storeEvent(topic, partition, writeIndex, event);
+                    yield this.storeEvent(topic, partition, writeIndex, compressedEvent);
                 }
                 catch (error) {
                     yield this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
@@ -102,21 +104,28 @@ let RedisEventBus = class RedisEventBus {
             });
         });
     }
-    storeEvent(topic, partition, writeIndex, event) {
+    storeEvent(topic, partition, writeIndex, eventData) {
         return new Promise((resolve, reject) => {
             n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
             n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
             n_defensive_1.given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-            n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
+            n_defensive_1.given(eventData, "eventData").ensureHasValue().ensureIsString();
             const key = `${this._edaPrefix}-${topic}-${partition}-${writeIndex}`;
             const expirySeconds = 60 * 60 * 4;
-            this._client.setex(key.trim(), expirySeconds, JSON.stringify(event.serialize()), (err) => {
+            this._client.setex(key.trim(), expirySeconds, eventData, (err) => {
                 if (err) {
                     reject(err);
                     return;
                 }
                 resolve();
             });
+        });
+    }
+    compressEvent(event) {
+        return __awaiter(this, void 0, void 0, function* () {
+            n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
+            const compressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"), { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+            return compressed.toString("base64");
         });
     }
 };

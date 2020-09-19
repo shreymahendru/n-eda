@@ -24,4 +24,5 @@ export declare class Consumer implements Disposable {
     private retrieveEvent;
     private processEvent;
     private track;
+    private decompressEvent;
 }

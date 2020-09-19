@@ -15,4 +15,5 @@ export declare class RedisEventBus implements EventBus {
     dispose(): Promise<void>;
     private incrementPartitionWriteIndex;
     private storeEvent;
+    private compressEvent;
 }

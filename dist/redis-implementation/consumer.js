@@ -14,6 +14,7 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
+const Zlib = require("zlib");
 class Consumer {
     constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
@@ -56,15 +57,15 @@ class Consumer {
                         continue;
                     }
                     const indexToRead = readIndex + 1;
-                    let event = yield this.retrieveEvent(indexToRead);
+                    let eventData = yield this.retrieveEvent(indexToRead);
                     let numReadAttempts = 1;
                     const maxReadAttempts = 10;
-                    while (event == null && numReadAttempts < maxReadAttempts) {
+                    while (eventData == null && numReadAttempts < maxReadAttempts) {
                         yield n_util_1.Delay.milliseconds(500);
-                        event = yield this.retrieveEvent(indexToRead);
+                        eventData = yield this.retrieveEvent(indexToRead);
                         numReadAttempts++;
                     }
-                    if (event == null) {
+                    if (eventData == null) {
                         try {
                             throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${indexToRead};`);
                         }
@@ -74,6 +75,7 @@ class Consumer {
                         yield this.incrementConsumerPartitionReadIndex();
                         continue;
                     }
+                    const event = yield this.decompressEvent(eventData);
                     const eventId = event.$id || event.id;
                     const eventName = event.$name || event.name;
                     const eventRegistration = this._manager.eventMap.get(eventName);
@@ -146,7 +148,7 @@ class Consumer {
                     reject(err);
                     return;
                 }
-                resolve(JSON.parse(value));
+                resolve(value);
             });
         });
     }
@@ -174,6 +176,13 @@ class Consumer {
         if (this._trackedIds.length >= 500)
             this._trackedIds = this._trackedIds.skip(200);
         this._trackedIds.push(eventId);
+    }
+    decompressEvent(eventData) {
+        return __awaiter(this, void 0, void 0, function* () {
+            n_defensive_1.given(eventData, "eventData").ensureHasValue().ensureIsString();
+            const decompressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"), { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+            return JSON.parse(decompressed.toString("utf8"));
+        });
     }
 }
 exports.Consumer = Consumer;
