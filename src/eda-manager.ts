@@ -37,9 +37,11 @@ export class EdaManager implements Disposable
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     
     
-    public constructor()
+    public constructor(container?: Container)
     {   
-        this._container = new Container();
+        given(container as Container, "container").ensureIsObject().ensureIsType(Container);
+        
+        this._container = container ?? new Container();
         this._topics = new Array<Topic>();
         this._topicMap = new Map<string, Topic>();
         this._eventMap = new Map<string, EventRegistration>();

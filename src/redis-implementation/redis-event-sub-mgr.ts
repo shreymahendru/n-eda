@@ -16,7 +16,7 @@ export class RedisEventSubMgr implements EventSubMgr
     private readonly _consumers = new Array<Consumer>();
 
     private _isDisposed = false;
-    private _disposePromise: Promise<void> | null = null;
+    private _disposePromise: Promise<any> | null = null;
     private _manager: EdaManager = null as any;
     private _isConsuming = false;
     
@@ -84,8 +84,7 @@ export class RedisEventSubMgr implements EventSubMgr
         {
             this._isDisposed = true;
             
-            this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()))
-                .then(() => new Promise((resolve, _) => this._client.quit(() => resolve())));
+            this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
         }
 
         return this._disposePromise as Promise<void>;

@@ -4,17 +4,19 @@ import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
-import { Make } from "@nivinjoseph/n-util";
 import { Logger } from "@nivinjoseph/n-log";
 import { inject } from "@nivinjoseph/n-ject";
-import * as Zlib from "zlib";
+import { Producer } from "./producer";
+import { Delay } from "@nivinjoseph/n-util";
+import { ConfigurationManager } from "@nivinjoseph/n-config";
 
 // public
 @inject("RedisClient")
 export class RedisEventBus implements EventBus
 {
-    private readonly _edaPrefix = "n-eda";
     private readonly _client: Redis.RedisClient;
+    private readonly _producers = new Map<string, Producer>();
+    
     
     private _isDisposed = false;
     private _disposePromise: Promise<void> | null = null;
@@ -36,6 +38,15 @@ export class RedisEventBus implements EventBus
 
         this._manager = manager;
         this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
+        
+        this._manager.topics.forEach(topic =>
+        {
+            for (let partition = 0; partition < topic.numPartitions; partition++)
+            {
+                const key = this.generateKey(topic.name, partition);
+                this._producers.set(key, new Producer(this._client, this._logger, topic.name, partition));
+            }
+        });
     }
     
     public async publish(topic: string, event: EdaEvent): Promise<void>
@@ -57,38 +68,10 @@ export class RedisEventBus implements EventBus
         if (!this._manager.eventMap.has(event.name))
             return;
         
-        const compressedEvent = await this.compressEvent(event.serialize());
-        
         const partition = this._manager.mapToPartition(topic, event);
-        const writeIndex = await Make.retryWithDelay(async () =>
-        {
-            try 
-            {
-                return await this.incrementPartitionWriteIndex(topic, partition);    
-            }
-            catch (error)
-            {
-                await this._logger.logWarning(`Error while incrementing partition write index => Topic: ${topic}; Partition: ${partition};`);
-                await this._logger.logError(error);
-                throw error;
-            }
-            
-        }, 20, 1000)();
         
-        await Make.retryWithDelay(async () =>
-        {
-            try 
-            {
-                await this.storeEvent(topic, partition, writeIndex, compressedEvent);
-            }
-            catch (error)
-            {
-                await this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${topic}; Partition: ${partition}; WriteIndex: ${writeIndex};`);
-                await this._logger.logError(error);
-                throw error;
-            }
-            
-        }, 10, 500)();
+        const key = this.generateKey(topic, partition);
+        await this._producers.get(key)!.produce(event);
     }
     
     public async dispose(): Promise<void>
@@ -96,66 +79,18 @@ export class RedisEventBus implements EventBus
         if (!this._isDisposed)
         {
             this._isDisposed = true;
-            this._disposePromise = new Promise((resolve, _) => this._client.quit(() => resolve()));
+            // this._disposePromise = new Promise((resolve, _) => this._client.quit(() => resolve()));
+            this._disposePromise = Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
         }
 
-        return this._disposePromise as Promise<void>;
+        await this._disposePromise;
     }
     
-    private incrementPartitionWriteIndex(topic: string, partition: number): Promise<number>
+    private generateKey(topic: string, partition: number): string
     {
-        return new Promise((resolve, reject) =>
-        {
-            given(topic, "topic").ensureHasValue().ensureIsString();
-            given(partition, "partition").ensureHasValue().ensureIsNumber();
-            
-            const key = `${this._edaPrefix}-${topic}-${partition}-write-index`;
-            
-            this._client.incr(key, (err, val) =>
-            {
-                if (err)
-                {
-                    reject(err);
-                    return;
-                }
-
-                resolve(val);
-            });
-        });
-    }
-    
-    private storeEvent(topic: string, partition: number, writeIndex: number, eventData: string): Promise<void>
-    {
-        return new Promise((resolve, reject) =>
-        {
-            given(topic, "topic").ensureHasValue().ensureIsString();
-            given(partition, "partition").ensureHasValue().ensureIsNumber();
-            given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-            given(eventData, "eventData").ensureHasValue().ensureIsString();
-            
-            const key = `${this._edaPrefix}-${topic}-${partition}-${writeIndex}`;
-            const expirySeconds = 60 * 60 * 4;
-            
-            this._client.setex(key.trim(), expirySeconds, eventData, (err) =>
-            {
-                if (err)
-                {
-                    reject(err);
-                    return;
-                }
-
-                resolve();
-            });
-        });
-    }
-    
-    private async compressEvent(event: object): Promise<string>
-    {
-        given(event, "event").ensureHasValue().ensureIsObject();
+        given(topic, "topic").ensureHasValue().ensureIsString();
+        given(partition, "partition").ensureHasValue().ensureIsNumber();
         
-        const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
-            { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
-        
-        return compressed.toString("base64");
+        return `${topic}+++${partition}`;
     }
 }
