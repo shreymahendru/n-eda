@@ -3,8 +3,8 @@ import { EdaManager } from "../eda-manager";
 import { EdaEvent } from "../eda-event";
 import * as Redis from "redis";
 export declare class RedisEventBus implements EventBus {
-    private readonly _edaPrefix;
     private readonly _client;
+    private readonly _producers;
     private _isDisposed;
     private _disposePromise;
     private _manager;
@@ -13,7 +13,5 @@ export declare class RedisEventBus implements EventBus {
     initialize(manager: EdaManager): void;
     publish(topic: string, event: EdaEvent): Promise<void>;
     dispose(): Promise<void>;
-    private incrementPartitionWriteIndex;
-    private storeEvent;
-    private compressEvent;
+    private generateKey;
 }

@@ -16,14 +16,15 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 const event_registration_1 = require("./event-registration");
 const MurmurHash = require("murmurhash3js");
 class EdaManager {
-    constructor() {
+    constructor(container) {
         this._partitionKeyMapper = null;
         this._eventBusRegistered = false;
         this._eventSubMgrRegistered = false;
         this._consumerGroupId = null;
         this._isDisposed = false;
         this._isBootstrapped = false;
-        this._container = new n_ject_1.Container();
+        n_defensive_1.given(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
+        this._container = container !== null && container !== void 0 ? container : new n_ject_1.Container();
         this._topics = new Array();
         this._topicMap = new Map();
         this._eventMap = new Map();

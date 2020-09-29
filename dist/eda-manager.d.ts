@@ -1,4 +1,4 @@
-import { Registry, ServiceLocator, ComponentInstaller } from "@nivinjoseph/n-ject";
+import { Container, Registry, ServiceLocator, ComponentInstaller } from "@nivinjoseph/n-ject";
 import { EventBus } from "./event-bus";
 import { EventSubMgr } from "./event-sub-mgr";
 import { Disposable } from "@nivinjoseph/n-util";
@@ -24,7 +24,7 @@ export declare class EdaManager implements Disposable {
     get topics(): ReadonlyArray<Topic>;
     get eventMap(): ReadonlyMap<string, EventRegistration>;
     get consumerGroupId(): string | null;
-    constructor();
+    constructor(container?: Container);
     useInstaller(installer: ComponentInstaller): this;
     registerTopics(...topics: Topic[]): this;
     usePartitionKeyMapper(func: (event: EdaEvent) => string): this;

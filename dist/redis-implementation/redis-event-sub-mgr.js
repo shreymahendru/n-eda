@@ -70,8 +70,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
     dispose() {
         if (!this._isDisposed) {
             this._isDisposed = true;
-            this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()))
-                .then(() => new Promise((resolve, _) => this._client.quit(() => resolve())));
+            this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
         }
         return this._disposePromise;
     }
