@@ -45,7 +45,7 @@ let RedisEventBus = class RedisEventBus {
         this._manager.topics.forEach(topic => {
             for (let partition = 0; partition < topic.numPartitions; partition++) {
                 const key = this.generateKey(topic.name, partition);
-                this._producers.set(key, new producer_1.Producer(this._client, this._logger, topic.name, partition));
+                this._producers.set(key, new producer_1.Producer(this._client, this._logger, topic.name, topic.ttlMinutes, partition, this._manager.compressionEnabled));
             }
         });
     }

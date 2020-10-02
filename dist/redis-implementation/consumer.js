@@ -180,6 +180,9 @@ class Consumer {
     decompressEvent(eventData) {
         return __awaiter(this, void 0, void 0, function* () {
             n_defensive_1.given(eventData, "eventData").ensureHasValue().ensureIsString();
+            eventData = eventData.trim();
+            if (eventData.startsWith("{"))
+                return JSON.parse(eventData);
             const decompressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"), { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
             return JSON.parse(decompressed.toString("utf8"));
         });

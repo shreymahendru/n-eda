@@ -17,6 +17,7 @@ const event_registration_1 = require("./event-registration");
 const MurmurHash = require("murmurhash3js");
 class EdaManager {
     constructor(container) {
+        this._compressionEnabled = false;
         this._partitionKeyMapper = null;
         this._eventBusRegistered = false;
         this._eventSubMgrRegistered = false;
@@ -36,6 +37,7 @@ class EdaManager {
     get topics() { return this._topics; }
     get eventMap() { return this._eventMap; }
     get consumerGroupId() { return this._consumerGroupId; }
+    get compressionEnabled() { return this._compressionEnabled; }
     useInstaller(installer) {
         n_defensive_1.given(installer, "installer").ensureHasValue().ensureIsObject();
         n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
@@ -51,6 +53,11 @@ class EdaManager {
                 throw new n_exception_1.ApplicationException(`Multiple topics with the name '${name}' detected.`);
             this._topics.push(topic);
         }
+        return this;
+    }
+    enableCompression() {
+        n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._compressionEnabled = true;
         return this;
     }
     usePartitionKeyMapper(func) {

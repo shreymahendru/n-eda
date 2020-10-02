@@ -14,7 +14,7 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const Zlib = require("zlib");
 class Producer {
-    constructor(client, logger, topic, partition) {
+    constructor(client, logger, topic, ttlMinutes, partition, compress) {
         this._edaPrefix = "n-eda";
         this._mutex = new n_util_1.Mutex();
         n_defensive_1.given(client, "client").ensureHasValue().ensureIsObject();
@@ -23,8 +23,12 @@ class Producer {
         this._logger = logger;
         n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
         this._topic = topic;
+        n_defensive_1.given(ttlMinutes, "ttlMinutes").ensureHasValue().ensureIsNumber();
+        this._ttlMinutes = ttlMinutes;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
+        n_defensive_1.given(compress, "compress").ensureHasValue().ensureIsBoolean();
+        this._compress = compress;
     }
     produce(event) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -50,6 +54,8 @@ class Producer {
     compressEvent(event) {
         return __awaiter(this, void 0, void 0, function* () {
             n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
+            if (!this._compress)
+                return JSON.stringify(event);
             const compressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"), { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
             return compressed.toString("base64");
         });
@@ -91,7 +97,7 @@ class Producer {
             n_defensive_1.given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
             n_defensive_1.given(eventData, "eventData").ensureHasValue().ensureIsString();
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
-            const expirySeconds = 60 * 60 * 4;
+            const expirySeconds = this._ttlMinutes * 60;
             this._client.setex(key.trim(), expirySeconds, eventData, (err) => {
                 if (err) {
                     reject(err);

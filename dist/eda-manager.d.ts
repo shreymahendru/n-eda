@@ -11,6 +11,7 @@ export declare class EdaManager implements Disposable {
     private readonly _topics;
     private readonly _topicMap;
     private readonly _eventMap;
+    private _compressionEnabled;
     private _partitionKeyMapper;
     private _eventBusRegistered;
     private _eventSubMgrRegistered;
@@ -24,9 +25,11 @@ export declare class EdaManager implements Disposable {
     get topics(): ReadonlyArray<Topic>;
     get eventMap(): ReadonlyMap<string, EventRegistration>;
     get consumerGroupId(): string | null;
+    get compressionEnabled(): boolean;
     constructor(container?: Container);
     useInstaller(installer: ComponentInstaller): this;
     registerTopics(...topics: Topic[]): this;
+    enableCompression(): this;
     usePartitionKeyMapper(func: (event: EdaEvent) => string): this;
     registerEventHandlers<TClass extends new (...args: any[]) => EdaEventHandler<any>>(...eventHandlerClasses: TClass[]): this;
     registerEventBus<TClass extends new (...args: any[]) => EventBus>(eventBus: EventBus | TClass): this;
