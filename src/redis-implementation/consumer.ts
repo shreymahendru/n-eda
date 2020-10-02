@@ -262,6 +262,10 @@ export class Consumer implements Disposable
     private async decompressEvent(eventData: string): Promise<object>
     {
         given(eventData, "eventData").ensureHasValue().ensureIsString();
+        eventData = eventData.trim();
+        
+        if (eventData.startsWith("{"))
+            return JSON.parse(eventData);
         
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
             { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });

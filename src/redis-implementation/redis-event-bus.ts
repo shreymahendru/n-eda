@@ -44,7 +44,8 @@ export class RedisEventBus implements EventBus
             for (let partition = 0; partition < topic.numPartitions; partition++)
             {
                 const key = this.generateKey(topic.name, partition);
-                this._producers.set(key, new Producer(this._client, this._logger, topic.name, partition));
+                this._producers.set(key, new Producer(this._client, this._logger, topic.name, topic.ttlMinutes,
+                    partition, this._manager.compressionEnabled));
             }
         });
     }

@@ -12,11 +12,14 @@ export class Producer
     private readonly _client: Redis.RedisClient;
     private readonly _logger: Logger;
     private readonly _topic: string;
+    private readonly _ttlMinutes: number;
     private readonly _partition: number;
+    private readonly _compress: boolean;
     private readonly _mutex = new Mutex();
     
     
-    public constructor(client: Redis.RedisClient, logger: Logger, topic: string, partition: number)
+    public constructor(client: Redis.RedisClient, logger: Logger, topic: string, ttlMinutes: number,
+        partition: number, compress: boolean)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -26,9 +29,15 @@ export class Producer
 
         given(topic, "topic").ensureHasValue().ensureIsString();
         this._topic = topic;
+        
+        given(ttlMinutes, "ttlMinutes").ensureHasValue().ensureIsNumber();
+        this._ttlMinutes = ttlMinutes;
 
         given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
+        
+        given(compress, "compress").ensureHasValue().ensureIsBoolean();
+        this._compress = compress;
     }
     
     
@@ -63,6 +72,9 @@ export class Producer
     private async compressEvent(event: object): Promise<string>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
+        
+        if (!this._compress)
+            return JSON.stringify(event);
 
         const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
             { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
@@ -124,7 +136,8 @@ export class Producer
             given(eventData, "eventData").ensureHasValue().ensureIsString();
 
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
-            const expirySeconds = 60 * 60 * 4;
+            // const expirySeconds = 60 * 60 * 4;
+            const expirySeconds = this._ttlMinutes * 60;
 
             this._client.setex(key.trim(), expirySeconds, eventData, (err) =>
             {
