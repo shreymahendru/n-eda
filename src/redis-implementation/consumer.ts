@@ -126,7 +126,7 @@ export class Consumer implements Disposable
                 
                 try 
                 {
-                    await Make.retryWithDelay(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5, 500)();    
+                    await Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();    
                 }
                 catch (error)
                 {
