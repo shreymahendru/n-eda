@@ -85,7 +85,7 @@ class Consumer {
                         continue;
                     }
                     try {
-                        yield n_util_1.Make.retryWithDelay(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5, 500)();
+                        yield n_util_1.Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();
                     }
                     catch (error) {
                         yield this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
