@@ -240,7 +240,7 @@ export class Consumer implements Disposable
         catch (error)
         {
             await this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify((event as EdaEvent).serialize())}.`);
-            await this._logger.logWarning(error.toString());
+            await this._logger.logWarning(error);
             throw error;
         }
         finally
