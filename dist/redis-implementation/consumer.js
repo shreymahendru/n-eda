@@ -163,7 +163,7 @@ class Consumer {
             }
             catch (error) {
                 yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify(event.serialize())}.`);
-                yield this._logger.logWarning(error.toString());
+                yield this._logger.logWarning(error);
                 throw error;
             }
             finally {
