@@ -37,8 +37,8 @@ class Producer {
                 id: "string",
                 name: "string"
             });
-            const compressedEvent = yield this.compressEvent(event.serialize());
             const writeIndex = yield this.acquireWriteIndex();
+            const compressedEvent = yield this.compressEvent(event.serialize());
             yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
                 try {
                     yield this.storeEvent(writeIndex, compressedEvent);
