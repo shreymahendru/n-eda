@@ -49,9 +49,9 @@ export class Producer
                 name: "string"
             }); 
 
+        const writeIndex = await this.acquireWriteIndex();    
+        
         const compressedEvent = await this.compressEvent(event.serialize());
-
-        const writeIndex = await this.acquireWriteIndex();
 
         await Make.retryWithDelay(async () =>
         {
