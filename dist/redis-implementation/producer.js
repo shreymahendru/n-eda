@@ -30,25 +30,32 @@ class Producer {
         n_defensive_1.given(compress, "compress").ensureHasValue().ensureIsBoolean();
         this._compress = compress;
     }
-    produce(event) {
+    produce(...events) {
         return __awaiter(this, void 0, void 0, function* () {
-            n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject()
-                .ensureHasStructure({
-                id: "string",
-                name: "string"
-            });
-            const writeIndex = yield this.acquireWriteIndex();
-            const compressedEvent = yield this.compressEvent(event.serialize());
-            yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
-                try {
-                    yield this.storeEvent(writeIndex, compressedEvent);
-                }
-                catch (error) {
-                    yield this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${writeIndex};`);
-                    yield this._logger.logError(error);
-                    throw error;
-                }
-            }), 20, 1000)();
+            n_defensive_1.given(events, "events").ensureHasValue().ensureIsArray();
+            if (events.isEmpty)
+                return;
+            const upperBoundWriteIndex = yield this.acquireWriteIndex(events.length);
+            const lowerBoundWriteIndex = upperBoundWriteIndex - events.length;
+            const indexed = new Array();
+            for (let i = 1; i <= events.length; i++) {
+                const event = events[i];
+                const writeIndex = lowerBoundWriteIndex + i;
+                indexed.push({ index: writeIndex, event });
+            }
+            yield indexed.forEachAsync((t) => __awaiter(this, void 0, void 0, function* () {
+                const compressed = yield this.compressEvent(t.event.serialize());
+                yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                        yield this.storeEvent(t.index, compressed);
+                    }
+                    catch (error) {
+                        yield this._logger.logWarning(`Error while storing event of type ${t.event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
+                        yield this._logger.logError(error);
+                        throw error;
+                    }
+                }), 20, 1000)();
+            }));
         });
     }
     compressEvent(event) {
@@ -60,13 +67,13 @@ class Producer {
             return compressed.toString("base64");
         });
     }
-    acquireWriteIndex() {
+    acquireWriteIndex(incrBy) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this._mutex.lock();
             try {
                 return yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
                     try {
-                        return yield this.incrementPartitionWriteIndex();
+                        return yield this.incrementPartitionWriteIndex(incrBy);
                     }
                     catch (error) {
                         yield this._logger.logWarning(`Error while incrementing partition write index => Topic: ${this._topic}; Partition: ${this._partition};`);
@@ -80,10 +87,11 @@ class Producer {
             }
         });
     }
-    incrementPartitionWriteIndex() {
+    incrementPartitionWriteIndex(incrBy) {
         return new Promise((resolve, reject) => {
+            n_defensive_1.given(incrBy, "incrBy").ensureHasValue().ensureIsNumber().ensure(t => t > 0, "has to be > 0");
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
-            this._client.incr(key, (err, val) => {
+            this._client.incrby(key, incrBy, (err, val) => {
                 if (err) {
                     reject(err);
                     return;

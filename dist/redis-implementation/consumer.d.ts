@@ -22,6 +22,7 @@ export declare class Consumer implements Disposable {
     private getConsumerPartitionReadIndex;
     private incrementConsumerPartitionReadIndex;
     private retrieveEvent;
+    private retrieveEvents;
     private processEvent;
     private track;
     private decompressEvent;

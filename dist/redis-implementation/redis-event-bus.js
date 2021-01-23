@@ -49,7 +49,7 @@ let RedisEventBus = class RedisEventBus {
             }
         });
     }
-    publish(topic, event) {
+    publish(topic, ...events) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this._isDisposed)
                 throw new n_exception_1.ObjectDisposedException(this);
@@ -57,23 +57,25 @@ let RedisEventBus = class RedisEventBus {
                 .ensure(t => !!t._manager, "not initialized");
             n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString()
                 .ensure(t => this._manager.topics.some(u => u.name === t));
-            n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject()
-                .ensureHasStructure({
-                id: "string",
-                name: "string"
-            });
-            if (!this._manager.eventMap.has(event.name))
+            n_defensive_1.given(events, "events").ensureHasValue().ensureIsArray();
+            events.forEach(event => n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject()
+                .ensureHasStructure({ id: "string", name: "string" }));
+            events = events.where(event => this._manager.eventMap.has(event.name));
+            if (events.isEmpty)
                 return;
-            const partition = this._manager.mapToPartition(topic, event);
-            const key = this.generateKey(topic, partition);
-            yield this._producers.get(key).produce(event);
+            yield events.groupBy(event => this._manager.mapToPartition(topic, event).toString())
+                .forEachAsync((group) => __awaiter(this, void 0, void 0, function* () {
+                const partition = Number.parseInt(group.key);
+                const key = this.generateKey(topic, partition);
+                yield this._producers.get(key).produce(...group.values);
+            }));
         });
     }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
-                this._disposePromise = n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 20);
+                this._disposePromise = n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 15);
             }
             yield this._disposePromise;
         });

@@ -56,44 +56,49 @@ class Consumer {
                         yield n_util_1.Delay.seconds(1);
                         continue;
                     }
-                    const indexToRead = readIndex + 1;
-                    let eventData = yield this.retrieveEvent(indexToRead);
-                    let numReadAttempts = 1;
-                    const maxReadAttempts = 10;
-                    while (eventData == null && numReadAttempts < maxReadAttempts) {
-                        yield n_util_1.Delay.milliseconds(500);
-                        eventData = yield this.retrieveEvent(indexToRead);
-                        numReadAttempts++;
-                    }
-                    if (eventData == null) {
+                    const maxRead = 50;
+                    const lowerBoundReadIndex = readIndex + 1;
+                    const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
+                    const eventsData = yield this.retrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                    for (const item of eventsData) {
+                        let eventData = item.value;
+                        let numReadAttempts = 1;
+                        const maxReadAttempts = 10;
+                        while (eventData == null && numReadAttempts < maxReadAttempts) {
+                            yield n_util_1.Delay.milliseconds(500);
+                            eventData = yield this.retrieveEvent(item.index);
+                            numReadAttempts++;
+                        }
+                        if (eventData == null) {
+                            try {
+                                throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${item.index};`);
+                            }
+                            catch (error) {
+                                yield this._logger.logError(error);
+                            }
+                            yield this.incrementConsumerPartitionReadIndex();
+                            continue;
+                        }
+                        const event = yield this.decompressEvent(eventData);
+                        const eventId = event.$id || event.id;
+                        const eventName = event.$name || event.name;
+                        const eventRegistration = this._manager.eventMap.get(eventName);
+                        const deserializedEvent = n_util_1.Deserializer.deserialize(event);
+                        if (this._trackedIds.contains(eventId)) {
+                            yield this.incrementConsumerPartitionReadIndex();
+                            continue;
+                        }
                         try {
-                            throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${indexToRead};`);
+                            yield n_util_1.Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();
                         }
                         catch (error) {
+                            yield this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
                             yield this._logger.logError(error);
                         }
-                        yield this.incrementConsumerPartitionReadIndex();
-                        continue;
-                    }
-                    const event = yield this.decompressEvent(eventData);
-                    const eventId = event.$id || event.id;
-                    const eventName = event.$name || event.name;
-                    const eventRegistration = this._manager.eventMap.get(eventName);
-                    const deserializedEvent = n_util_1.Deserializer.deserialize(event);
-                    if (this._trackedIds.contains(eventId)) {
-                        yield this.incrementConsumerPartitionReadIndex();
-                        continue;
-                    }
-                    try {
-                        yield n_util_1.Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();
-                    }
-                    catch (error) {
-                        yield this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
-                        yield this._logger.logError(error);
-                    }
-                    finally {
-                        this.track(eventId);
-                        yield this.incrementConsumerPartitionReadIndex();
+                        finally {
+                            this.track(eventId);
+                            yield this.incrementConsumerPartitionReadIndex();
+                        }
                     }
                 }
                 catch (error) {
@@ -149,6 +154,29 @@ class Consumer {
                     return;
                 }
                 resolve(value);
+            });
+        });
+    }
+    retrieveEvents(lowerBoundIndex, upperBoundIndex) {
+        return new Promise((resolve, reject) => {
+            n_defensive_1.given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
+            n_defensive_1.given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
+            const keys = new Array();
+            for (let i = lowerBoundIndex; i <= upperBoundIndex; i++) {
+                const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${i}`;
+                keys.push({ index: i, key });
+            }
+            this._client.mget(...keys.map(t => t.key), (err, values) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                const result = values.map((t, index) => ({
+                    index: keys[index].index,
+                    key: keys[index].key,
+                    value: t
+                }));
+                resolve(result);
             });
         });
     }
