@@ -50,29 +50,59 @@ export class RedisEventBus implements EventBus
         });
     }
     
-    public async publish(topic: string, event: EdaEvent): Promise<void>
+    // public async publish(topic: string, event: EdaEvent): Promise<void>
+    // {
+    //     if (this._isDisposed)
+    //         throw new ObjectDisposedException(this);
+        
+    //     given(this, "this")
+    //         .ensure(t => !!t._manager, "not initialized");
+        
+    //     given(topic, "topic").ensureHasValue().ensureIsString()
+    //         .ensure(t => this._manager.topics.some(u => u.name === t));
+    //     given(event, "event").ensureHasValue().ensureIsObject()
+    //         .ensureHasStructure({
+    //             id: "string",
+    //             name: "string"
+    //         });       
+        
+    //     if (!this._manager.eventMap.has(event.name))
+    //         return;
+        
+    //     const partition = this._manager.mapToPartition(topic, event);
+        
+    //     const key = this.generateKey(topic, partition);
+    //     await this._producers.get(key)!.produce(event);
+    // }
+    
+    public async publish(topic: string, ...events: ReadonlyArray<EdaEvent>): Promise<void>
     {
         if (this._isDisposed)
             throw new ObjectDisposedException(this);
-        
+
         given(this, "this")
             .ensure(t => !!t._manager, "not initialized");
-        
+
         given(topic, "topic").ensureHasValue().ensureIsString()
             .ensure(t => this._manager.topics.some(u => u.name === t));
-        given(event, "event").ensureHasValue().ensureIsObject()
-            .ensureHasStructure({
-                id: "string",
-                name: "string"
-            });       
         
-        if (!this._manager.eventMap.has(event.name))
+        given(events, "events").ensureHasValue().ensureIsArray();
+        events.forEach(event =>
+            given(event, "event").ensureHasValue().ensureIsObject()
+                .ensureHasStructure({ id: "string", name: "string" }));
+
+        events = events.where(event => this._manager.eventMap.has(event.name));
+        
+        if (events.isEmpty)
             return;
         
-        const partition = this._manager.mapToPartition(topic, event);
-        
-        const key = this.generateKey(topic, partition);
-        await this._producers.get(key)!.produce(event);
+        await events.groupBy(event => this._manager.mapToPartition(topic, event).toString())
+            .forEachAsync(async (group) =>
+            {
+                const partition = Number.parseInt(group.key);
+                const key = this.generateKey(topic, partition);
+                await this._producers.get(key)!.produce(...group.values);
+            });
     }
     
     public async dispose(): Promise<void>
@@ -81,7 +111,7 @@ export class RedisEventBus implements EventBus
         {
             this._isDisposed = true;
             // this._disposePromise = new Promise((resolve, _) => this._client.quit(() => resolve()));
-            this._disposePromise = Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
+            this._disposePromise = Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 15);
         }
 
         await this._disposePromise;

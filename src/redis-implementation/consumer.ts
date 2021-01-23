@@ -84,59 +84,67 @@ export class Consumer implements Disposable
                     continue;
                 }
 
-                const indexToRead = readIndex + 1;
+                // const indexToRead = readIndex + 1;
+                const maxRead = 50;
+                const lowerBoundReadIndex = readIndex + 1;
+                const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
                 
-                let eventData = await this.retrieveEvent(indexToRead);
-                let numReadAttempts = 1;
-                const maxReadAttempts = 10;
-                while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
+                const eventsData = await this.retrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                for (const item of eventsData)
                 {
-                    await Delay.milliseconds(500);
-                    eventData = await this.retrieveEvent(indexToRead);
-                    numReadAttempts++;
-                }
-                
-                if (eventData == null)
-                {
+                    
+                    let eventData = item.value;
+                    let numReadAttempts = 1;
+                    const maxReadAttempts = 10;
+                    while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
+                    {
+                        await Delay.milliseconds(500);
+                        eventData = await this.retrieveEvent(item.index);
+                        numReadAttempts++;
+                    }
+
+                    if (eventData == null)
+                    {
+                        try 
+                        {
+                            throw new ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${item.index};`);
+                        }
+                        catch (error)
+                        {
+                            await this._logger.logError(error);
+                        }
+
+                        await this.incrementConsumerPartitionReadIndex();
+                        continue;
+                    }
+
+                    const event = await this.decompressEvent(eventData);
+                    const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
+                    const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
+                    const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
+                    // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
+                    const deserializedEvent = Deserializer.deserialize(event);
+
+                    if (this._trackedIds.contains(eventId))
+                    {
+                        await this.incrementConsumerPartitionReadIndex();
+                        continue;
+                    }
+
                     try 
                     {
-                        throw new ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${indexToRead};`);
+                        await Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();
                     }
                     catch (error)
                     {
+                        await this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
                         await this._logger.logError(error);
                     }
-                    
-                    await this.incrementConsumerPartitionReadIndex();
-                    continue;
-                }
-                
-                const event = await this.decompressEvent(eventData);
-                const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
-                const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
-                const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
-                // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
-                const deserializedEvent = Deserializer.deserialize(event);
-
-                if (this._trackedIds.contains(eventId))
-                {
-                    await this.incrementConsumerPartitionReadIndex();
-                    continue;
-                }
-                
-                try 
-                {
-                    await Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();    
-                }
-                catch (error)
-                {
-                    await this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
-                    await this._logger.logError(error);
-                }
-                finally
-                {
-                    this.track(eventId);
-                    await this.incrementConsumerPartitionReadIndex();
+                    finally
+                    {
+                        this.track(eventId);
+                        await this.incrementConsumerPartitionReadIndex();
+                    }
                 }
             }
             catch (error)
@@ -223,6 +231,41 @@ export class Consumer implements Disposable
             });
         });
     }
+    
+    private retrieveEvents(lowerBoundIndex: number, upperBoundIndex: number)
+        : Promise<Array<{ index: number; key: string; value: string }>>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
+            given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
+            
+            const keys = new Array<{ index: number; key: string; }>();
+            for (let i = lowerBoundIndex; i <= upperBoundIndex; i++)
+            {
+                const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${i}`;
+                keys.push({index: i, key});
+            }
+            
+            this._client.mget(...keys.map(t => t.key), (err, values) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+                
+                const result = values.map((t, index) => ({
+                    index: keys[index].index,
+                    key: keys[index].key,
+                    value: t
+                }));
+                
+                resolve(result);
+            });
+        });
+    }
+    
     
     private async processEvent(eventName: string, eventRegistration: EventRegistration, event: any): Promise<void>
     {
