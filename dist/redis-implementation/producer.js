@@ -38,9 +38,9 @@ class Producer {
             const upperBoundWriteIndex = yield this.acquireWriteIndex(events.length);
             const lowerBoundWriteIndex = upperBoundWriteIndex - events.length;
             const indexed = new Array();
-            for (let i = 1; i <= events.length; i++) {
+            for (let i = 0; i < events.length; i++) {
                 const event = events[i];
-                const writeIndex = lowerBoundWriteIndex + i;
+                const writeIndex = lowerBoundWriteIndex + i + 1;
                 indexed.push({ index: writeIndex, event });
             }
             yield indexed.forEachAsync((t) => __awaiter(this, void 0, void 0, function* () {
