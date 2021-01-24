@@ -80,10 +80,10 @@ export class Producer
         
         const indexed = new Array<{ index: number; event: EdaEvent }>();
         
-        for (let i = 1; i <= events.length; i++)
+        for (let i = 0; i < events.length; i++)
         {
             const event = events[i];
-            const writeIndex = lowerBoundWriteIndex + i;
+            const writeIndex = lowerBoundWriteIndex + i + 1;
             indexed.push({ index: writeIndex, event });
         }
         
