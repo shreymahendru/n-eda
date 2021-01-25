@@ -41,6 +41,9 @@ export class RedisEventBus implements EventBus
         
         this._manager.topics.forEach(topic =>
         {
+            if (topic.isDisabled)
+                return;
+            
             for (let partition = 0; partition < topic.numPartitions; partition++)
             {
                 const key = this.generateKey(topic.name, partition);
@@ -90,6 +93,10 @@ export class RedisEventBus implements EventBus
         events.forEach(event =>
             given(event, "event").ensureHasValue().ensureIsObject()
                 .ensureHasStructure({ id: "string", name: "string" }));
+        
+        const pubTopic = this._manager.topics.find(t => t.name === topic)!;
+        if (pubTopic.isDisabled)
+            return;
 
         events = events.where(event => this._manager.eventMap.has(event.name));
         

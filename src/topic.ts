@@ -8,8 +8,9 @@ export class Topic
     private readonly _name: string;
     private readonly _ttlMinutes: number;
     private readonly _numPartitions: number;
-    private readonly _publishOnly: boolean;
-    private readonly _partitionAffinity: ReadonlyArray<number> | null;
+    private _publishOnly: boolean = false;
+    private _partitionAffinity: ReadonlyArray<number> | null = null;
+    private _isDisabled: boolean = false;
     
     
     public get name(): string { return this._name; }
@@ -17,10 +18,10 @@ export class Topic
     public get numPartitions(): number { return this._numPartitions; }
     public get publishOnly(): boolean { return this._publishOnly; }
     public get partitionAffinity(): ReadonlyArray<number> | null { return this._partitionAffinity; }
+    public get isDisabled(): boolean { return this._isDisabled; }
     
     
-    public constructor(name: string, ttlMinutes: number, numPartitions: number, publishOnly?: boolean,
-        partitionAffinity?: string)
+    public constructor(name: string, ttlMinutes: number, numPartitions: number)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
@@ -30,33 +31,37 @@ export class Topic
         
         given(numPartitions, "numPartitions").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
         this._numPartitions = numPartitions;
-        
-        given(publishOnly as boolean, "publishOnly").ensureIsBoolean();
-        this._publishOnly = !!publishOnly;
-        
-        given(partitionAffinity as string, "partitionAffinity").ensureIsString()
+    }
+    
+    
+    public makePublishOnly(): this
+    {
+        this._publishOnly = true;
+        return this;
+    }
+    
+    public configurePartitionAffinity(partitionAffinity: string): this
+    {
+        given(partitionAffinity, "partitionAffinity").ensureHasValue().ensureIsString()
             .ensure(t => t.contains("-") && t.trim().split("-").length === 2 && t.trim().split("-")
                 .every(u => TypeHelper.parseNumber(u) != null), "invalid format");
-        
-        if (partitionAffinity != null)
-        {
-            const [lower, upper] = partitionAffinity.trim().split("-").map(t => Number.parseInt(t));
-            
-            if (lower < 0 || lower >= this._numPartitions || upper < 0 || upper >= this._numPartitions || upper > lower)
-                throw new ArgumentException("partitionAffinity", "invalid value");
-            
-            const partitions = new Array<number>();
-            for (let i = lower; i <= upper; i++)
-                partitions.push(i);
-            
-            this._partitionAffinity = partitions;
-        }
-        else
-            this._partitionAffinity = null;
-        
-        // given(partitionAffinity as ReadonlyArray<number>, "partitionAffinity").ensureIsArray()
-        //     .ensure(t => t.isNotEmpty)
-        //     .ensure(t => t.every(item => item >= 0 && item < this._numPartitions));
-        // this._partitionAffinity = partitionAffinity == null ? null : partitionAffinity;
+
+        const [lower, upper] = partitionAffinity.trim().split("-").map(t => Number.parseInt(t));
+
+        if (lower < 0 || lower >= this._numPartitions || upper < 0 || upper >= this._numPartitions || upper > lower)
+            throw new ArgumentException("partitionAffinity", "invalid value");
+
+        const partitions = new Array<number>();
+        for (let i = lower; i <= upper; i++)
+            partitions.push(i);
+
+        this._partitionAffinity = partitions;
+        return this;
+    }
+    
+    public disable(): this
+    {
+        this._isDisabled = true;
+        return this;
     }
 }
