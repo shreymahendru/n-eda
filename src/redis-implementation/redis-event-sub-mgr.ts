@@ -53,6 +53,9 @@ export class RedisEventSubMgr implements EventSubMgr
             
             this._manager.topics.forEach(topic =>
             {
+                if (topic.publishOnly)
+                    return;
+                
                 if (topic.partitionAffinity != null)
                 {
                     topic.partitionAffinity.forEach(partition =>
