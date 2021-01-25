@@ -20,9 +20,11 @@ export class EdaManager implements Disposable
     // private readonly _wildKeys: Array<string>;
     
     private _compressionEnabled = false;
+    private _metricsEnabled = false;
     private _partitionKeyMapper: (event: EdaEvent) => string = null as any;
     private _eventBusRegistered = false;
     private _eventSubMgrRegistered = false;
+    private _consumerName: string | null = null;
     private _consumerGroupId: string | null = null;
     private _isDisposed = false;
     private _isBootstrapped = false;
@@ -35,8 +37,10 @@ export class EdaManager implements Disposable
     public get serviceLocator(): ServiceLocator { return this._container; }
     public get topics(): ReadonlyArray<Topic> { return this._topics; }
     public get eventMap(): ReadonlyMap<string, EventRegistration> { return this._eventMap; }
+    public get consumerName(): string | null { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     public get compressionEnabled(): boolean { return this._compressionEnabled; }
+    public get metricsEnabled(): boolean { return this._metricsEnabled; }
     
     
     public constructor(container?: Container)
@@ -57,6 +61,15 @@ export class EdaManager implements Disposable
         given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
 
         this._container.install(installer);
+        return this;
+    }
+    
+    public useConsumerName(name: string): this
+    {
+        given(name, "name").ensureHasValue().ensureIsString();
+        given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        
+        this._consumerName = name;
         return this;
     }
     
@@ -82,6 +95,14 @@ export class EdaManager implements Disposable
         given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
         this._compressionEnabled = true;
         
+        return this;
+    }
+    
+    public enableMetrics(): this
+    {
+        given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._metricsEnabled = true;
+
         return this;
     }
     

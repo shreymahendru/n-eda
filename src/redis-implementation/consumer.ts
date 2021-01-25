@@ -1,4 +1,4 @@
-import { Disposable, Delay, Make, Deserializer } from "@nivinjoseph/n-util";
+import { Disposable, Delay, Make, Deserializer, Profiler } from "@nivinjoseph/n-util";
 import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { EdaManager } from "../eda-manager";
@@ -21,9 +21,15 @@ export class Consumer implements Disposable
     private readonly _partition: number;
     private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
     
+    private _eventCount = 0;
+    private _eventsProcessingTime = 0;
     private _isDisposed = false;
     private _trackedIds = new Array<string>();
     private _consumePromise: Promise<void> | null = null;
+    
+    
+    public get eventCount(): number { return this._eventCount; }
+    public get eventsProcessingTime(): number { return this._eventsProcessingTime; }
     
     
     public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number,
@@ -92,12 +98,19 @@ export class Consumer implements Disposable
                 const eventsData = await this.retrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                 for (const item of eventsData)
                 {
+                    if (this._isDisposed)
+                        return;
+                    
+                    const profiler = this._manager.metricsEnabled ? new Profiler() : null;
                     
                     let eventData = item.value;
                     let numReadAttempts = 1;
                     const maxReadAttempts = 10;
                     while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                     {
+                        if (this._isDisposed)
+                            return;
+                        
                         await Delay.milliseconds(500);
                         eventData = await this.retrieveEvent(item.index);
                         numReadAttempts++;
@@ -131,19 +144,39 @@ export class Consumer implements Disposable
                         continue;
                     }
 
+                    let failed = false;
                     try 
                     {
-                        await Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();
+                        await Make.retryWithExponentialBackoff(async () =>
+                        {
+                            if (this._isDisposed)
+                            {
+                                failed = true;
+                                return;
+                            }
+                            await this.processEvent(eventName, eventRegistration, deserializedEvent);
+                        }, 5)();
                     }
                     catch (error)
                     {
+                        failed = true;
                         await this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
                         await this._logger.logError(error);
                     }
                     finally
                     {
+                        if (failed && this._isDisposed)
+                            return;
+                        
                         this.track(eventId);
                         await this.incrementConsumerPartitionReadIndex();
+                        
+                        if (profiler)
+                        {
+                            this._eventCount++;
+                            profiler.trace("Event processed");
+                            this._eventsProcessingTime += profiler.traces[1].diffMs;
+                        }
                     }
                 }
             }
@@ -151,6 +184,8 @@ export class Consumer implements Disposable
             {
                 await this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
                 await this._logger.logError(error);
+                if (this._isDisposed)
+                    return;
                 await Delay.minutes(1);
             }
         }

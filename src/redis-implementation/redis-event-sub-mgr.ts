@@ -7,12 +7,14 @@ import { Delay } from "@nivinjoseph/n-util";
 import { ServiceLocator, inject } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { Logger } from "@nivinjoseph/n-log";
 
 // public
-@inject("RedisClient")
+@inject("RedisClient", "Logger")
 export class RedisEventSubMgr implements EventSubMgr
 {
     private readonly _client: Redis.RedisClient;
+    private readonly _logger: Logger;
     private readonly _consumers = new Array<Consumer>();
 
     private _isDisposed = false;
@@ -21,10 +23,13 @@ export class RedisEventSubMgr implements EventSubMgr
     private _isConsuming = false;
     
     
-    public constructor(redisClient: Redis.RedisClient)
+    public constructor(redisClient: Redis.RedisClient, logger: Logger)
     {
         given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
         this._client = redisClient;
+        
+        given(logger, "logger").ensureHasValue().ensureIsObject();
+        this._logger = logger;
     }
     
     
@@ -81,16 +86,30 @@ export class RedisEventSubMgr implements EventSubMgr
         }
     }
     
-    public dispose(): Promise<void>
+    public async dispose(): Promise<void>
     {
         if (!this._isDisposed)
         {
             this._isDisposed = true;
             
             this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
+            
+            if (this._manager.metricsEnabled)
+            {
+                await Delay.seconds(5);
+                
+                const totals = this._consumers.reduce((acc, t) =>
+                {
+                    acc.eventCount += t.eventCount;
+                    acc.eventsProcessingTime += t.eventsProcessingTime;
+                    return acc;
+                }, { eventCount: 0, eventsProcessingTime: 0 });    
+                
+                await this._logger.logInfo(`[EVENTS CONSUMER ${this._manager.consumerName ?? "UNKNOWN"}]:  Total events processed = ${totals.eventCount}; Total processing time = ${totals.eventsProcessingTime}; Average processing time per event = ${totals.eventsProcessingTime / totals.eventCount};`);
+            }
         }
 
-        return this._disposePromise as Promise<void>;
+        await this._disposePromise;
     }    
     
     
