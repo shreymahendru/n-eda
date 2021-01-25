@@ -53,7 +53,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
             if (!this._isConsuming) {
                 this._isConsuming = true;
                 this._manager.topics.forEach(topic => {
-                    if (topic.publishOnly)
+                    if (topic.isDisabled || topic.publishOnly)
                         return;
                     if (topic.partitionAffinity != null) {
                         topic.partitionAffinity.forEach(partition => this._consumers.push(new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this))));

@@ -43,6 +43,8 @@ let RedisEventBus = class RedisEventBus {
         this._manager = manager;
         this._logger = this._manager.serviceLocator.resolve("Logger");
         this._manager.topics.forEach(topic => {
+            if (topic.isDisabled)
+                return;
             for (let partition = 0; partition < topic.numPartitions; partition++) {
                 const key = this.generateKey(topic.name, partition);
                 this._producers.set(key, new producer_1.Producer(this._client, this._logger, topic.name, topic.ttlMinutes, partition, this._manager.compressionEnabled));
@@ -60,6 +62,9 @@ let RedisEventBus = class RedisEventBus {
             n_defensive_1.given(events, "events").ensureHasValue().ensureIsArray();
             events.forEach(event => n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject()
                 .ensureHasStructure({ id: "string", name: "string" }));
+            const pubTopic = this._manager.topics.find(t => t.name === topic);
+            if (pubTopic.isDisabled)
+                return;
             events = events.where(event => this._manager.eventMap.has(event.name));
             if (events.isEmpty)
                 return;

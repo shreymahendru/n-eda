@@ -2,12 +2,17 @@ export declare class Topic {
     private readonly _name;
     private readonly _ttlMinutes;
     private readonly _numPartitions;
-    private readonly _publishOnly;
-    private readonly _partitionAffinity;
+    private _publishOnly;
+    private _partitionAffinity;
+    private _isDisabled;
     get name(): string;
     get ttlMinutes(): number;
     get numPartitions(): number;
     get publishOnly(): boolean;
     get partitionAffinity(): ReadonlyArray<number> | null;
-    constructor(name: string, ttlMinutes: number, numPartitions: number, publishOnly?: boolean, partitionAffinity?: string);
+    get isDisabled(): boolean;
+    constructor(name: string, ttlMinutes: number, numPartitions: number);
+    makePublishOnly(): this;
+    configurePartitionAffinity(partitionAffinity: string): this;
+    disable(): this;
 }
