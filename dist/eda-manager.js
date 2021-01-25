@@ -18,9 +18,11 @@ const MurmurHash = require("murmurhash3js");
 class EdaManager {
     constructor(container) {
         this._compressionEnabled = false;
+        this._metricsEnabled = false;
         this._partitionKeyMapper = null;
         this._eventBusRegistered = false;
         this._eventSubMgrRegistered = false;
+        this._consumerName = null;
         this._consumerGroupId = null;
         this._isDisposed = false;
         this._isBootstrapped = false;
@@ -36,12 +38,20 @@ class EdaManager {
     get serviceLocator() { return this._container; }
     get topics() { return this._topics; }
     get eventMap() { return this._eventMap; }
+    get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
     get compressionEnabled() { return this._compressionEnabled; }
+    get metricsEnabled() { return this._metricsEnabled; }
     useInstaller(installer) {
         n_defensive_1.given(installer, "installer").ensureHasValue().ensureIsObject();
         n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
         this._container.install(installer);
+        return this;
+    }
+    useConsumerName(name) {
+        n_defensive_1.given(name, "name").ensureHasValue().ensureIsString();
+        n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._consumerName = name;
         return this;
     }
     registerTopics(...topics) {
@@ -58,6 +68,11 @@ class EdaManager {
     enableCompression() {
         n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
         this._compressionEnabled = true;
+        return this;
+    }
+    enableMetrics() {
+        n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._metricsEnabled = true;
         return this;
     }
     usePartitionKeyMapper(func) {

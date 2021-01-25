@@ -27,7 +27,7 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 let RedisEventSubMgr = class RedisEventSubMgr {
-    constructor(redisClient) {
+    constructor(redisClient, logger) {
         this._consumers = new Array();
         this._isDisposed = false;
         this._disposePromise = null;
@@ -35,6 +35,8 @@ let RedisEventSubMgr = class RedisEventSubMgr {
         this._isConsuming = false;
         n_defensive_1.given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
         this._client = redisClient;
+        n_defensive_1.given(logger, "logger").ensureHasValue().ensureIsObject();
+        this._logger = logger;
     }
     initialize(manager) {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
@@ -70,11 +72,23 @@ let RedisEventSubMgr = class RedisEventSubMgr {
         });
     }
     dispose() {
-        if (!this._isDisposed) {
-            this._isDisposed = true;
-            this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
-        }
-        return this._disposePromise;
+        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this._isDisposed) {
+                this._isDisposed = true;
+                this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
+                if (this._manager.metricsEnabled) {
+                    yield n_util_1.Delay.seconds(5);
+                    const totals = this._consumers.reduce((acc, t) => {
+                        acc.eventCount += t.eventCount;
+                        acc.eventsProcessingTime += t.eventsProcessingTime;
+                        return acc;
+                    }, { eventCount: 0, eventsProcessingTime: 0 });
+                    yield this._logger.logInfo(`[EVENTS CONSUMER ${(_a = this._manager.consumerName) !== null && _a !== void 0 ? _a : "UNKNOWN"}]:  Total events processed = ${totals.eventCount}; Total processing time = ${totals.eventsProcessingTime}; Average processing time per event = ${totals.eventsProcessingTime / totals.eventCount};`);
+                }
+            }
+            yield this._disposePromise;
+        });
     }
     onEventReceived(scope, topic, event) {
         n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
@@ -83,8 +97,8 @@ let RedisEventSubMgr = class RedisEventSubMgr {
     }
 };
 RedisEventSubMgr = __decorate([
-    n_ject_1.inject("RedisClient"),
-    __metadata("design:paramtypes", [Redis.RedisClient])
+    n_ject_1.inject("RedisClient", "Logger"),
+    __metadata("design:paramtypes", [Redis.RedisClient, Object])
 ], RedisEventSubMgr);
 exports.RedisEventSubMgr = RedisEventSubMgr;
 //# sourceMappingURL=redis-event-sub-mgr.js.map

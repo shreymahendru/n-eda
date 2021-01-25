@@ -12,9 +12,11 @@ export declare class EdaManager implements Disposable {
     private readonly _topicMap;
     private readonly _eventMap;
     private _compressionEnabled;
+    private _metricsEnabled;
     private _partitionKeyMapper;
     private _eventBusRegistered;
     private _eventSubMgrRegistered;
+    private _consumerName;
     private _consumerGroupId;
     private _isDisposed;
     private _isBootstrapped;
@@ -24,12 +26,16 @@ export declare class EdaManager implements Disposable {
     get serviceLocator(): ServiceLocator;
     get topics(): ReadonlyArray<Topic>;
     get eventMap(): ReadonlyMap<string, EventRegistration>;
+    get consumerName(): string | null;
     get consumerGroupId(): string | null;
     get compressionEnabled(): boolean;
+    get metricsEnabled(): boolean;
     constructor(container?: Container);
     useInstaller(installer: ComponentInstaller): this;
+    useConsumerName(name: string): this;
     registerTopics(...topics: Topic[]): this;
     enableCompression(): this;
+    enableMetrics(): this;
     usePartitionKeyMapper(func: (event: EdaEvent) => string): this;
     registerEventHandlers<TClass extends new (...args: any[]) => EdaEventHandler<any>>(...eventHandlerClasses: TClass[]): this;
     registerEventBus<TClass extends new (...args: any[]) => EventBus>(eventBus: EventBus | TClass): this;

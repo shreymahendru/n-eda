@@ -18,6 +18,8 @@ const Zlib = require("zlib");
 class Consumer {
     constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
+        this._eventCount = 0;
+        this._eventsProcessingTime = 0;
         this._isDisposed = false;
         this._trackedIds = new Array();
         this._consumePromise = null;
@@ -33,6 +35,8 @@ class Consumer {
         n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
         this._onEventReceived = onEventReceived;
     }
+    get eventCount() { return this._eventCount; }
+    get eventsProcessingTime() { return this._eventsProcessingTime; }
     consume() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
@@ -61,10 +65,15 @@ class Consumer {
                     const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
                     const eventsData = yield this.retrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                     for (const item of eventsData) {
+                        if (this._isDisposed)
+                            return;
+                        const profiler = this._manager.metricsEnabled ? new n_util_1.Profiler() : null;
                         let eventData = item.value;
                         let numReadAttempts = 1;
                         const maxReadAttempts = 10;
                         while (eventData == null && numReadAttempts < maxReadAttempts) {
+                            if (this._isDisposed)
+                                return;
                             yield n_util_1.Delay.milliseconds(500);
                             eventData = yield this.retrieveEvent(item.index);
                             numReadAttempts++;
@@ -88,22 +97,39 @@ class Consumer {
                             yield this.incrementConsumerPartitionReadIndex();
                             continue;
                         }
+                        let failed = false;
                         try {
-                            yield n_util_1.Make.retryWithExponentialBackoff(() => this.processEvent(eventName, eventRegistration, deserializedEvent), 5)();
+                            yield n_util_1.Make.retryWithExponentialBackoff(() => __awaiter(this, void 0, void 0, function* () {
+                                if (this._isDisposed) {
+                                    failed = true;
+                                    return;
+                                }
+                                yield this.processEvent(eventName, eventRegistration, deserializedEvent);
+                            }), 5)();
                         }
                         catch (error) {
+                            failed = true;
                             yield this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
                             yield this._logger.logError(error);
                         }
                         finally {
+                            if (failed && this._isDisposed)
+                                return;
                             this.track(eventId);
                             yield this.incrementConsumerPartitionReadIndex();
+                            if (profiler) {
+                                this._eventCount++;
+                                profiler.trace("Event processed");
+                                this._eventsProcessingTime += profiler.traces[1].diffMs;
+                            }
                         }
                     }
                 }
                 catch (error) {
                     yield this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
                     yield this._logger.logError(error);
+                    if (this._isDisposed)
+                        return;
                     yield n_util_1.Delay.minutes(1);
                 }
             }
