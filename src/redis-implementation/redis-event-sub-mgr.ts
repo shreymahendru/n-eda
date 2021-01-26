@@ -99,12 +99,9 @@ export class RedisEventSubMgr implements EventSubMgr
             {
                 await Delay.seconds(2);
                 
-                const allTraces = this._consumers.reduce((acc, t, index) =>
-                {
-                    if (index === 0)
-                        return acc;
-                    
-                    acc.push(...t.profiler!.traces);
+                const allTraces = this._consumers.reduce((acc, t) =>
+                {  
+                    acc.push(...t.profiler!.traces.skip(1));
                     return acc;
                 }, new Array<ProfilerTrace>());
                 
@@ -150,7 +147,7 @@ export class RedisEventSubMgr implements EventSubMgr
                 //     return acc;
                 // }, { eventCount: 0, eventsProcessingTime: 0 });    
                 
-                console.log(`[EVENTS CONSUMER ${this._manager.consumerName ?? "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : totalEventAverage / groupCount};`);
+                console.log(`[EVENTS CONSUMER ${this._manager.consumerName ?? "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : Math.floor(totalEventAverage / groupCount)};`);
                 
                 // const padConstant = groups.map(t => t.key).orderByDesc(t => t.length)[0]?.length ?? 15;
                 // const leftPad = (val: any) =>
