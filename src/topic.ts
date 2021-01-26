@@ -48,7 +48,7 @@ export class Topic
 
         const [lower, upper] = partitionAffinity.trim().split("-").map(t => Number.parseInt(t));
 
-        if (lower < 0 || lower >= this._numPartitions || upper < 0 || upper >= this._numPartitions || upper > lower)
+        if (lower < 0 || lower >= this._numPartitions || upper < 0 || upper >= this._numPartitions || upper < lower)
             throw new ArgumentException("partitionAffinity", "invalid value");
 
         const partitions = new Array<number>();
