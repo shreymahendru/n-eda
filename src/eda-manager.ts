@@ -24,7 +24,7 @@ export class EdaManager implements Disposable
     private _partitionKeyMapper: (event: EdaEvent) => string = null as any;
     private _eventBusRegistered = false;
     private _eventSubMgrRegistered = false;
-    private _consumerName: string | null = null;
+    private _consumerName: string = "UNNAMED";
     private _consumerGroupId: string | null = null;
     private _isDisposed = false;
     private _isBootstrapped = false;
@@ -37,7 +37,7 @@ export class EdaManager implements Disposable
     public get serviceLocator(): ServiceLocator { return this._container; }
     public get topics(): ReadonlyArray<Topic> { return this._topics; }
     public get eventMap(): ReadonlyMap<string, EventRegistration> { return this._eventMap; }
-    public get consumerName(): string | null { return this._consumerName; }
+    public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     public get compressionEnabled(): boolean { return this._compressionEnabled; }
     public get metricsEnabled(): boolean { return this._metricsEnabled; }

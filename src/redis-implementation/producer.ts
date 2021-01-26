@@ -75,27 +75,25 @@ export class Producer
         if (events.isEmpty)
             return;
 
+        const indexed = await events.mapAsync(async (t) => ({
+            index: 0,
+            event: t,
+            compressed: await this.compressEvent((t).serialize())
+        }));
+        
         const upperBoundWriteIndex = await this.acquireWriteIndex(events.length);
         const lowerBoundWriteIndex = upperBoundWriteIndex - events.length;
         
-        const indexed = new Array<{ index: number; event: EdaEvent }>();
-        
         for (let i = 0; i < events.length; i++)
-        {
-            const event = events[i];
-            const writeIndex = lowerBoundWriteIndex + i + 1;
-            indexed.push({ index: writeIndex, event });
-        }
+            indexed[i].index = lowerBoundWriteIndex + i + 1;
         
         await indexed.forEachAsync(async (t) =>
-        {
-            const compressed = await this.compressEvent((t.event as EdaEvent).serialize());
-                
+        {    
             await Make.retryWithDelay(async () =>
             {
                 try 
                 {
-                    await this.storeEvent(t.index, compressed);
+                    await this.storeEvent(t.index, t.compressed);
                 }
                 catch (error)
                 {
@@ -103,7 +101,7 @@ export class Producer
                     await this._logger.logError(error);
                     throw error;
                 }
-            }, 20, 1000)();
+            }, 20, 500)();
         });
     }
     
