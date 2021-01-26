@@ -3,7 +3,7 @@ import { EdaManager } from "../eda-manager";
 import * as Redis from "redis";
 import { given } from "@nivinjoseph/n-defensive";
 import { Consumer } from "./consumer";
-import { Delay, Make, ProfilerTrace } from "@nivinjoseph/n-util";
+import { Delay, ProfilerTrace } from "@nivinjoseph/n-util";
 import { ServiceLocator, inject } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
