@@ -152,26 +152,28 @@ export class RedisEventSubMgr implements EventSubMgr
                 
                 console.log(`[EVENTS CONSUMER ${this._manager.consumerName ?? "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : totalEventAverage / groupCount};`);
                 
-                const padConstant = groups.map(t => t.key).orderByDesc(t => t.length)[0]?.length ?? 15;
-                const leftPad = (val: any) =>
-                {
-                    if (val == null)
-                        return "UNKNOWN";
+                // const padConstant = groups.map(t => t.key).orderByDesc(t => t.length)[0]?.length ?? 15;
+                // const leftPad = (val: any) =>
+                // {
+                //     if (val == null)
+                //         return "UNKNOWN";
                     
-                    const v = val.toString().trim() as string;
-                    if (v.length >= padConstant)
-                        return v;
-                    else
-                    {
-                        let padding = "";
-                        Make.loop((_) => padding += " ", padConstant - v.length);
-                        return padding + v;
-                    }
-                };
+                //     const v = val.toString().trim() as string;
+                //     if (v.length >= padConstant)
+                //         return v;
+                //     else
+                //     {
+                //         let padding = "";
+                //         Make.loop((_) => padding += " ", padConstant - v.length);
+                //         return padding + v;
+                //     }
+                // };
                 
-                console.log(leftPad("name"), leftPad("count"), leftPad("totalPT"), leftPad("averagePT"), leftPad("minPT"), leftPad("maxPT"), leftPad("medianPT"));
-                messages.forEach((message) =>
-                    console.log(leftPad(message.name), leftPad(message.count), leftPad(message.totalPT), leftPad(message.averagePT), leftPad(message.minPT), leftPad(message.maxPT), leftPad(message.medianPT)));
+                // console.log(leftPad("name"), leftPad("count"), leftPad("totalPT"), leftPad("averagePT"), leftPad("minPT"), leftPad("maxPT"), leftPad("medianPT"));
+                // messages.forEach((message) =>
+                //     console.log(leftPad(message.name), leftPad(message.count), leftPad(message.totalPT), leftPad(message.averagePT), leftPad(message.minPT), leftPad(message.maxPT), leftPad(message.medianPT)));
+                    
+                console.table(messages);
             }
         }
 
