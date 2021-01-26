@@ -79,10 +79,8 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                 this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
                 if (this._manager.metricsEnabled) {
                     yield n_util_1.Delay.seconds(2);
-                    const allTraces = this._consumers.reduce((acc, t, index) => {
-                        if (index === 0)
-                            return acc;
-                        acc.push(...t.profiler.traces);
+                    const allTraces = this._consumers.reduce((acc, t) => {
+                        acc.push(...t.profiler.traces.skip(1));
                         return acc;
                     }, new Array());
                     let totalEventCount = 0;
@@ -112,7 +110,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                                 : diffs[Math.floor(diffs.length / 2) - 1]
                         });
                     });
-                    console.log(`[EVENTS CONSUMER ${(_a = this._manager.consumerName) !== null && _a !== void 0 ? _a : "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : totalEventAverage / groupCount};`);
+                    console.log(`[EVENTS CONSUMER ${(_a = this._manager.consumerName) !== null && _a !== void 0 ? _a : "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : Math.floor(totalEventAverage / groupCount)};`);
                     console.table(messages);
                 }
             }
