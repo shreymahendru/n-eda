@@ -112,9 +112,10 @@ export class RedisEventSubMgr implements EventSubMgr
                 let totalEventsProcessingTime = 0;
                 let groupCount = 0;
                 let totalEventAverage = 0;
-                const messages = new Array<any>();
+                const messages = new Array<{ name: string; count: number; totalPT: number; averagePT: number; minPT: number; maxPT: number; medianPT: number}>();
                 
-                allTraces.groupBy(t => t.message).forEach((group) =>
+                const groups = allTraces.groupBy(t => t.message);
+                groups.forEach((group) =>
                 {
                     const eventCount = group.values.length;
                     const eventsProcessingTime = group.values.reduce((acc, t) => acc + t.diffMs, 0);
@@ -133,11 +134,11 @@ export class RedisEventSubMgr implements EventSubMgr
                         name: group.key,
                         count: eventCount,
                         totalPT: eventsProcessingTime,
-                        averagePT: eventAverage,
+                        averagePT: Math.floor(eventAverage),
                         minPT: Math.min(...diffs),
                         maxPT: Math.max(...diffs),
                         medianPT: group.values.length % 2 === 0
-                            ? (diffs[(diffs.length / 2) - 1] + diffs[diffs.length / 2]) / 2
+                            ? Math.floor((diffs[(diffs.length / 2) - 1] + diffs[diffs.length / 2]) / 2)
                             : diffs[Math.floor(diffs.length / 2) - 1]
                     });
                 });
@@ -149,28 +150,28 @@ export class RedisEventSubMgr implements EventSubMgr
                 //     return acc;
                 // }, { eventCount: 0, eventsProcessingTime: 0 });    
                 
-      
+                console.log(`[EVENTS CONSUMER ${this._manager.consumerName ?? "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : totalEventAverage / groupCount};`);
                 
-                console.log(`[EVENTS CONSUMER ${this._manager.consumerName ?? "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${totalEventAverage / groupCount};`);
-                
-                const leftPad = (val: any, pad: number = 15) =>
+                const padConstant = groups.map(t => t.key).orderByDesc(t => t.length)[0]?.length ?? 15;
+                const leftPad = (val: any) =>
                 {
+                    if (val == null)
+                        return "UNKNOWN";
+                    
                     const v = val.toString().trim() as string;
-                    if (v.length >= pad)
+                    if (v.length >= padConstant)
                         return v;
                     else
                     {
                         let padding = "";
-                        Make.loop((_) => padding += " ", pad - v.length);
+                        Make.loop((_) => padding += " ", padConstant - v.length);
                         return padding + v;
                     }
                 };
                 
                 console.log(leftPad("name"), leftPad("count"), leftPad("totalPT"), leftPad("averagePT"), leftPad("minPT"), leftPad("maxPT"), leftPad("medianPT"));
                 messages.forEach((message) =>
-                {
-                    console.log(leftPad(message.name), leftPad(message.count), leftPad(message.totalPT), leftPad(message.averagePT), leftPad(message.minPT), leftPad(message.maxPT), leftPad(message.medianPT));
-                });
+                    console.log(leftPad(message.name), leftPad(message.count), leftPad(message.totalPT), leftPad(message.averagePT), leftPad(message.minPT), leftPad(message.maxPT), leftPad(message.medianPT)));
             }
         }
 
