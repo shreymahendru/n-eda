@@ -15,20 +15,20 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const Zlib = require("zlib");
+const consumer_profiler_1 = require("./consumer-profiler");
 class Consumer {
     constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
-        this._profiler = null;
         this._isDisposed = false;
-        this._trackedIds = new Array();
+        this._trackedIdsSet = new Set();
+        this._trackedIdsArray = new Array();
         this._consumePromise = null;
         n_defensive_1.given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
         this._manager = manager;
         this._logger = this._manager.serviceLocator.resolve("Logger");
-        if (this._manager.metricsEnabled)
-            this._profiler = new n_util_1.Profiler();
+        this._profiler = new consumer_profiler_1.ConsumerProfiler(this._manager.metricsEnabled);
         n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
         this._topic = topic;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
@@ -54,8 +54,12 @@ class Consumer {
                 if (this._isDisposed)
                     return;
                 try {
-                    const writeIndex = yield this.getPartitionWriteIndex();
-                    const readIndex = yield this.getConsumerPartitionReadIndex();
+                    this._profiler.fetchPartitionWriteIndexStarted();
+                    const writeIndex = yield this.fetchPartitionWriteIndex();
+                    this._profiler.fetchPartitionWriteIndexEnded();
+                    this._profiler.fetchConsumerPartitionReadIndexStarted();
+                    const readIndex = yield this.fetchConsumerPartitionReadIndex();
+                    this._profiler.fetchConsumerPartitionReadIndexEnded();
                     if (readIndex >= writeIndex) {
                         yield n_util_1.Delay.seconds(1);
                         continue;
@@ -63,7 +67,9 @@ class Consumer {
                     const maxRead = 50;
                     const lowerBoundReadIndex = readIndex + 1;
                     const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
-                    const eventsData = yield this.retrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                    this._profiler.batchRetrieveEventsStarted();
+                    const eventsData = yield this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                    this._profiler.batchRetrieveEventsEnded();
                     for (const item of eventsData) {
                         if (this._isDisposed)
                             return;
@@ -73,8 +79,10 @@ class Consumer {
                         while (eventData == null && numReadAttempts < maxReadAttempts) {
                             if (this._isDisposed)
                                 return;
-                            yield n_util_1.Delay.milliseconds(500);
+                            yield n_util_1.Delay.milliseconds(100);
+                            this._profiler.retrieveEventStarted();
                             eventData = yield this.retrieveEvent(item.index);
+                            this._profiler.retrieveEventEnded();
                             numReadAttempts++;
                         }
                         if (eventData == null) {
@@ -84,30 +92,47 @@ class Consumer {
                             catch (error) {
                                 yield this._logger.logError(error);
                             }
+                            this._profiler.incrementConsumerPartitionReadIndexStarted();
                             yield this.incrementConsumerPartitionReadIndex();
+                            this._profiler.incrementConsumerPartitionReadIndexEnded();
                             continue;
                         }
+                        this._profiler.decompressEventStarted();
                         const event = yield this.decompressEvent(eventData);
+                        this._profiler.decompressEventEnded();
                         const eventId = event.$id || event.id;
                         const eventName = event.$name || event.name;
                         const eventRegistration = this._manager.eventMap.get(eventName);
+                        this._profiler.deserializeEventStarted();
                         const deserializedEvent = n_util_1.Deserializer.deserialize(event);
-                        if (this._trackedIds.contains(eventId)) {
+                        this._profiler.deserializeEventEnded();
+                        if (this._trackedIdsSet.has(eventId)) {
+                            this._profiler.incrementConsumerPartitionReadIndexStarted();
                             yield this.incrementConsumerPartitionReadIndex();
+                            this._profiler.incrementConsumerPartitionReadIndexEnded();
                             continue;
                         }
                         let failed = false;
                         try {
+                            this._profiler.eventProcessingStarted(eventName, eventId);
                             yield n_util_1.Make.retryWithExponentialBackoff(() => __awaiter(this, void 0, void 0, function* () {
                                 if (this._isDisposed) {
                                     failed = true;
                                     return;
                                 }
-                                yield this.processEvent(eventName, eventRegistration, deserializedEvent);
+                                try {
+                                    yield this.processEvent(eventName, eventRegistration, deserializedEvent);
+                                }
+                                catch (error) {
+                                    this._profiler.eventRetried(eventName);
+                                    throw error;
+                                }
                             }), 5)();
+                            this._profiler.eventProcessingEnded(eventName, eventId);
                         }
                         catch (error) {
                             failed = true;
+                            this._profiler.eventFailed(eventName);
                             yield this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
                             yield this._logger.logError(error);
                         }
@@ -115,10 +140,9 @@ class Consumer {
                             if (failed && this._isDisposed)
                                 return;
                             this.track(eventId);
+                            this._profiler.incrementConsumerPartitionReadIndexStarted();
                             yield this.incrementConsumerPartitionReadIndex();
-                            if (this._profiler) {
-                                this._profiler.trace(eventName);
-                            }
+                            this._profiler.incrementConsumerPartitionReadIndexEnded();
                         }
                     }
                 }
@@ -132,7 +156,7 @@ class Consumer {
             }
         });
     }
-    getPartitionWriteIndex() {
+    fetchPartitionWriteIndex() {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
         return new Promise((resolve, reject) => {
             this._client.get(key, (err, value) => {
@@ -144,7 +168,7 @@ class Consumer {
             });
         });
     }
-    getConsumerPartitionReadIndex() {
+    fetchConsumerPartitionReadIndex() {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         return new Promise((resolve, reject) => {
             this._client.get(key, (err, value) => {
@@ -180,7 +204,7 @@ class Consumer {
             });
         });
     }
-    retrieveEvents(lowerBoundIndex, upperBoundIndex) {
+    batchRetrieveEvents(lowerBoundIndex, upperBoundIndex) {
         return new Promise((resolve, reject) => {
             n_defensive_1.given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
             n_defensive_1.given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
@@ -224,9 +248,12 @@ class Consumer {
     }
     track(eventId) {
         n_defensive_1.given(eventId, "eventId").ensureHasValue().ensureIsString();
-        if (this._trackedIds.length >= 500)
-            this._trackedIds = this._trackedIds.skip(200);
-        this._trackedIds.push(eventId);
+        if (this._trackedIdsArray.length >= 300) {
+            this._trackedIdsArray = this._trackedIdsArray.skip(200);
+            this._trackedIdsSet = new Set(this._trackedIdsArray);
+        }
+        this._trackedIdsArray.push(eventId);
+        this._trackedIdsSet.add(eventId);
     }
     decompressEvent(eventData) {
         return __awaiter(this, void 0, void 0, function* () {

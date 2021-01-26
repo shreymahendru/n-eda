@@ -22,7 +22,7 @@ class EdaManager {
         this._partitionKeyMapper = null;
         this._eventBusRegistered = false;
         this._eventSubMgrRegistered = false;
-        this._consumerName = null;
+        this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
         this._isDisposed = false;
         this._isBootstrapped = false;

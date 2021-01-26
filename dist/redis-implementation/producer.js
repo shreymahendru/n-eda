@@ -35,26 +35,28 @@ class Producer {
             n_defensive_1.given(events, "events").ensureHasValue().ensureIsArray();
             if (events.isEmpty)
                 return;
+            const indexed = yield events.mapAsync((t) => __awaiter(this, void 0, void 0, function* () {
+                return ({
+                    index: 0,
+                    event: t,
+                    compressed: yield this.compressEvent((t).serialize())
+                });
+            }));
             const upperBoundWriteIndex = yield this.acquireWriteIndex(events.length);
             const lowerBoundWriteIndex = upperBoundWriteIndex - events.length;
-            const indexed = new Array();
-            for (let i = 0; i < events.length; i++) {
-                const event = events[i];
-                const writeIndex = lowerBoundWriteIndex + i + 1;
-                indexed.push({ index: writeIndex, event });
-            }
+            for (let i = 0; i < events.length; i++)
+                indexed[i].index = lowerBoundWriteIndex + i + 1;
             yield indexed.forEachAsync((t) => __awaiter(this, void 0, void 0, function* () {
-                const compressed = yield this.compressEvent(t.event.serialize());
                 yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
                     try {
-                        yield this.storeEvent(t.index, compressed);
+                        yield this.storeEvent(t.index, t.compressed);
                     }
                     catch (error) {
                         yield this._logger.logWarning(`Error while storing event of type ${t.event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
                         yield this._logger.logError(error);
                         throw error;
                     }
-                }), 20, 1000)();
+                }), 20, 500)();
             }));
         });
     }

@@ -26,6 +26,7 @@ const consumer_1 = require("./consumer");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
+const consumer_profiler_1 = require("./consumer-profiler");
 let RedisEventSubMgr = class RedisEventSubMgr {
     constructor(redisClient, logger) {
         this._consumers = new Array();
@@ -72,46 +73,13 @@ let RedisEventSubMgr = class RedisEventSubMgr {
         });
     }
     dispose() {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
                 this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
                 if (this._manager.metricsEnabled) {
                     yield n_util_1.Delay.seconds(2);
-                    const allTraces = this._consumers.reduce((acc, t) => {
-                        acc.push(...t.profiler.traces.skip(1));
-                        return acc;
-                    }, new Array());
-                    let totalEventCount = 0;
-                    let totalEventsProcessingTime = 0;
-                    let groupCount = 0;
-                    let totalEventAverage = 0;
-                    const messages = new Array();
-                    const groups = allTraces.groupBy(t => t.message);
-                    groups.forEach((group) => {
-                        const eventCount = group.values.length;
-                        const eventsProcessingTime = group.values.reduce((acc, t) => acc + t.diffMs, 0);
-                        const eventAverage = eventsProcessingTime / eventCount;
-                        totalEventCount += eventCount;
-                        totalEventsProcessingTime += eventsProcessingTime;
-                        totalEventAverage += eventAverage;
-                        groupCount++;
-                        const diffs = group.values.map(t => t.diffMs).orderBy();
-                        messages.push({
-                            name: group.key,
-                            count: eventCount,
-                            totalPT: eventsProcessingTime,
-                            averagePT: Math.floor(eventAverage),
-                            minPT: Math.min(...diffs),
-                            maxPT: Math.max(...diffs),
-                            medianPT: group.values.length % 2 === 0
-                                ? Math.floor((diffs[(diffs.length / 2) - 1] + diffs[diffs.length / 2]) / 2)
-                                : diffs[Math.floor(diffs.length / 2) - 1]
-                        });
-                    });
-                    console.log(`[EVENTS CONSUMER ${(_a = this._manager.consumerName) !== null && _a !== void 0 ? _a : "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : Math.floor(totalEventAverage / groupCount)};`);
-                    console.table(messages);
+                    consumer_profiler_1.ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => t.profiler));
                 }
             }
             yield this._disposePromise;

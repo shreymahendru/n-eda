@@ -26,7 +26,7 @@ export declare class EdaManager implements Disposable {
     get serviceLocator(): ServiceLocator;
     get topics(): ReadonlyArray<Topic>;
     get eventMap(): ReadonlyMap<string, EventRegistration>;
-    get consumerName(): string | null;
+    get consumerName(): string;
     get consumerGroupId(): string | null;
     get compressionEnabled(): boolean;
     get metricsEnabled(): boolean;
