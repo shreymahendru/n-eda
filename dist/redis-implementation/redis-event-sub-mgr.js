@@ -78,13 +78,54 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                 this._isDisposed = true;
                 this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
                 if (this._manager.metricsEnabled) {
-                    yield n_util_1.Delay.seconds(5);
-                    const totals = this._consumers.reduce((acc, t) => {
-                        acc.eventCount += t.eventCount;
-                        acc.eventsProcessingTime += t.eventsProcessingTime;
+                    yield n_util_1.Delay.seconds(2);
+                    const allTraces = this._consumers.reduce((acc, t, index) => {
+                        if (index === 0)
+                            return acc;
+                        acc.push(...t.profiler.traces);
                         return acc;
-                    }, { eventCount: 0, eventsProcessingTime: 0 });
-                    yield this._logger.logInfo(`[EVENTS CONSUMER ${(_a = this._manager.consumerName) !== null && _a !== void 0 ? _a : "UNKNOWN"}]:  Total events processed = ${totals.eventCount}; Total processing time = ${totals.eventsProcessingTime}; Average processing time per event = ${totals.eventsProcessingTime / totals.eventCount};`);
+                    }, new Array());
+                    let totalEventCount = 0;
+                    let totalEventsProcessingTime = 0;
+                    let groupCount = 0;
+                    let totalEventAverage = 0;
+                    const messages = new Array();
+                    allTraces.groupBy(t => t.message).forEach((group) => {
+                        const eventCount = group.values.length;
+                        const eventsProcessingTime = group.values.reduce((acc, t) => acc + t.diffMs, 0);
+                        const eventAverage = eventsProcessingTime / eventCount;
+                        totalEventCount += eventCount;
+                        totalEventsProcessingTime += eventsProcessingTime;
+                        totalEventAverage += eventAverage;
+                        groupCount++;
+                        const diffs = group.values.map(t => t.diffMs).orderBy();
+                        messages.push({
+                            name: group.key,
+                            count: eventCount,
+                            totalPT: eventsProcessingTime,
+                            averagePT: eventAverage,
+                            minPT: Math.min(...diffs),
+                            maxPT: Math.max(...diffs),
+                            medianPT: group.values.length % 2 === 0
+                                ? (diffs[(diffs.length / 2) - 1] + diffs[diffs.length / 2]) / 2
+                                : diffs[Math.floor(diffs.length / 2) - 1]
+                        });
+                    });
+                    console.log(`[EVENTS CONSUMER ${(_a = this._manager.consumerName) !== null && _a !== void 0 ? _a : "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${totalEventAverage / groupCount};`);
+                    const leftPad = (val, pad = 15) => {
+                        const v = val.toString().trim();
+                        if (v.length >= pad)
+                            return v;
+                        else {
+                            let padding = "";
+                            n_util_1.Make.loop((_) => padding += " ", pad - v.length);
+                            return padding + v;
+                        }
+                    };
+                    console.log(leftPad("name"), leftPad("count"), leftPad("totalPT"), leftPad("averagePT"), leftPad("minPT"), leftPad("maxPT"), leftPad("medianPT"));
+                    messages.forEach((message) => {
+                        console.log(leftPad(message.name), leftPad(message.count), leftPad(message.totalPT), leftPad(message.averagePT), leftPad(message.minPT), leftPad(message.maxPT), leftPad(message.medianPT));
+                    });
                 }
             }
             yield this._disposePromise;

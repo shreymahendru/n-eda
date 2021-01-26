@@ -18,8 +18,7 @@ const Zlib = require("zlib");
 class Consumer {
     constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
-        this._eventCount = 0;
-        this._eventsProcessingTime = 0;
+        this._profiler = null;
         this._isDisposed = false;
         this._trackedIds = new Array();
         this._consumePromise = null;
@@ -28,6 +27,8 @@ class Consumer {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
         this._manager = manager;
         this._logger = this._manager.serviceLocator.resolve("Logger");
+        if (this._manager.metricsEnabled)
+            this._profiler = new n_util_1.Profiler();
         n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
         this._topic = topic;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
@@ -35,8 +36,7 @@ class Consumer {
         n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
         this._onEventReceived = onEventReceived;
     }
-    get eventCount() { return this._eventCount; }
-    get eventsProcessingTime() { return this._eventsProcessingTime; }
+    get profiler() { return this._profiler; }
     consume() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
@@ -67,7 +67,6 @@ class Consumer {
                     for (const item of eventsData) {
                         if (this._isDisposed)
                             return;
-                        const profiler = this._manager.metricsEnabled ? new n_util_1.Profiler() : null;
                         let eventData = item.value;
                         let numReadAttempts = 1;
                         const maxReadAttempts = 10;
@@ -117,10 +116,8 @@ class Consumer {
                                 return;
                             this.track(eventId);
                             yield this.incrementConsumerPartitionReadIndex();
-                            if (profiler) {
-                                this._eventCount++;
-                                profiler.trace("Event processed");
-                                this._eventsProcessingTime += profiler.traces[1].diffMs;
+                            if (this._profiler) {
+                                this._profiler.trace(eventName);
                             }
                         }
                     }
