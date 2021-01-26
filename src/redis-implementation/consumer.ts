@@ -17,19 +17,22 @@ export class Consumer implements Disposable
     private readonly _client: Redis.RedisClient;
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
+    private readonly _profiler: Profiler | null = null;
     private readonly _topic: string;
     private readonly _partition: number;
     private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
     
-    private _eventCount = 0;
-    private _eventsProcessingTime = 0;
+    // private _eventCount = 0;
+    // private _eventsProcessingTime = 0;
     private _isDisposed = false;
     private _trackedIds = new Array<string>();
     private _consumePromise: Promise<void> | null = null;
     
     
-    public get eventCount(): number { return this._eventCount; }
-    public get eventsProcessingTime(): number { return this._eventsProcessingTime; }
+    // public get eventCount(): number { return this._eventCount; }
+    // public get eventsProcessingTime(): number { return this._eventsProcessingTime; }
+    
+    public get profiler(): Profiler | null { return this._profiler; }
     
     
     public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number,
@@ -42,6 +45,9 @@ export class Consumer implements Disposable
         this._manager = manager;
         
         this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
+        
+        if (this._manager.metricsEnabled)
+            this._profiler = new Profiler();
         
         given(topic, "topic").ensureHasValue().ensureIsString();
         this._topic = topic;
@@ -101,7 +107,7 @@ export class Consumer implements Disposable
                     if (this._isDisposed)
                         return;
                     
-                    const profiler = this._manager.metricsEnabled ? new Profiler() : null;
+                    // const profiler = this._manager.metricsEnabled ? new Profiler() : null;
                     
                     let eventData = item.value;
                     let numReadAttempts = 1;
@@ -171,11 +177,11 @@ export class Consumer implements Disposable
                         this.track(eventId);
                         await this.incrementConsumerPartitionReadIndex();
                         
-                        if (profiler)
+                        if (this._profiler)
                         {
-                            this._eventCount++;
-                            profiler.trace("Event processed");
-                            this._eventsProcessingTime += profiler.traces[1].diffMs;
+                            // this._eventCount++;
+                            this._profiler.trace(eventName);
+                            // this._eventsProcessingTime += profiler.traces[1].diffMs;
                         }
                     }
                 }
