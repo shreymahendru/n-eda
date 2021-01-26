@@ -31,7 +31,7 @@ class Topic {
             .ensure(t => t.contains("-") && t.trim().split("-").length === 2 && t.trim().split("-")
             .every(u => n_util_1.TypeHelper.parseNumber(u) != null), "invalid format");
         const [lower, upper] = partitionAffinity.trim().split("-").map(t => Number.parseInt(t));
-        if (lower < 0 || lower >= this._numPartitions || upper < 0 || upper >= this._numPartitions || upper > lower)
+        if (lower < 0 || lower >= this._numPartitions || upper < 0 || upper >= this._numPartitions || upper < lower)
             throw new n_exception_1.ArgumentException("partitionAffinity", "invalid value");
         const partitions = new Array();
         for (let i = lower; i <= upper; i++)
