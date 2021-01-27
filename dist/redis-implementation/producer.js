@@ -63,10 +63,8 @@ class Producer {
     compressEvent(event) {
         return __awaiter(this, void 0, void 0, function* () {
             n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
-            if (!this._compress)
-                return JSON.stringify(event);
             const compressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"), { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
-            return compressed.toString("base64");
+            return compressed;
         });
     }
     acquireWriteIndex(incrBy) {
@@ -105,7 +103,7 @@ class Producer {
     storeEvent(writeIndex, eventData) {
         return new Promise((resolve, reject) => {
             n_defensive_1.given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-            n_defensive_1.given(eventData, "eventData").ensureHasValue().ensureIsString();
+            n_defensive_1.given(eventData, "eventData").ensureHasValue();
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
             const expirySeconds = this._ttlMinutes * 60;
             this._client.setex(key.trim(), expirySeconds, eventData, (err) => {

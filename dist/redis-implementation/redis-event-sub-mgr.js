@@ -92,7 +92,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
     }
 };
 RedisEventSubMgr = __decorate([
-    n_ject_1.inject("RedisClient", "Logger"),
+    n_ject_1.inject("EdaRedisClient", "Logger"),
     __metadata("design:paramtypes", [Redis.RedisClient, Object])
 ], RedisEventSubMgr);
 exports.RedisEventSubMgr = RedisEventSubMgr;

@@ -92,7 +92,7 @@ let RedisEventBus = class RedisEventBus {
     }
 };
 RedisEventBus = __decorate([
-    n_ject_1.inject("RedisClient"),
+    n_ject_1.inject("EdaRedisClient"),
     __metadata("design:paramtypes", [Redis.RedisClient])
 ], RedisEventBus);
 exports.RedisEventBus = RedisEventBus;
