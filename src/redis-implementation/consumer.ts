@@ -284,7 +284,7 @@ export class Consumer implements Disposable
         });
     }
     
-    private retrieveEvent(indexToRead: number): Promise<string>
+    private retrieveEvent(indexToRead: number): Promise<Buffer>
     {
         return new Promise((resolve, reject) =>
         {
@@ -298,13 +298,13 @@ export class Consumer implements Disposable
                     return;
                 }
 
-                resolve(value as string);
+                resolve(value as unknown as Buffer);
             });
         });
     }
     
     private batchRetrieveEvents(lowerBoundIndex: number, upperBoundIndex: number)
-        : Promise<Array<{ index: number; key: string; value: string }>>
+        : Promise<Array<{ index: number; key: string; value: Buffer }>>
     {
         return new Promise((resolve, reject) =>
         {
@@ -329,7 +329,7 @@ export class Consumer implements Disposable
                 const result = values.map((t, index) => ({
                     index: keys[index].index,
                     key: keys[index].key,
-                    value: t
+                    value: t as unknown as Buffer
                 }));
                 
                 resolve(result);
@@ -376,15 +376,25 @@ export class Consumer implements Disposable
         this._trackedIdsSet.add(eventId);
     }
     
-    private async decompressEvent(eventData: string): Promise<object>
+    // private async decompressEvent(eventData: string): Promise<object>
+    // {
+    //     given(eventData, "eventData").ensureHasValue().ensureIsString();
+    //     eventData = eventData.trim();
+        
+    //     if (eventData.startsWith("{"))
+    //         return JSON.parse(eventData);
+        
+    //     const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
+    //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+
+    //     return JSON.parse(decompressed.toString("utf8"));
+    // }
+    
+    private async decompressEvent(eventData: Buffer): Promise<object>
     {
-        given(eventData, "eventData").ensureHasValue().ensureIsString();
-        eventData = eventData.trim();
+        given(eventData, "eventData").ensureHasValue();
         
-        if (eventData.startsWith("{"))
-            return JSON.parse(eventData);
-        
-        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
+        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(eventData,
             { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
 
         return JSON.parse(decompressed.toString("utf8"));

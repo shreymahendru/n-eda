@@ -14,6 +14,7 @@ export class Producer
     private readonly _topic: string;
     private readonly _ttlMinutes: number;
     private readonly _partition: number;
+    // @ts-ignore
     private readonly _compress: boolean;
     private readonly _mutex = new Mutex();
     
@@ -105,17 +106,27 @@ export class Producer
         });
     }
     
-    private async compressEvent(event: object): Promise<string>
+    // private async compressEvent(event: object): Promise<string>
+    // {
+    //     given(event, "event").ensureHasValue().ensureIsObject();
+        
+    //     if (!this._compress)
+    //         return JSON.stringify(event);
+
+    //     const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
+    //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+
+    //     return compressed.toString("base64");
+    // }
+    
+    private async compressEvent(event: object): Promise<Buffer>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
-        
-        if (!this._compress)
-            return JSON.stringify(event);
 
         const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
             { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
 
-        return compressed.toString("base64");
+        return compressed;
     }
     
     private async acquireWriteIndex(incrBy: number): Promise<number>
@@ -166,18 +177,18 @@ export class Producer
         });
     }
 
-    private storeEvent(writeIndex: number, eventData: string): Promise<void>
+    private storeEvent(writeIndex: number, eventData: string | Buffer): Promise<void>
     {
         return new Promise((resolve, reject) =>
         {
             given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-            given(eventData, "eventData").ensureHasValue().ensureIsString();
+            given(eventData, "eventData").ensureHasValue();
 
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
             // const expirySeconds = 60 * 60 * 4;
             const expirySeconds = this._ttlMinutes * 60;
 
-            this._client.setex(key.trim(), expirySeconds, eventData, (err) =>
+            this._client.setex(key.trim(), expirySeconds, eventData as any, (err) =>
             {
                 if (err)
                 {

@@ -11,7 +11,7 @@ import { Logger } from "@nivinjoseph/n-log";
 import { ConsumerProfiler } from "./consumer-profiler";
 
 // public
-@inject("RedisClient", "Logger")
+@inject("EdaRedisClient", "Logger")
 export class RedisEventSubMgr implements EventSubMgr
 {
     private readonly _client: Redis.RedisClient;

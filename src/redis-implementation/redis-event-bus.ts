@@ -11,7 +11,7 @@ import { Delay } from "@nivinjoseph/n-util";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 
 // public
-@inject("RedisClient")
+@inject("EdaRedisClient")
 export class RedisEventBus implements EventBus
 {
     private readonly _client: Redis.RedisClient;

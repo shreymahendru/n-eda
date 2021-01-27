@@ -2,7 +2,8 @@ import * as Assert from "assert";
 import * as Zlib from "zlib";
 import { given } from "@nivinjoseph/n-defensive";
 import { Make } from "@nivinjoseph/n-util";
-import * as MessagePack from "msgpack-lite";
+// import * as MessagePack from "msgpack-lite";
+// import * as Snappy from "snappy";
 
 
 suite("compression tests", () => 
@@ -32,52 +33,74 @@ suite("compression tests", () =>
         return JSON.parse(decompressed.toString("utf8"));
     };
     
-    const messagePackCompress = async (event: object) =>
-    {
-        given(event, "event").ensureHasValue().ensureIsObject();
+    // const snappyCompress = async (event: object) =>
+    // {
+    //     given(event, "event").ensureHasValue().ensureIsObject();
 
-        const encoded = MessagePack.encode(event);
-        // const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(stringified, "utf-8"),
-        //     brotliOptions);
+    //     const stringified = JSON.stringify(event);
+    //     const compressed = await Make.callbackToPromise<Buffer>(Snappy.compress)(stringified);
         
-        console.log("messagepack bytes", encoded.byteLength);
-        return encoded.toString("base64");
-    };
-
-    const messagePackDecompress = async (eventData: string) =>
-    {
-        given(eventData, "eventData").ensureHasValue().ensureIsString();
-
-        // const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
-        //     brotliOptions);
-
-        // return JSON.parse(decompressed.toString("utf8"));
+    //     console.log("snappy bytes", compressed.byteLength);
         
-        return MessagePack.decode(Buffer.from(eventData, "base64"));
-    };
+    //     return compressed.toString("");
+    // };
     
-    const messagePackWithBrotliCompress = async (event: object) =>
-    {
-        given(event, "event").ensureHasValue().ensureIsObject();
+    // const snappyDecompress = async (eventData: string) =>
+    // {
+    //     given(eventData, "eventData").ensureHasValue().ensureIsString();
 
-        const encoded = MessagePack.encode(event);
-        const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(encoded);
+    //     const decompressed = await Make.callbackToPromise<string>(Snappy.uncompress)(Buffer.from(eventData, "base64"),
+    //         { asBuffer: false });
+
+    //     return JSON.parse(decompressed);
+    // };
+    
+    // const messagePackCompress = async (event: object) =>
+    // {
+    //     given(event, "event").ensureHasValue().ensureIsObject();
+
+    //     const encoded = MessagePack.encode(event);
+    //     // const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(stringified, "utf-8"),
+    //     //     brotliOptions);
         
-        console.log("messagepackWithBrotli bytes", compressed.byteLength);
+    //     console.log("messagepack bytes", encoded.byteLength);
+    //     return encoded.toString("base64");
+    // };
 
-        return compressed.toString("base64");
-    };
+    // const messagePackDecompress = async (eventData: string) =>
+    // {
+    //     given(eventData, "eventData").ensureHasValue().ensureIsString();
 
-    const messagePackWithBrotliDecompress = async (eventData: string) =>
-    {
-        given(eventData, "eventData").ensureHasValue().ensureIsString();
+    //     // const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
+    //     //     brotliOptions);
 
-        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"));
+    //     // return JSON.parse(decompressed.toString("utf8"));
+        
+    //     return MessagePack.decode(Buffer.from(eventData, "base64"));
+    // };
+    
+    // const messagePackWithBrotliCompress = async (event: object) =>
+    // {
+    //     given(event, "event").ensureHasValue().ensureIsObject();
 
-        // return JSON.parse(decompressed.toString("utf8"));
+    //     const encoded = MessagePack.encode(event);
+    //     const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(encoded);
+        
+    //     console.log("messagepackWithBrotli bytes", compressed.byteLength);
 
-        return MessagePack.decode(decompressed);
-    };
+    //     return compressed.toString("base64");
+    // };
+
+    // const messagePackWithBrotliDecompress = async (eventData: string) =>
+    // {
+    //     given(eventData, "eventData").ensureHasValue().ensureIsString();
+
+    //     const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"));
+
+    //     // return JSON.parse(decompressed.toString("utf8"));
+
+    //     return MessagePack.decode(decompressed);
+    // };
 
     
     const data = {
@@ -111,33 +134,48 @@ suite("compression tests", () =>
         // Assert.ok(true);
     });
     
-    test("MessagePack", async () =>
-    {
-        console.log("before", JSON.stringify(data).length);
+    // test("Snappy", async () =>
+    // {
+    //     console.log("before", JSON.stringify(data).length);
 
-        const compressed = await messagePackCompress(data);
+    //     const compressed = await snappyCompress(data);
 
-        console.log("compressed", compressed.length, compressed);
+    //     console.log("compressed", compressed.length, compressed);
 
-        const decompressed = await messagePackDecompress(compressed);
+    //     const decompressed = await snappyDecompress(compressed);
 
-        Assert.deepStrictEqual(data, decompressed);
+    //     Assert.deepStrictEqual(data, decompressed);
 
-        // Assert.ok(true);
-    });
+    //     // Assert.ok(true);
+    // });
     
-    test("MessagePackWithBrotli", async () =>
-    {
-        console.log("before", JSON.stringify(data).length);
+    // test("MessagePack", async () =>
+    // {
+    //     console.log("before", JSON.stringify(data).length);
 
-        const compressed = await messagePackWithBrotliCompress(data);
+    //     const compressed = await messagePackCompress(data);
 
-        console.log("compressed", compressed.length, compressed);
+    //     console.log("compressed", compressed.length, compressed);
 
-        const decompressed = await messagePackWithBrotliDecompress(compressed);
+    //     const decompressed = await messagePackDecompress(compressed);
 
-        Assert.deepStrictEqual(data, decompressed);
+    //     Assert.deepStrictEqual(data, decompressed);
 
-        // Assert.ok(true);
-    });
+    //     // Assert.ok(true);
+    // });
+    
+    // test("MessagePackWithBrotli", async () =>
+    // {
+    //     console.log("before", JSON.stringify(data).length);
+
+    //     const compressed = await messagePackWithBrotliCompress(data);
+
+    //     console.log("compressed", compressed.length, compressed);
+
+    //     const decompressed = await messagePackWithBrotliDecompress(compressed);
+
+    //     Assert.deepStrictEqual(data, decompressed);
+
+    //     // Assert.ok(true);
+    // });
 });
