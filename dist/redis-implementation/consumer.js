@@ -15,7 +15,6 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const Zlib = require("zlib");
-const consumer_profiler_1 = require("./consumer-profiler");
 class Consumer {
     constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
@@ -28,7 +27,6 @@ class Consumer {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
         this._manager = manager;
         this._logger = this._manager.serviceLocator.resolve("Logger");
-        this._profiler = new consumer_profiler_1.ConsumerProfiler(this._manager.metricsEnabled);
         n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
         this._topic = topic;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
@@ -36,7 +34,12 @@ class Consumer {
         n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
         this._onEventReceived = onEventReceived;
     }
-    get profiler() { return this._profiler; }
+    get manager() { return this._manager; }
+    get topic() { return this._topic; }
+    get partition() { return this._partition; }
+    get logger() { return this._logger; }
+    get trackedIdsSet() { return this._trackedIdsSet; }
+    get isDisposed() { return this._isDisposed; }
     consume() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
@@ -51,15 +54,11 @@ class Consumer {
     beginConsume() {
         return __awaiter(this, void 0, void 0, function* () {
             while (true) {
-                if (this._isDisposed)
+                if (this.isDisposed)
                     return;
                 try {
-                    this._profiler.fetchPartitionWriteIndexStarted();
                     const writeIndex = yield this.fetchPartitionWriteIndex();
-                    this._profiler.fetchPartitionWriteIndexEnded();
-                    this._profiler.fetchConsumerPartitionReadIndexStarted();
                     const readIndex = yield this.fetchConsumerPartitionReadIndex();
-                    this._profiler.fetchConsumerPartitionReadIndexEnded();
                     if (readIndex >= writeIndex) {
                         yield n_util_1.Delay.seconds(1);
                         continue;
@@ -67,91 +66,68 @@ class Consumer {
                     const maxRead = 50;
                     const lowerBoundReadIndex = readIndex + 1;
                     const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
-                    this._profiler.batchRetrieveEventsStarted();
                     const eventsData = yield this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
-                    this._profiler.batchRetrieveEventsEnded();
                     for (const item of eventsData) {
-                        if (this._isDisposed)
+                        if (this.isDisposed)
                             return;
                         let eventData = item.value;
                         let numReadAttempts = 1;
                         const maxReadAttempts = 10;
                         while (eventData == null && numReadAttempts < maxReadAttempts) {
-                            if (this._isDisposed)
+                            if (this.isDisposed)
                                 return;
                             yield n_util_1.Delay.milliseconds(100);
-                            this._profiler.retrieveEventStarted();
                             eventData = yield this.retrieveEvent(item.index);
-                            this._profiler.retrieveEventEnded();
                             numReadAttempts++;
                         }
                         if (eventData == null) {
                             try {
-                                throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${item.index};`);
+                                throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this.topic}; Partition=${this.partition}; ReadIndex=${item.index};`);
                             }
                             catch (error) {
-                                yield this._logger.logError(error);
+                                yield this.logger.logError(error);
                             }
-                            this._profiler.incrementConsumerPartitionReadIndexStarted();
                             yield this.incrementConsumerPartitionReadIndex();
-                            this._profiler.incrementConsumerPartitionReadIndexEnded();
                             continue;
                         }
-                        this._profiler.decompressEventStarted();
                         const event = yield this.decompressEvent(eventData);
-                        this._profiler.decompressEventEnded();
                         const eventId = event.$id || event.id;
                         const eventName = event.$name || event.name;
-                        const eventRegistration = this._manager.eventMap.get(eventName);
-                        this._profiler.deserializeEventStarted();
+                        const eventRegistration = this.manager.eventMap.get(eventName);
                         const deserializedEvent = n_util_1.Deserializer.deserialize(event);
-                        this._profiler.deserializeEventEnded();
-                        if (this._trackedIdsSet.has(eventId)) {
-                            this._profiler.incrementConsumerPartitionReadIndexStarted();
+                        if (this.trackedIdsSet.has(eventId)) {
                             yield this.incrementConsumerPartitionReadIndex();
-                            this._profiler.incrementConsumerPartitionReadIndexEnded();
                             continue;
                         }
                         let failed = false;
                         try {
-                            this._profiler.eventProcessingStarted(eventName, eventId);
                             yield n_util_1.Make.retryWithExponentialBackoff(() => __awaiter(this, void 0, void 0, function* () {
-                                if (this._isDisposed) {
+                                if (this.isDisposed) {
                                     failed = true;
                                     return;
                                 }
-                                try {
-                                    yield this.processEvent(eventName, eventRegistration, deserializedEvent);
-                                }
-                                catch (error) {
-                                    this._profiler.eventRetried(eventName);
-                                    throw error;
-                                }
+                                yield this.processEvent(eventName, eventRegistration, deserializedEvent);
                             }), 5)();
-                            this._profiler.eventProcessingEnded(eventName, eventId);
                         }
                         catch (error) {
                             failed = true;
-                            this._profiler.eventFailed(eventName);
-                            yield this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
-                            yield this._logger.logError(error);
+                            yield this.logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
+                            yield this.logger.logError(error);
                         }
                         finally {
-                            if (failed && this._isDisposed)
+                            if (failed && this.isDisposed)
                                 return;
                             this.track(eventId);
-                            this._profiler.incrementConsumerPartitionReadIndexStarted();
                             yield this.incrementConsumerPartitionReadIndex();
-                            this._profiler.incrementConsumerPartitionReadIndexEnded();
                         }
                     }
                 }
                 catch (error) {
-                    yield this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
-                    yield this._logger.logError(error);
-                    if (this._isDisposed)
+                    yield this.logger.logWarning(`Error in consumer => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
+                    yield this.logger.logError(error);
+                    if (this.isDisposed)
                         return;
-                    yield n_util_1.Delay.minutes(1);
+                    yield n_util_1.Delay.seconds(15);
                 }
             }
         });

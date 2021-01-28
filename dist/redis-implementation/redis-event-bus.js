@@ -47,7 +47,7 @@ let RedisEventBus = class RedisEventBus {
                 return;
             for (let partition = 0; partition < topic.numPartitions; partition++) {
                 const key = this.generateKey(topic.name, partition);
-                this._producers.set(key, new producer_1.Producer(this._client, this._logger, topic.name, topic.ttlMinutes, partition, this._manager.compressionEnabled));
+                this._producers.set(key, new producer_1.Producer(this._client, this._logger, topic.name, topic.ttlMinutes, partition));
             }
         });
     }
@@ -80,7 +80,7 @@ let RedisEventBus = class RedisEventBus {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
-                this._disposePromise = n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 15);
+                this._disposePromise = n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 10);
             }
             yield this._disposePromise;
         });

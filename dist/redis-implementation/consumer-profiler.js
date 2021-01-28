@@ -4,7 +4,7 @@ exports.ConsumerProfiler = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_util_1 = require("@nivinjoseph/n-util");
 class ConsumerProfiler {
-    constructor(isEnabled) {
+    constructor() {
         this._eventTraces = new Array();
         this._eventProcessings = {};
         this._eventRetries = {};
@@ -17,110 +17,84 @@ class ConsumerProfiler {
         this._decompressEventProfiler = null;
         this._deserializeEventProfiler = null;
         this._eventProfiler = null;
-        n_defensive_1.given(isEnabled, "isEnabled").ensureHasValue().ensureIsBoolean();
-        this._isEnabled = isEnabled;
+    }
+    static initialize() {
+        ConsumerProfiler._eventQueuePressureInterval = setInterval(() => {
+            const handleCount = process._getActiveHandles().length;
+            ConsumerProfiler._eventQueuePressure.push({ time: Date.now(), count: handleCount });
+        }, 60000);
     }
     fetchPartitionWriteIndexStarted() {
-        if (!this._isEnabled)
-            return;
         this._fetchPartitionWriteIndexProfiler = new n_util_1.Profiler();
     }
     fetchPartitionWriteIndexEnded() {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(this, "this")
             .ensure(t => t._fetchPartitionWriteIndexProfiler != null);
-        this._fetchPartitionWriteIndexProfiler.trace("fetchPartitionWriteIndex");
+        this._fetchPartitionWriteIndexProfiler.trace("$fetchPartitionWriteIndex");
         this._eventTraces.push(this._fetchPartitionWriteIndexProfiler.traces[1]);
         this._fetchPartitionWriteIndexProfiler = null;
     }
     fetchConsumerPartitionReadIndexStarted() {
-        if (!this._isEnabled)
-            return;
         this._fetchConsumerPartitionReadIndexProfiler = new n_util_1.Profiler();
     }
     fetchConsumerPartitionReadIndexEnded() {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(this, "this")
             .ensure(t => t._fetchConsumerPartitionReadIndexProfiler != null);
-        this._fetchConsumerPartitionReadIndexProfiler.trace("fetchConsumerPartitionReadIndex");
+        this._fetchConsumerPartitionReadIndexProfiler.trace("$fetchConsumerPartitionReadIndex");
         this._eventTraces.push(this._fetchConsumerPartitionReadIndexProfiler.traces[1]);
         this._fetchConsumerPartitionReadIndexProfiler = null;
     }
     incrementConsumerPartitionReadIndexStarted() {
-        if (!this._isEnabled)
-            return;
         this._incrementConsumerPartitionReadIndexProfiler = new n_util_1.Profiler();
     }
     incrementConsumerPartitionReadIndexEnded() {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(this, "this")
             .ensure(t => t._incrementConsumerPartitionReadIndexProfiler != null);
-        this._incrementConsumerPartitionReadIndexProfiler.trace("incrementConsumerPartitionReadIndex");
+        this._incrementConsumerPartitionReadIndexProfiler.trace("$incrementConsumerPartitionReadIndex");
         this._eventTraces.push(this._incrementConsumerPartitionReadIndexProfiler.traces[1]);
         this._incrementConsumerPartitionReadIndexProfiler = null;
     }
     retrieveEventStarted() {
-        if (!this._isEnabled)
-            return;
         this._retrieveEventProfiler = new n_util_1.Profiler();
     }
     retrieveEventEnded() {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(this, "this")
             .ensure(t => t._retrieveEventProfiler != null);
-        this._retrieveEventProfiler.trace("retrieveEvent");
+        this._retrieveEventProfiler.trace("$retrieveEvent");
         this._eventTraces.push(this._retrieveEventProfiler.traces[1]);
         this._retrieveEventProfiler = null;
     }
     batchRetrieveEventsStarted() {
-        if (!this._isEnabled)
-            return;
         this._batchRetrieveEventsProfiler = new n_util_1.Profiler();
     }
     batchRetrieveEventsEnded() {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(this, "this")
             .ensure(t => t._batchRetrieveEventsProfiler != null);
-        this._batchRetrieveEventsProfiler.trace("batchRetrieveEvents");
+        this._batchRetrieveEventsProfiler.trace("$batchRetrieveEvents");
         this._eventTraces.push(this._batchRetrieveEventsProfiler.traces[1]);
         this._batchRetrieveEventsProfiler = null;
     }
     decompressEventStarted() {
-        if (!this._isEnabled)
-            return;
         this._decompressEventProfiler = new n_util_1.Profiler();
     }
     decompressEventEnded() {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(this, "this")
             .ensure(t => t._decompressEventProfiler != null);
-        this._decompressEventProfiler.trace("decompressEvent");
+        this._decompressEventProfiler.trace("$decompressEvent");
         this._eventTraces.push(this._decompressEventProfiler.traces[1]);
         this._decompressEventProfiler = null;
     }
     deserializeEventStarted() {
-        if (!this._isEnabled)
-            return;
         this._deserializeEventProfiler = new n_util_1.Profiler();
     }
     deserializeEventEnded() {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(this, "this")
             .ensure(t => t._deserializeEventProfiler != null);
-        this._deserializeEventProfiler.trace("deserializeEvent");
+        this._deserializeEventProfiler.trace("$deserializeEvent");
         this._eventTraces.push(this._deserializeEventProfiler.traces[1]);
         this._deserializeEventProfiler = null;
     }
     eventProcessingStarted(eventName, eventId) {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(eventName, "eventName").ensureHasValue().ensureIsString();
         n_defensive_1.given(eventId, "eventId").ensureHasValue().ensureIsString();
         this._eventProfiler = { name: eventName, id: eventId, profiler: new n_util_1.Profiler() };
@@ -129,8 +103,6 @@ class ConsumerProfiler {
         this._eventProcessings[eventName]++;
     }
     eventProcessingEnded(eventName, eventId) {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(eventName, "eventName").ensureHasValue().ensureIsString();
         n_defensive_1.given(eventId, "eventId").ensureHasValue().ensureIsString();
         n_defensive_1.given(this, "this")
@@ -140,16 +112,12 @@ class ConsumerProfiler {
         this._eventProfiler = null;
     }
     eventRetried(eventName) {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(eventName, "eventName").ensureHasValue().ensureIsString();
         if (!this._eventRetries[eventName])
             this._eventRetries[eventName] = 0;
         this._eventRetries[eventName]++;
     }
     eventFailed(eventName) {
-        if (!this._isEnabled)
-            return;
         n_defensive_1.given(eventName, "eventName").ensureHasValue().ensureIsString();
         if (!this._eventFailures[eventName])
             this._eventFailures[eventName] = 0;
@@ -158,6 +126,7 @@ class ConsumerProfiler {
     static aggregate(consumerName, consumerProfilers) {
         n_defensive_1.given(consumerName, "consumerName").ensureHasValue().ensureIsString();
         n_defensive_1.given(consumerProfilers, "consumerProfilers").ensureHasValue().ensureIsArray().ensure(t => t.length > 0);
+        clearInterval(ConsumerProfiler._eventQueuePressureInterval);
         const eventTraces = new Array();
         const eventProcessings = {};
         const eventRetries = {};
@@ -191,8 +160,8 @@ class ConsumerProfiler {
         });
         let totalEventCount = 0;
         let totalEventsProcessingTime = 0;
-        let groupCount = 0;
         let totalEventAverage = 0;
+        let groupCount = 0;
         const messages = new Array();
         eventTraces.groupBy(t => t.message)
             .forEach((group) => {
@@ -200,10 +169,12 @@ class ConsumerProfiler {
             const eventCount = group.values.length;
             const eventsProcessingTime = group.values.reduce((acc, t) => acc + t.diffMs, 0);
             const eventAverage = eventsProcessingTime / eventCount;
-            totalEventCount += eventCount;
-            totalEventsProcessingTime += eventsProcessingTime;
-            totalEventAverage += eventAverage;
-            groupCount++;
+            if (!group.key.startsWith("$")) {
+                totalEventCount += eventCount;
+                totalEventsProcessingTime += eventsProcessingTime;
+                totalEventAverage += eventAverage;
+                groupCount++;
+            }
             const diffs = group.values.map(t => t.diffMs).orderBy();
             messages.push({
                 name: group.key,
@@ -220,7 +191,7 @@ class ConsumerProfiler {
                     : diffs[Math.floor(diffs.length / 2) - 1]
             });
         });
-        console.log(`[${consumerName}] AGGREGATE`);
+        console.log(`[${consumerName}] AGGREGATE (does not include $events)`);
         console.table({
             consumer: consumerName,
             totalEventsProcessed: totalEventCount,
@@ -229,7 +200,13 @@ class ConsumerProfiler {
         });
         console.log(`[${consumerName}] DETAILS`);
         console.table(messages.orderBy(t => t.name));
+        console.log(`[${consumerName}] EVENT QUEUE PRESSURE`);
+        console.table(ConsumerProfiler._eventQueuePressure.map(t => ({
+            time: (new Date(t.time)).toString(),
+            count: t.count
+        })));
     }
 }
 exports.ConsumerProfiler = ConsumerProfiler;
+ConsumerProfiler._eventQueuePressure = new Array();
 //# sourceMappingURL=consumer-profiler.js.map

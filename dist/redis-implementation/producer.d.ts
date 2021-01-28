@@ -8,9 +8,8 @@ export declare class Producer {
     private readonly _topic;
     private readonly _ttlMinutes;
     private readonly _partition;
-    private readonly _compress;
     private readonly _mutex;
-    constructor(client: Redis.RedisClient, logger: Logger, topic: string, ttlMinutes: number, partition: number, compress: boolean);
+    constructor(client: Redis.RedisClient, logger: Logger, topic: string, ttlMinutes: number, partition: number);
     produce(...events: ReadonlyArray<EdaEvent>): Promise<void>;
     private compressEvent;
     private acquireWriteIndex;

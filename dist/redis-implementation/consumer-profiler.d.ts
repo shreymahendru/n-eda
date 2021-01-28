@@ -1,5 +1,4 @@
 export declare class ConsumerProfiler {
-    private readonly _isEnabled;
     private readonly _eventTraces;
     private readonly _eventProcessings;
     private readonly _eventRetries;
@@ -12,7 +11,9 @@ export declare class ConsumerProfiler {
     private _decompressEventProfiler;
     private _deserializeEventProfiler;
     private _eventProfiler;
-    constructor(isEnabled: boolean);
+    private static readonly _eventQueuePressure;
+    private static _eventQueuePressureInterval;
+    static initialize(): void;
     fetchPartitionWriteIndexStarted(): void;
     fetchPartitionWriteIndexEnded(): void;
     fetchConsumerPartitionReadIndexStarted(): void;

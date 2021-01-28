@@ -14,7 +14,7 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const Zlib = require("zlib");
 class Producer {
-    constructor(client, logger, topic, ttlMinutes, partition, compress) {
+    constructor(client, logger, topic, ttlMinutes, partition) {
         this._edaPrefix = "n-eda";
         this._mutex = new n_util_1.Mutex();
         n_defensive_1.given(client, "client").ensureHasValue().ensureIsObject();
@@ -27,8 +27,6 @@ class Producer {
         this._ttlMinutes = ttlMinutes;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
-        n_defensive_1.given(compress, "compress").ensureHasValue().ensureIsBoolean();
-        this._compress = compress;
     }
     produce(...events) {
         return __awaiter(this, void 0, void 0, function* () {
