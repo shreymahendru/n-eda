@@ -9,6 +9,7 @@ import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
 import { ConsumerProfiler } from "./consumer-profiler";
+import { ProfilingConsumer } from "./profiling-consumer";
 
 // public
 @inject("EdaRedisClient", "Logger")
@@ -66,15 +67,27 @@ export class RedisEventSubMgr implements EventSubMgr
                 if (topic.partitionAffinity != null)
                 {
                     topic.partitionAffinity.forEach(partition =>
-                        this._consumers.push(new Consumer(this._client, this._manager, topic.name, partition,
-                            this.onEventReceived.bind(this))));
+                    {
+                        const consumer = this._manager.metricsEnabled
+                            ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
+                                this.onEventReceived.bind(this))
+                            : new Consumer(this._client, this._manager, topic.name, partition,
+                                this.onEventReceived.bind(this));
+                        
+                        this._consumers.push(consumer);
+                    });
                 }
                 else
                 {
                     for (let partition = 0; partition < topic.numPartitions; partition++)
                     {
-                        this._consumers.push(new Consumer(this._client, this._manager, topic.name, partition,
-                            this.onEventReceived.bind(this)));
+                        const consumer = this._manager.metricsEnabled
+                            ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
+                                this.onEventReceived.bind(this))
+                            : new Consumer(this._client, this._manager, topic.name, partition,
+                                this.onEventReceived.bind(this));
+                        
+                        this._consumers.push(consumer);
                     }
                 }
             });
@@ -98,82 +111,9 @@ export class RedisEventSubMgr implements EventSubMgr
             
             if (this._manager.metricsEnabled)
             {
-                await Delay.seconds(2);
+                await Delay.seconds(3);
                 
-                ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => t.profiler));
-                
-                // const allTraces = this._consumers.reduce((acc, t) =>
-                // {  
-                //     acc.push(...t.profiler!.traces.skip(1));
-                //     return acc;
-                // }, new Array<ProfilerTrace>());
-                
-                // let totalEventCount = 0;
-                // let totalEventsProcessingTime = 0;
-                // let groupCount = 0;
-                // let totalEventAverage = 0;
-                // const messages = new Array<{ name: string; count: number; totalPT: number; averagePT: number; minPT: number; maxPT: number; medianPT: number}>();
-                
-                // const groups = allTraces.groupBy(t => t.message);
-                // groups.forEach((group) =>
-                // {
-                //     const eventCount = group.values.length;
-                //     const eventsProcessingTime = group.values.reduce((acc, t) => acc + t.diffMs, 0);
-                //     const eventAverage = eventsProcessingTime / eventCount;
-                    
-                //     totalEventCount += eventCount;
-                //     totalEventsProcessingTime += eventsProcessingTime;
-                //     totalEventAverage += eventAverage;
-                //     groupCount++;
-                    
-                //     // messages.push(`[${group.key}]: count = ${eventCount}; total PT = ${eventsProcessingTime}; average PT = ${eventAverage}; min PT = ${Math.min(...group.values.map(t => t.diffMs))}; max PT = ${Math.max(...group.values.map(t => t.diffMs))}; median PT = ${group.values.length % 2 === 0 ? group.values.map(t => t.diffMs).orderBy()[M]}`);
-                    
-                //     const diffs = group.values.map(t => t.diffMs).orderBy();
-                    
-                //     messages.push({
-                //         name: group.key,
-                //         count: eventCount,
-                //         totalPT: eventsProcessingTime,
-                //         averagePT: Math.floor(eventAverage),
-                //         minPT: Math.min(...diffs),
-                //         maxPT: Math.max(...diffs),
-                //         medianPT: group.values.length % 2 === 0
-                //             ? Math.floor((diffs[(diffs.length / 2) - 1] + diffs[diffs.length / 2]) / 2)
-                //             : diffs[Math.floor(diffs.length / 2) - 1]
-                //     });
-                // });
-                
-                // // const totals = this._consumers.reduce((acc, t) =>
-                // // {
-                // //     acc.eventCount += (t.profiler!.traces.length - 1);
-                // //     acc.eventsProcessingTime += t.profiler!.traces.reduce((acc, t) => acc + t.diffMs, 0);
-                // //     return acc;
-                // // }, { eventCount: 0, eventsProcessingTime: 0 });    
-                
-                // console.log(`[EVENTS CONSUMER ${this._manager.consumerName ?? "UNKNOWN"}]:  Total events processed = ${totalEventCount}; Total PT = ${totalEventsProcessingTime}; Average PT = ${groupCount === 0 ? 0 : Math.floor(totalEventAverage / groupCount)};`);
-                
-                // // const padConstant = groups.map(t => t.key).orderByDesc(t => t.length)[0]?.length ?? 15;
-                // // const leftPad = (val: any) =>
-                // // {
-                // //     if (val == null)
-                // //         return "UNKNOWN";
-                    
-                // //     const v = val.toString().trim() as string;
-                // //     if (v.length >= padConstant)
-                // //         return v;
-                // //     else
-                // //     {
-                // //         let padding = "";
-                // //         Make.loop((_) => padding += " ", padConstant - v.length);
-                // //         return padding + v;
-                // //     }
-                // // };
-                
-                // // console.log(leftPad("name"), leftPad("count"), leftPad("totalPT"), leftPad("averagePT"), leftPad("minPT"), leftPad("maxPT"), leftPad("medianPT"));
-                // // messages.forEach((message) =>
-                // //     console.log(leftPad(message.name), leftPad(message.count), leftPad(message.totalPT), leftPad(message.averagePT), leftPad(message.minPT), leftPad(message.maxPT), leftPad(message.medianPT)));
-                    
-                // console.table(messages.orderBy(t => t.name));
+                ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => (<ProfilingConsumer>t).profiler));
             }
         }
 

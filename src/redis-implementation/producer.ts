@@ -14,13 +14,11 @@ export class Producer
     private readonly _topic: string;
     private readonly _ttlMinutes: number;
     private readonly _partition: number;
-    // @ts-ignore
-    private readonly _compress: boolean;
     private readonly _mutex = new Mutex();
     
     
     public constructor(client: Redis.RedisClient, logger: Logger, topic: string, ttlMinutes: number,
-        partition: number, compress: boolean)
+        partition: number)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -36,39 +34,7 @@ export class Producer
 
         given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
-        
-        given(compress, "compress").ensureHasValue().ensureIsBoolean();
-        this._compress = compress;
     }
-    
-    
-    // public async produce(event: EdaEvent): Promise<void>
-    // {
-    //     given(event, "event").ensureHasValue().ensureIsObject()
-    //         .ensureHasStructure({
-    //             id: "string",
-    //             name: "string"
-    //         }); 
-
-    //     const writeIndex = await this.acquireWriteIndex();    
-        
-    //     const compressedEvent = await this.compressEvent(event.serialize());
-
-    //     await Make.retryWithDelay(async () =>
-    //     {
-    //         try 
-    //         {
-    //             await this.storeEvent(writeIndex, compressedEvent);
-    //         }
-    //         catch (error)
-    //         {
-    //             await this._logger.logWarning(`Error while storing event of type ${event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${writeIndex};`);
-    //             await this._logger.logError(error);
-    //             throw error;
-    //         }
-
-    //     }, 20, 1000)();
-    // }
     
     public async produce(...events: ReadonlyArray<EdaEvent>): Promise<void>
     {
@@ -105,19 +71,6 @@ export class Producer
             }, 20, 500)();
         });
     }
-    
-    // private async compressEvent(event: object): Promise<string>
-    // {
-    //     given(event, "event").ensureHasValue().ensureIsObject();
-        
-    //     if (!this._compress)
-    //         return JSON.stringify(event);
-
-    //     const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
-    //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
-
-    //     return compressed.toString("base64");
-    // }
     
     private async compressEvent(event: object): Promise<Buffer>
     {
@@ -200,41 +153,4 @@ export class Producer
             });
         });
     }
-    
-    // private storeEvents(indexedEvents: ReadonlyArray<{ index: number; event: string}>): Promise<void>
-    // {
-    //     return new Promise((resolve, reject) =>
-    //     {
-    //         // given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-    //         // given(eventData, "eventData").ensureHasValue().ensureIsString();
-            
-    //         const expirySeconds = this._ttlMinutes * 60;
-                    
-    //         const data = indexedEvents.reduce((acc, t) =>
-    //         {
-    //             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${t.index}`;
-    //             acc.push(key);
-    //             acc.push(t.event);
-    //             return acc;
-    //         }, new Array<string>());
-            
-    //         this._client.mset(...data, )
-            
-
-    //         // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
-    //         // const expirySeconds = 60 * 60 * 4;
-            
-
-    //         this._client.setex(key.trim(), expirySeconds, eventData, (err) =>
-    //         {
-    //             if (err)
-    //             {
-    //                 reject(err);
-    //                 return;
-    //             }
-
-    //             resolve();
-    //         });
-    //     });
-    // }
 }

@@ -19,7 +19,6 @@ export class EdaManager implements Disposable
     private readonly _eventMap: Map<string, EventRegistration>;
     // private readonly _wildKeys: Array<string>;
     
-    private _compressionEnabled = false;
     private _metricsEnabled = false;
     private _partitionKeyMapper: (event: EdaEvent) => string = null as any;
     private _eventBusRegistered = false;
@@ -39,7 +38,6 @@ export class EdaManager implements Disposable
     public get eventMap(): ReadonlyMap<string, EventRegistration> { return this._eventMap; }
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
-    public get compressionEnabled(): boolean { return this._compressionEnabled; }
     public get metricsEnabled(): boolean { return this._metricsEnabled; }
     
     
@@ -87,14 +85,6 @@ export class EdaManager implements Disposable
             this._topics.push(topic);
         }
 
-        return this;
-    }
-    
-    public enableCompression(): this
-    {
-        given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
-        this._compressionEnabled = true;
-        
         return this;
     }
     

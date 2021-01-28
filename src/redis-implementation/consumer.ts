@@ -9,7 +9,6 @@ import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
 import * as Zlib from "zlib";
-import { ConsumerProfiler } from "./consumer-profiler";
 
 
 export class Consumer implements Disposable
@@ -21,7 +20,7 @@ export class Consumer implements Disposable
     private readonly _topic: string;
     private readonly _partition: number;
     private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
-    private readonly _profiler: ConsumerProfiler;
+    
     
     private _isDisposed = false;
     private _trackedIdsSet = new Set<string>();
@@ -29,7 +28,15 @@ export class Consumer implements Disposable
     private _consumePromise: Promise<void> | null = null;
     
     
-    public get profiler(): ConsumerProfiler { return this._profiler; }
+    
+    
+    
+    protected get manager(): EdaManager { return this._manager; }
+    protected get topic(): string { return this._topic; }
+    protected get partition(): number { return this._partition; }
+    protected get logger(): Logger { return this._logger; }
+    protected get trackedIdsSet(): ReadonlySet<string> { return this._trackedIdsSet; }
+    protected get isDisposed(): boolean { return this._isDisposed; }
     
     
     public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number,
@@ -42,8 +49,6 @@ export class Consumer implements Disposable
         this._manager = manager;
         
         this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
-        
-        this._profiler = new ConsumerProfiler(this._manager.metricsEnabled);
         
         given(topic, "topic").ensureHasValue().ensureIsString();
         this._topic = topic;
@@ -74,22 +79,18 @@ export class Consumer implements Disposable
         return this._consumePromise || Promise.resolve();
     }
     
-    private async beginConsume(): Promise<void>
+    protected async beginConsume(): Promise<void>
     {
         while (true)
         {
-            if (this._isDisposed)
+            if (this.isDisposed)
                 return;
 
             try 
             {
-                this._profiler.fetchPartitionWriteIndexStarted();
                 const writeIndex = await this.fetchPartitionWriteIndex();
-                this._profiler.fetchPartitionWriteIndexEnded();
-                
-                this._profiler.fetchConsumerPartitionReadIndexStarted();
                 const readIndex = await this.fetchConsumerPartitionReadIndex();
-                this._profiler.fetchConsumerPartitionReadIndexEnded();
+                
 
                 if (readIndex >= writeIndex)
                 {
@@ -97,36 +98,27 @@ export class Consumer implements Disposable
                     continue;
                 }
 
-                // const indexToRead = readIndex + 1;
                 const maxRead = 50;
                 const lowerBoundReadIndex = readIndex + 1;
                 const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
-                
-                this._profiler.batchRetrieveEventsStarted();
                 const eventsData = await this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
-                this._profiler.batchRetrieveEventsEnded();
                 
                 for (const item of eventsData)
                 {
-                    if (this._isDisposed)
+                    if (this.isDisposed)
                         return;
-                    
-                    // const profiler = this._manager.metricsEnabled ? new Profiler() : null;
                     
                     let eventData = item.value;
                     let numReadAttempts = 1;
                     const maxReadAttempts = 10;
                     while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                     {
-                        if (this._isDisposed)
+                        if (this.isDisposed)
                             return;
                         
                         await Delay.milliseconds(100);
                         
-                        this._profiler.retrieveEventStarted();
                         eventData = await this.retrieveEvent(item.index);
-                        this._profiler.retrieveEventEnded();
-                        
                         numReadAttempts++;
                     }
 
@@ -134,100 +126,72 @@ export class Consumer implements Disposable
                     {
                         try 
                         {
-                            throw new ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${item.index};`);
+                            throw new ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this.topic}; Partition=${this.partition}; ReadIndex=${item.index};`);
                         }
                         catch (error)
                         {
-                            await this._logger.logError(error);
+                            await this.logger.logError(error);
                         }
 
-                        this._profiler.incrementConsumerPartitionReadIndexStarted();
                         await this.incrementConsumerPartitionReadIndex();
-                        this._profiler.incrementConsumerPartitionReadIndexEnded();
-                        
                         continue;
                     }
 
-                    this._profiler.decompressEventStarted();
                     const event = await this.decompressEvent(eventData);
-                    this._profiler.decompressEventEnded();
-                    
                     const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
                     const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
-                    const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
+                    const eventRegistration = this.manager.eventMap.get(eventName) as EventRegistration;
                     // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
-                    
-                    this._profiler.deserializeEventStarted();
                     const deserializedEvent = Deserializer.deserialize(event);
-                    this._profiler.deserializeEventEnded();
 
-                    if (this._trackedIdsSet.has(eventId))
+                    if (this.trackedIdsSet.has(eventId))
                     {
-                        this._profiler.incrementConsumerPartitionReadIndexStarted();
-                        await this.incrementConsumerPartitionReadIndex();
-                        this._profiler.incrementConsumerPartitionReadIndexEnded();
-                        
+                        await this.incrementConsumerPartitionReadIndex();    
                         continue;
                     }
 
                     let failed = false;
                     try 
                     {
-                        this._profiler.eventProcessingStarted(eventName, eventId);
-                        
                         await Make.retryWithExponentialBackoff(async () =>
                         {
-                            if (this._isDisposed)
+                            if (this.isDisposed)
                             {
                                 failed = true;
                                 return;
                             }
                             
-                            try 
-                            {
-                                await this.processEvent(eventName, eventRegistration, deserializedEvent);
-                            }
-                            catch (error)
-                            {
-                                this._profiler.eventRetried(eventName);
-                                throw error;
-                            }
+                            await this.processEvent(eventName, eventRegistration, deserializedEvent);
                         }, 5)();
-                        
-                        this._profiler.eventProcessingEnded(eventName, eventId);
                     }
                     catch (error)
                     {
                         failed = true;
-                        this._profiler.eventFailed(eventName);
-                        await this._logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
-                        await this._logger.logError(error);
+                        await this.logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
+                        await this.logger.logError(error);
                     }
                     finally
                     {
-                        if (failed && this._isDisposed)
+                        if (failed && this.isDisposed)
                             return;
                         
                         this.track(eventId);
-                        
-                        this._profiler.incrementConsumerPartitionReadIndexStarted();
                         await this.incrementConsumerPartitionReadIndex();
-                        this._profiler.incrementConsumerPartitionReadIndexEnded();
                     }
                 }
             }
             catch (error)
             {
-                await this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
-                await this._logger.logError(error);
-                if (this._isDisposed)
+                await this.logger.logWarning(`Error in consumer => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
+                await this.logger.logError(error);
+                if (this.isDisposed)
                     return;
-                await Delay.minutes(1);
+                await Delay.seconds(15);
             }
         }
     }
     
-    private fetchPartitionWriteIndex(): Promise<number>
+    protected fetchPartitionWriteIndex(): Promise<number>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
         
@@ -246,7 +210,7 @@ export class Consumer implements Disposable
         });
     }
     
-    private fetchConsumerPartitionReadIndex(): Promise<number>
+    protected fetchConsumerPartitionReadIndex(): Promise<number>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
@@ -265,7 +229,7 @@ export class Consumer implements Disposable
         });
     }
     
-    private incrementConsumerPartitionReadIndex(): Promise<number>
+    protected incrementConsumerPartitionReadIndex(): Promise<number>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
@@ -284,7 +248,7 @@ export class Consumer implements Disposable
         });
     }
     
-    private retrieveEvent(indexToRead: number): Promise<Buffer>
+    protected retrieveEvent(indexToRead: number): Promise<Buffer>
     {
         return new Promise((resolve, reject) =>
         {
@@ -303,7 +267,7 @@ export class Consumer implements Disposable
         });
     }
     
-    private batchRetrieveEvents(lowerBoundIndex: number, upperBoundIndex: number)
+    protected batchRetrieveEvents(lowerBoundIndex: number, upperBoundIndex: number)
         : Promise<Array<{ index: number; key: string; value: Buffer }>>
     {
         return new Promise((resolve, reject) =>
@@ -337,7 +301,7 @@ export class Consumer implements Disposable
         });
     }
     
-    private async processEvent(eventName: string, eventRegistration: EventRegistration, event: any): Promise<void>
+    protected async processEvent(eventName: string, eventRegistration: EventRegistration, event: any): Promise<void>
     {
         const scope = this._manager.serviceLocator.createScope();
         event.$scope = scope;
@@ -362,7 +326,7 @@ export class Consumer implements Disposable
         }   
     }
     
-    private track(eventId: string): void
+    protected track(eventId: string): void
     {
         given(eventId, "eventId").ensureHasValue().ensureIsString();
         
@@ -376,21 +340,7 @@ export class Consumer implements Disposable
         this._trackedIdsSet.add(eventId);
     }
     
-    // private async decompressEvent(eventData: string): Promise<object>
-    // {
-    //     given(eventData, "eventData").ensureHasValue().ensureIsString();
-    //     eventData = eventData.trim();
-        
-    //     if (eventData.startsWith("{"))
-    //         return JSON.parse(eventData);
-        
-    //     const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
-    //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
-
-    //     return JSON.parse(decompressed.toString("utf8"));
-    // }
-    
-    private async decompressEvent(eventData: Buffer): Promise<object>
+    protected async decompressEvent(eventData: Buffer): Promise<object>
     {
         given(eventData, "eventData").ensureHasValue();
         
