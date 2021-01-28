@@ -19,10 +19,13 @@ class ConsumerProfiler {
         this._eventProfiler = null;
     }
     static initialize() {
-        ConsumerProfiler._eventQueuePressureInterval = setInterval(() => {
-            const handleCount = process._getActiveHandles().length;
-            ConsumerProfiler._eventQueuePressure.push({ time: Date.now(), count: handleCount });
-        }, 60000);
+        ConsumerProfiler._startTime = Date.now();
+        ConsumerProfiler.trackEventQueuePressure();
+        ConsumerProfiler._eventQueuePressureInterval = setInterval(() => ConsumerProfiler.trackEventQueuePressure(), 60000);
+    }
+    static trackEventQueuePressure() {
+        const handleCount = process._getActiveHandles().length;
+        ConsumerProfiler._eventQueuePressure.push({ time: Date.now(), count: handleCount });
     }
     fetchPartitionWriteIndexStarted() {
         this._fetchPartitionWriteIndexProfiler = new n_util_1.Profiler();
@@ -126,7 +129,9 @@ class ConsumerProfiler {
     static aggregate(consumerName, consumerProfilers) {
         n_defensive_1.given(consumerName, "consumerName").ensureHasValue().ensureIsString();
         n_defensive_1.given(consumerProfilers, "consumerProfilers").ensureHasValue().ensureIsArray().ensure(t => t.length > 0);
+        const endTime = Date.now();
         clearInterval(ConsumerProfiler._eventQueuePressureInterval);
+        ConsumerProfiler.trackEventQueuePressure();
         const eventTraces = new Array();
         const eventProcessings = {};
         const eventRetries = {};
@@ -193,6 +198,8 @@ class ConsumerProfiler {
         });
         console.log(`[${consumerName}] AGGREGATE (does not include $events)`);
         console.table({
+            startTime: (new Date(ConsumerProfiler._startTime)).toString().split("GMT")[0].trim(),
+            enfTime: (new Date(endTime)).toString().split("GMT")[0].trim(),
             consumer: consumerName,
             totalEventsProcessed: totalEventCount,
             totalPT: totalEventsProcessingTime,
@@ -202,7 +209,7 @@ class ConsumerProfiler {
         console.table(messages.orderBy(t => t.name));
         console.log(`[${consumerName}] EVENT QUEUE PRESSURE`);
         console.table(ConsumerProfiler._eventQueuePressure.map(t => ({
-            time: (new Date(t.time)).toString(),
+            time: (new Date(t.time)).toString().split("GMT")[0].trim(),
             count: t.count
         })));
     }

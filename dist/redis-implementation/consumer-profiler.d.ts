@@ -12,8 +12,10 @@ export declare class ConsumerProfiler {
     private _deserializeEventProfiler;
     private _eventProfiler;
     private static readonly _eventQueuePressure;
+    private static _startTime;
     private static _eventQueuePressureInterval;
     static initialize(): void;
+    private static trackEventQueuePressure;
     fetchPartitionWriteIndexStarted(): void;
     fetchPartitionWriteIndexEnded(): void;
     fetchConsumerPartitionReadIndexStarted(): void;
