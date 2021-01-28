@@ -46,6 +46,8 @@ export class RedisEventSubMgr implements EventSubMgr
         given(this, "this").ensure(t => !t._manager, "already initialized");
 
         this._manager = manager;
+        if (this._manager.metricsEnabled)
+            ConsumerProfiler.initialize();
     }
     
     public async consume(): Promise<void>

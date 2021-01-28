@@ -17,7 +17,21 @@ export class ConsumerProfiler
     private _decompressEventProfiler: Profiler | null = null;
     private _deserializeEventProfiler: Profiler | null = null;
     private _eventProfiler: { name: string; id: string; profiler: Profiler } | null = null;
+    
+    
+    private static readonly _eventQueuePressure = new Array<{ time: number, count: number }>();
+    private static _eventQueuePressureInterval: NodeJS.Timeout;
 
+    
+    public static initialize()
+    {
+        ConsumerProfiler._eventQueuePressureInterval = setInterval(() =>
+        {
+            const handleCount = (<any>process)._getActiveHandles().length;
+            ConsumerProfiler._eventQueuePressure.push({ time: Date.now(), count: handleCount });
+        }, 60000);
+    }
+    
 
     public fetchPartitionWriteIndexStarted(): void
     {
@@ -175,6 +189,8 @@ export class ConsumerProfiler
         given(consumerName, "consumerName").ensureHasValue().ensureIsString();
         given(consumerProfilers, "consumerProfilers").ensureHasValue().ensureIsArray().ensure(t => t.length > 0);
         
+        clearInterval(ConsumerProfiler._eventQueuePressureInterval);
+        
         const eventTraces = new Array<ProfilerTrace>();
         const eventProcessings: { [name: string]: number; } = { };
         const eventRetries: { [name: string]: number; } = { };
@@ -267,5 +283,11 @@ export class ConsumerProfiler
         
         console.log(`[${consumerName}] DETAILS`);
         console.table(messages.orderBy(t => t.name));
+        
+        console.log(`[${consumerName}] EVENT QUEUE PRESSURE`);
+        console.table(ConsumerProfiler._eventQueuePressure.map(t => ({
+            time: (new Date(t.time)).toString(),
+            count: t.count
+        })));
     }
 }
