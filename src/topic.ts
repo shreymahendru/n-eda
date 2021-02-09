@@ -8,6 +8,7 @@ export class Topic
     private readonly _name: string;
     private readonly _ttlMinutes: number;
     private readonly _numPartitions: number;
+    
     private _publishOnly: boolean = false;
     private _partitionAffinity: ReadonlyArray<number> | null = null;
     private _isDisabled: boolean = false;
@@ -34,13 +35,18 @@ export class Topic
     }
     
     
-    public makePublishOnly(): this
+    public makePublishOnly(): Topic
     {
-        this._publishOnly = true;
-        return this;
+        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
+        result._partitionAffinity = this._partitionAffinity;
+        result._isDisabled = this._isDisabled;
+        
+        result._publishOnly = true;
+        
+        return result;
     }
     
-    public configurePartitionAffinity(partitionAffinity: string): this
+    public configurePartitionAffinity(partitionAffinity: string): Topic
     {
         given(partitionAffinity, "partitionAffinity").ensureHasValue().ensureIsString()
             .ensure(t => t.contains("-") && t.trim().split("-").length === 2 && t.trim().split("-")
@@ -55,13 +61,23 @@ export class Topic
         for (let i = lower; i <= upper; i++)
             partitions.push(i);
 
-        this._partitionAffinity = partitions;
-        return this;
+        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
+        result._publishOnly = this._publishOnly;
+        result._isDisabled = this._isDisabled;
+        
+        result._partitionAffinity = partitions;
+        
+        return result;
     }
     
-    public disable(): this
+    public disable(): Topic
     {
-        this._isDisabled = true;
-        return this;
+        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
+        result._publishOnly = this._publishOnly;
+        result._partitionAffinity = this._partitionAffinity;
+        
+        result._isDisabled = true;
+        
+        return result;
     }
 }
