@@ -60,7 +60,7 @@ class Consumer {
                     const writeIndex = yield this.fetchPartitionWriteIndex();
                     const readIndex = yield this.fetchConsumerPartitionReadIndex();
                     if (readIndex >= writeIndex) {
-                        yield n_util_1.Delay.seconds(1);
+                        yield n_util_1.Delay.milliseconds(100);
                         continue;
                     }
                     const maxRead = 50;
@@ -127,7 +127,7 @@ class Consumer {
                     yield this.logger.logError(error);
                     if (this.isDisposed)
                         return;
-                    yield n_util_1.Delay.seconds(15);
+                    yield n_util_1.Delay.seconds(5);
                 }
             }
         });
