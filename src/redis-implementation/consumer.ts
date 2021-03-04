@@ -94,7 +94,7 @@ export class Consumer implements Disposable
 
                 if (readIndex >= writeIndex)
                 {
-                    await Delay.seconds(1);
+                    await Delay.milliseconds(100);
                     continue;
                 }
 
@@ -186,7 +186,7 @@ export class Consumer implements Disposable
                 await this.logger.logError(error);
                 if (this.isDisposed)
                     return;
-                await Delay.seconds(15);
+                await Delay.seconds(5);
             }
         }
     }
