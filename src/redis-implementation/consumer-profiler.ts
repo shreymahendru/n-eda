@@ -43,7 +43,7 @@ export class ConsumerProfiler
 
     public fetchPartitionWriteIndexStarted(): void
     {
-        this._fetchPartitionWriteIndexProfiler = new Profiler();
+        this._fetchPartitionWriteIndexProfiler = new Profiler("fetchPartitionWriteIndex");
     }
 
     public fetchPartitionWriteIndexEnded(): void
@@ -58,7 +58,7 @@ export class ConsumerProfiler
 
     public fetchConsumerPartitionReadIndexStarted(): void
     {
-        this._fetchConsumerPartitionReadIndexProfiler = new Profiler();
+        this._fetchConsumerPartitionReadIndexProfiler = new Profiler("fetchConsumerPartitionReadIndex");
     }
 
     public fetchConsumerPartitionReadIndexEnded(): void
@@ -73,7 +73,7 @@ export class ConsumerProfiler
 
     public incrementConsumerPartitionReadIndexStarted(): void
     {
-        this._incrementConsumerPartitionReadIndexProfiler = new Profiler();
+        this._incrementConsumerPartitionReadIndexProfiler = new Profiler("incrementConsumerPartitionReadIndex");
     }
 
     public incrementConsumerPartitionReadIndexEnded(): void
@@ -88,7 +88,7 @@ export class ConsumerProfiler
 
     public retrieveEventStarted(): void
     {
-        this._retrieveEventProfiler = new Profiler();
+        this._retrieveEventProfiler = new Profiler("retrieveEvent");
     }
 
     public retrieveEventEnded(): void
@@ -103,7 +103,7 @@ export class ConsumerProfiler
 
     public batchRetrieveEventsStarted(): void
     {
-        this._batchRetrieveEventsProfiler = new Profiler();
+        this._batchRetrieveEventsProfiler = new Profiler("batchRetrieveEvents");
     }
 
     public batchRetrieveEventsEnded(): void
@@ -118,7 +118,7 @@ export class ConsumerProfiler
     
     public decompressEventStarted(): void
     {
-        this._decompressEventProfiler = new Profiler();
+        this._decompressEventProfiler = new Profiler("decompressEvent");
     }
     
     public decompressEventEnded(): void
@@ -133,7 +133,7 @@ export class ConsumerProfiler
     
     public deserializeEventStarted(): void
     {
-        this._deserializeEventProfiler = new Profiler();
+        this._deserializeEventProfiler = new Profiler("deserializeEvent");
     }
 
     public deserializeEventEnded(): void
@@ -151,7 +151,7 @@ export class ConsumerProfiler
         given(eventName, "eventName").ensureHasValue().ensureIsString();
         given(eventId, "eventId").ensureHasValue().ensureIsString();
 
-        this._eventProfiler = { name: eventName, id: eventId, profiler: new Profiler() };
+        this._eventProfiler = { name: eventName, id: eventId, profiler: new Profiler("eventProcessing") };
 
         if (!this._eventProcessings[eventName])
             this._eventProcessings[eventName] = 0;
