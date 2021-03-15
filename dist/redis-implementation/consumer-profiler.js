@@ -28,7 +28,7 @@ class ConsumerProfiler {
         ConsumerProfiler._eventQueuePressure.push({ time: Date.now(), count: handleCount });
     }
     fetchPartitionWriteIndexStarted() {
-        this._fetchPartitionWriteIndexProfiler = new n_util_1.Profiler();
+        this._fetchPartitionWriteIndexProfiler = new n_util_1.Profiler("fetchPartitionWriteIndex");
     }
     fetchPartitionWriteIndexEnded() {
         n_defensive_1.given(this, "this")
@@ -38,7 +38,7 @@ class ConsumerProfiler {
         this._fetchPartitionWriteIndexProfiler = null;
     }
     fetchConsumerPartitionReadIndexStarted() {
-        this._fetchConsumerPartitionReadIndexProfiler = new n_util_1.Profiler();
+        this._fetchConsumerPartitionReadIndexProfiler = new n_util_1.Profiler("fetchConsumerPartitionReadIndex");
     }
     fetchConsumerPartitionReadIndexEnded() {
         n_defensive_1.given(this, "this")
@@ -48,7 +48,7 @@ class ConsumerProfiler {
         this._fetchConsumerPartitionReadIndexProfiler = null;
     }
     incrementConsumerPartitionReadIndexStarted() {
-        this._incrementConsumerPartitionReadIndexProfiler = new n_util_1.Profiler();
+        this._incrementConsumerPartitionReadIndexProfiler = new n_util_1.Profiler("incrementConsumerPartitionReadIndex");
     }
     incrementConsumerPartitionReadIndexEnded() {
         n_defensive_1.given(this, "this")
@@ -58,7 +58,7 @@ class ConsumerProfiler {
         this._incrementConsumerPartitionReadIndexProfiler = null;
     }
     retrieveEventStarted() {
-        this._retrieveEventProfiler = new n_util_1.Profiler();
+        this._retrieveEventProfiler = new n_util_1.Profiler("retrieveEvent");
     }
     retrieveEventEnded() {
         n_defensive_1.given(this, "this")
@@ -68,7 +68,7 @@ class ConsumerProfiler {
         this._retrieveEventProfiler = null;
     }
     batchRetrieveEventsStarted() {
-        this._batchRetrieveEventsProfiler = new n_util_1.Profiler();
+        this._batchRetrieveEventsProfiler = new n_util_1.Profiler("batchRetrieveEvents");
     }
     batchRetrieveEventsEnded() {
         n_defensive_1.given(this, "this")
@@ -78,7 +78,7 @@ class ConsumerProfiler {
         this._batchRetrieveEventsProfiler = null;
     }
     decompressEventStarted() {
-        this._decompressEventProfiler = new n_util_1.Profiler();
+        this._decompressEventProfiler = new n_util_1.Profiler("decompressEvent");
     }
     decompressEventEnded() {
         n_defensive_1.given(this, "this")
@@ -88,7 +88,7 @@ class ConsumerProfiler {
         this._decompressEventProfiler = null;
     }
     deserializeEventStarted() {
-        this._deserializeEventProfiler = new n_util_1.Profiler();
+        this._deserializeEventProfiler = new n_util_1.Profiler("deserializeEvent");
     }
     deserializeEventEnded() {
         n_defensive_1.given(this, "this")
@@ -100,7 +100,7 @@ class ConsumerProfiler {
     eventProcessingStarted(eventName, eventId) {
         n_defensive_1.given(eventName, "eventName").ensureHasValue().ensureIsString();
         n_defensive_1.given(eventId, "eventId").ensureHasValue().ensureIsString();
-        this._eventProfiler = { name: eventName, id: eventId, profiler: new n_util_1.Profiler() };
+        this._eventProfiler = { name: eventName, id: eventId, profiler: new n_util_1.Profiler("eventProcessing") };
         if (!this._eventProcessings[eventName])
             this._eventProcessings[eventName] = 0;
         this._eventProcessings[eventName]++;
