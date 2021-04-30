@@ -121,7 +121,7 @@ export class ProfilingConsumer extends Consumer
 
                             try 
                             {
-                                await this.processEvent(eventName, eventRegistration, deserializedEvent);
+                                await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
                             }
                             catch (error)
                             {
