@@ -93,7 +93,7 @@ class ProfilingConsumer extends consumer_1.Consumer {
                                     return;
                                 }
                                 try {
-                                    yield this.processEvent(eventName, eventRegistration, deserializedEvent);
+                                    yield this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
                                 }
                                 catch (error) {
                                     this._profiler.eventRetried(eventName);

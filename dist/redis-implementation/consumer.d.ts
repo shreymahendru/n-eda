@@ -37,7 +37,7 @@ export declare class Consumer implements Disposable {
         key: string;
         value: Buffer;
     }>>;
-    protected processEvent(eventName: string, eventRegistration: EventRegistration, event: any): Promise<void>;
+    protected processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string): Promise<void>;
     protected track(eventId: string): void;
     protected decompressEvent(eventData: Buffer): Promise<object>;
 }

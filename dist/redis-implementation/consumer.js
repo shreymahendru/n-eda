@@ -65,7 +65,7 @@ class Consumer {
                     }
                     const maxRead = 50;
                     const lowerBoundReadIndex = readIndex + 1;
-                    const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
+                    const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? (readIndex + maxRead - 1) : writeIndex;
                     const eventsData = yield this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                     for (const item of eventsData) {
                         if (this.isDisposed)
@@ -106,7 +106,7 @@ class Consumer {
                                     failed = true;
                                     return;
                                 }
-                                yield this.processEvent(eventName, eventRegistration, deserializedEvent);
+                                yield this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
                             }), 5)();
                         }
                         catch (error) {
@@ -203,7 +203,7 @@ class Consumer {
             });
         });
     }
-    processEvent(eventName, eventRegistration, event) {
+    processEvent(eventName, eventRegistration, event, eventId) {
         return __awaiter(this, void 0, void 0, function* () {
             const scope = this._manager.serviceLocator.createScope();
             event.$scope = scope;
@@ -211,6 +211,7 @@ class Consumer {
             const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
             try {
                 yield handler.handle(event);
+                yield this._logger.logInfo(`Executed EventHandler '${eventRegistration.eventHandlerTypeName}' for event '${eventName}' with id '${eventId}' => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
             }
             catch (error) {
                 yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify(event.serialize())}.`);
