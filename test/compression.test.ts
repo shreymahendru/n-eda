@@ -1,7 +1,7 @@
 import * as Assert from "assert";
 import * as Zlib from "zlib";
 import { given } from "@nivinjoseph/n-defensive";
-import { Make } from "@nivinjoseph/n-util";
+import { Make, Profiler } from "@nivinjoseph/n-util";
 // import * as MessagePack from "msgpack-lite";
 // import * as Snappy from "snappy";
 
@@ -15,20 +15,27 @@ suite("compression tests", () =>
         given(event, "event").ensureHasValue().ensureIsObject();
 
         const stringified = JSON.stringify(event);
-        const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(stringified, "utf-8"),
-            brotliOptions);
+        // console.log("original char length", stringified.length);
+        const buf = Buffer.from(stringified, "utf-8");
+        // console.log("original bytes", buf.byteLength);
+        const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(buf, brotliOptions);
         
-        console.log("brotli bytes", compressed.byteLength);
+        // console.log("brotli bytes", compressed.byteLength);
 
-        return compressed.toString("base64");
+        // const base64 = compressed.toString("base64");
+        
+        // console.log("base64 char length", base64.length);
+        
+        // return base64;
+        
+        return compressed;
     };
     
-    const brotliDecompress = async (eventData: string) =>
+    const brotliDecompress = async (eventData: Buffer) =>
     {
-        given(eventData, "eventData").ensureHasValue().ensureIsString();
+        given(eventData, "eventData").ensureHasValue();
         
-        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(Buffer.from(eventData, "base64"),
-            brotliOptions);
+        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(eventData, brotliOptions);
         
         return JSON.parse(decompressed.toString("utf8"));
     };
@@ -132,6 +139,33 @@ suite("compression tests", () =>
         Assert.deepStrictEqual(data, decompressed);
         
         // Assert.ok(true);
+    });
+    
+    test.only("Brotli performance", async () =>
+    {
+        const compressed = new Array<Buffer>();
+        
+        let profiler = new Profiler("compressor");
+        for (let i = 0; i < 1000; i++)
+        {
+            compressed.push(await brotliCompress(data));
+        }
+        profiler.trace("compressed");
+        
+        console.table(profiler.traces);
+        
+        
+        const decompressed = new Array<object>();
+        profiler = new Profiler("decompressor");
+        for (let i = 0; i < compressed.length; i++)
+        {
+            decompressed.push(await brotliDecompress(compressed[i]));
+        }
+        profiler.trace("decompressed");
+        
+        console.table(profiler.traces);
+        
+        Assert.ok(true);
     });
     
     // test("Snappy", async () =>

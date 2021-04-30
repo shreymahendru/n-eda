@@ -100,7 +100,7 @@ export class Consumer implements Disposable
 
                 const maxRead = 50;
                 const lowerBoundReadIndex = readIndex + 1;
-                const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead : writeIndex;
+                const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? (readIndex + maxRead - 1) : writeIndex;
                 const eventsData = await this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                 
                 for (const item of eventsData)
@@ -161,7 +161,7 @@ export class Consumer implements Disposable
                                 return;
                             }
                             
-                            await this.processEvent(eventName, eventRegistration, deserializedEvent);
+                            await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
                         }, 5)();
                     }
                     catch (error)
@@ -301,7 +301,7 @@ export class Consumer implements Disposable
         });
     }
     
-    protected async processEvent(eventName: string, eventRegistration: EventRegistration, event: any): Promise<void>
+    protected async processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string): Promise<void>
     {
         const scope = this._manager.serviceLocator.createScope();
         event.$scope = scope;
@@ -313,6 +313,8 @@ export class Consumer implements Disposable
         try 
         {
             await handler.handle(event);
+            
+            await this._logger.logInfo(`Executed EventHandler '${eventRegistration.eventHandlerTypeName}' for event '${eventName}' with id '${eventId}' => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
         }
         catch (error)
         {
