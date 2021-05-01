@@ -9,6 +9,8 @@ const eda_manager_1 = require("./eda-manager");
 Object.defineProperty(exports, "EdaManager", { enumerable: true, get: function () { return eda_manager_1.EdaManager; } });
 const topic_1 = require("./topic");
 Object.defineProperty(exports, "Topic", { enumerable: true, get: function () { return topic_1.Topic; } });
+// import { InMemoryEventBus } from "./in-memory-implementation/in-memory-event-bus";
+// import { InMemoryEventSubMgr } from "./in-memory-implementation/in-memory-event-sub-mgr";
 const redis_event_bus_1 = require("./redis-implementation/redis-event-bus");
 Object.defineProperty(exports, "RedisEventBus", { enumerable: true, get: function () { return redis_event_bus_1.RedisEventBus; } });
 const redis_event_sub_mgr_1 = require("./redis-implementation/redis-event-sub-mgr");

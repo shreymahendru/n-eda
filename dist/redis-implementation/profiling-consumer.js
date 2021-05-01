@@ -48,7 +48,8 @@ class ProfilingConsumer extends consumer_1.Consumer {
                         let eventData = item.value;
                         let numReadAttempts = 1;
                         const maxReadAttempts = 10;
-                        while (eventData == null && numReadAttempts < maxReadAttempts) {
+                        while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
+                         {
                             if (this.isDisposed)
                                 return;
                             yield n_util_1.Delay.milliseconds(100);
@@ -72,9 +73,10 @@ class ProfilingConsumer extends consumer_1.Consumer {
                         this._profiler.decompressEventStarted();
                         const event = yield this.decompressEvent(eventData);
                         this._profiler.decompressEventEnded();
-                        const eventId = event.$id || event.id;
-                        const eventName = event.$name || event.name;
+                        const eventId = event.$id || event.id; // for compatibility with n-domain DomainEvent
+                        const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
                         const eventRegistration = this.manager.eventMap.get(eventName);
+                        // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
                         this._profiler.deserializeEventStarted();
                         const deserializedEvent = n_util_1.Deserializer.deserialize(event);
                         this._profiler.deserializeEventEnded();

@@ -28,6 +28,7 @@ const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const consumer_profiler_1 = require("./consumer-profiler");
 const profiling_consumer_1 = require("./profiling-consumer");
+// public
 let RedisEventSubMgr = class RedisEventSubMgr {
     constructor(redisClient, logger) {
         this._consumers = new Array();

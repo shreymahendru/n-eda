@@ -4,6 +4,7 @@ exports.Topic = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
+// public
 class Topic {
     constructor(name, ttlMinutes, numPartitions) {
         this._publishOnly = false;

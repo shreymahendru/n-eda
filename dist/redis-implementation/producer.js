@@ -103,6 +103,7 @@ class Producer {
             n_defensive_1.given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
             n_defensive_1.given(eventData, "eventData").ensureHasValue();
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
+            // const expirySeconds = 60 * 60 * 4;
             const expirySeconds = this._ttlMinutes * 60;
             this._client.setex(key.trim(), expirySeconds, eventData, (err) => {
                 if (err) {

@@ -15,8 +15,10 @@ const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const event_registration_1 = require("./event-registration");
 const MurmurHash = require("murmurhash3js");
+// public
 class EdaManager {
     constructor(container) {
+        // private readonly _wildKeys: Array<string>;
         this._metricsEnabled = false;
         this._partitionKeyMapper = null;
         this._eventBusRegistered = false;
@@ -30,6 +32,7 @@ class EdaManager {
         this._topics = new Array();
         this._topicMap = new Map();
         this._eventMap = new Map();
+        // this._wildKeys = new Array<string>();
     }
     static get eventBusKey() { return "EventBus"; }
     static get eventSubMgrKey() { return "EventSubMgr"; }
@@ -152,6 +155,19 @@ class EdaManager {
         const partitionKey = this._partitionKeyMapper(event).trim();
         return MurmurHash.x86.hash32(partitionKey) % this._topicMap.get(topic).numPartitions;
     }
+    // public getEventRegistration(event: EdaEvent): EventRegistration | false
+    // {
+    //     let eventRegistration: EventRegistration | null = null;
+    //     if (this._eventMap.has(event.name))
+    //         eventRegistration = this._eventMap.get(event.name) as EventRegistration;
+    //     else
+    //     {
+    //         const wildKey = this._wildKeys.find(t => event.name.startsWith(t));
+    //         if (wildKey)
+    //             eventRegistration = this._eventMap.get(wildKey) as EventRegistration;
+    //     }
+    //     return eventRegistration || false;
+    // }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {
             if (this._isDisposed)

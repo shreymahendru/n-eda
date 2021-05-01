@@ -27,6 +27,7 @@ const n_ject_1 = require("@nivinjoseph/n-ject");
 const producer_1 = require("./producer");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_config_1 = require("@nivinjoseph/n-config");
+// public
 let RedisEventBus = class RedisEventBus {
     constructor(redisClient) {
         this._producers = new Map();
@@ -80,6 +81,7 @@ let RedisEventBus = class RedisEventBus {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
+                // this._disposePromise = new Promise((resolve, _) => this._client.quit(() => resolve()));
                 this._disposePromise = n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 10);
             }
             yield this._disposePromise;

@@ -73,7 +73,8 @@ class Consumer {
                         let eventData = item.value;
                         let numReadAttempts = 1;
                         const maxReadAttempts = 10;
-                        while (eventData == null && numReadAttempts < maxReadAttempts) {
+                        while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
+                         {
                             if (this.isDisposed)
                                 return;
                             yield n_util_1.Delay.milliseconds(100);
@@ -91,9 +92,10 @@ class Consumer {
                             continue;
                         }
                         const event = yield this.decompressEvent(eventData);
-                        const eventId = event.$id || event.id;
-                        const eventName = event.$name || event.name;
+                        const eventId = event.$id || event.id; // for compatibility with n-domain DomainEvent
+                        const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
                         const eventRegistration = this.manager.eventMap.get(eventName);
+                        // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
                         const deserializedEvent = n_util_1.Deserializer.deserialize(event);
                         if (this.trackedIdsSet.has(eventId)) {
                             yield this.incrementConsumerPartitionReadIndex();
