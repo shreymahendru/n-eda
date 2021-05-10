@@ -14,6 +14,7 @@ import * as Zlib from "zlib";
 export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
+    private readonly _defaultDelayMS = 20;
     private readonly _client: Redis.RedisClient;
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
@@ -21,14 +22,10 @@ export class Consumer implements Disposable
     private readonly _partition: number;
     private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
     
-    
     private _isDisposed = false;
     private _trackedIdsSet = new Set<string>();
     private _trackedIdsArray = new Array<string>();
     private _consumePromise: Promise<void> | null = null;
-    
-    
-    
     
     
     protected get manager(): EdaManager { return this._manager; }
@@ -94,7 +91,7 @@ export class Consumer implements Disposable
 
                 if (readIndex >= writeIndex)
                 {
-                    await Delay.milliseconds(100);
+                    await Delay.milliseconds(this._defaultDelayMS);
                     continue;
                 }
 
@@ -110,13 +107,13 @@ export class Consumer implements Disposable
                     
                     let eventData = item.value;
                     let numReadAttempts = 1;
-                    const maxReadAttempts = 10;
+                    const maxReadAttempts = 500; // the math here must correlate with the write attempts of the producer
                     while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                     {
                         if (this.isDisposed)
                             return;
                         
-                        await Delay.milliseconds(100);
+                        await Delay.milliseconds(this._defaultDelayMS);
                         
                         eventData = await this.retrieveEvent(item.index);
                         numReadAttempts++;
@@ -153,16 +150,43 @@ export class Consumer implements Disposable
                     let failed = false;
                     try 
                     {
-                        await Make.retryWithExponentialBackoff(async () =>
+                        const maxProcessAttempts = 10;
+                        let numProcessAttempts = 0;
+                        let successful = false;
+                        while (successful === false && numProcessAttempts < maxProcessAttempts)
                         {
                             if (this.isDisposed)
                             {
                                 failed = true;
-                                return;
+                                break;
                             }
                             
-                            await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
-                        }, 5)();
+                            numProcessAttempts++;
+                            
+                            try 
+                            {
+                                await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId, numProcessAttempts);
+                                successful = true;
+                            }
+                            catch (error)
+                            {
+                                if (numProcessAttempts >= maxProcessAttempts)
+                                    throw error;
+                                else
+                                    await Delay.milliseconds(100 * numProcessAttempts);
+                            }
+                        }
+                        
+                        // await Make.retryWithExponentialBackoff(async () =>
+                        // {
+                        //     if (this.isDisposed)
+                        //     {
+                        //         failed = true;
+                        //         return;
+                        //     }
+                            
+                        //     await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
+                        // }, 5)();
                     }
                     catch (error)
                     {
@@ -301,7 +325,7 @@ export class Consumer implements Disposable
         });
     }
     
-    protected async processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string): Promise<void>
+    protected async processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string, numAttempt: number): Promise<void>
     {
         const scope = this._manager.serviceLocator.createScope();
         event.$scope = scope;
@@ -318,7 +342,7 @@ export class Consumer implements Disposable
         }
         catch (error)
         {
-            await this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify((event as EdaEvent).serialize())}.`);
+            await this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify((event as EdaEvent).serialize())}.`);
             await this._logger.logWarning(error);
             throw error;
         }

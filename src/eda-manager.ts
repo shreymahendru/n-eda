@@ -19,7 +19,7 @@ export class EdaManager implements Disposable
     private readonly _eventMap: Map<string, EventRegistration>;
     // private readonly _wildKeys: Array<string>;
     
-    private _metricsEnabled = false;
+    // private _metricsEnabled = false;
     private _partitionKeyMapper: (event: EdaEvent) => string = null as any;
     private _eventBusRegistered = false;
     private _eventSubMgrRegistered = false;
@@ -38,7 +38,7 @@ export class EdaManager implements Disposable
     public get eventMap(): ReadonlyMap<string, EventRegistration> { return this._eventMap; }
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
-    public get metricsEnabled(): boolean { return this._metricsEnabled; }
+    // public get metricsEnabled(): boolean { return this._metricsEnabled; }
     
     
     public constructor(container?: Container)
@@ -88,13 +88,13 @@ export class EdaManager implements Disposable
         return this;
     }
     
-    public enableMetrics(): this
-    {
-        given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
-        this._metricsEnabled = true;
+    // public enableMetrics(): this
+    // {
+    //     given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+    //     this._metricsEnabled = true;
 
-        return this;
-    }
+    //     return this;
+    // }
     
     public usePartitionKeyMapper(func: (event: EdaEvent) => string): this
     {

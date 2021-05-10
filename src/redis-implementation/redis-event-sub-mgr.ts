@@ -8,8 +8,8 @@ import { ServiceLocator, inject } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
-import { ConsumerProfiler } from "./consumer-profiler";
-import { ProfilingConsumer } from "./profiling-consumer";
+// import { ConsumerProfiler } from "./consumer-profiler";
+// import { ProfilingConsumer } from "./profiling-consumer";
 
 // public
 @inject("EdaRedisClient", "Logger")
@@ -46,8 +46,8 @@ export class RedisEventSubMgr implements EventSubMgr
         given(this, "this").ensure(t => !t._manager, "already initialized");
 
         this._manager = manager;
-        if (this._manager.metricsEnabled)
-            ConsumerProfiler.initialize();
+        // if (this._manager.metricsEnabled)
+        //     ConsumerProfiler.initialize();
     }
     
     public async consume(): Promise<void>
@@ -70,10 +70,13 @@ export class RedisEventSubMgr implements EventSubMgr
                 {
                     topic.partitionAffinity.forEach(partition =>
                     {
-                        const consumer = this._manager.metricsEnabled
-                            ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
-                                this.onEventReceived.bind(this))
-                            : new Consumer(this._client, this._manager, topic.name, partition,
+                        // const consumer = this._manager.metricsEnabled
+                        //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
+                        //         this.onEventReceived.bind(this))
+                        //     : new Consumer(this._client, this._manager, topic.name, partition,
+                        //         this.onEventReceived.bind(this));
+                        
+                        const consumer = new Consumer(this._client, this._manager, topic.name, partition,
                                 this.onEventReceived.bind(this));
                         
                         this._consumers.push(consumer);
@@ -83,10 +86,13 @@ export class RedisEventSubMgr implements EventSubMgr
                 {
                     for (let partition = 0; partition < topic.numPartitions; partition++)
                     {
-                        const consumer = this._manager.metricsEnabled
-                            ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
-                                this.onEventReceived.bind(this))
-                            : new Consumer(this._client, this._manager, topic.name, partition,
+                        // const consumer = this._manager.metricsEnabled
+                        //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
+                        //         this.onEventReceived.bind(this))
+                        //     : new Consumer(this._client, this._manager, topic.name, partition,
+                        //         this.onEventReceived.bind(this));
+                        
+                        const consumer = new Consumer(this._client, this._manager, topic.name, partition,
                                 this.onEventReceived.bind(this));
                         
                         this._consumers.push(consumer);
@@ -111,12 +117,12 @@ export class RedisEventSubMgr implements EventSubMgr
             
             this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
             
-            if (this._manager.metricsEnabled)
-            {
-                await Delay.seconds(3);
+            // if (this._manager.metricsEnabled)
+            // {
+            //     await Delay.seconds(3);
                 
-                ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => (<ProfilingConsumer>t).profiler));
-            }
+            //     ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => (<ProfilingConsumer>t).profiler));
+            // }
         }
 
         await this._disposePromise;

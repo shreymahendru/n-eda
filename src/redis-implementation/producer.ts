@@ -1,4 +1,4 @@
-import { Make, Mutex } from "@nivinjoseph/n-util";
+import { Delay, Make, Mutex } from "@nivinjoseph/n-util";
 import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { EdaEvent } from "../eda-event";
@@ -55,20 +55,45 @@ export class Producer
             indexed[i].index = lowerBoundWriteIndex + i + 1;
         
         await indexed.forEachAsync(async (t) =>
-        {    
-            await Make.retryWithDelay(async () =>
+        {
+            const maxStoreAttempts = 20;
+            let numStoreAttempts = 0;
+            let stored = false;
+            
+            while (stored === false && numStoreAttempts < maxStoreAttempts)
             {
+                numStoreAttempts++;
+                
                 try 
                 {
                     await this.storeEvent(t.index, t.compressed);
+                    stored = true;
                 }
                 catch (error)
                 {
-                    await this._logger.logWarning(`Error while storing event of type ${t.event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
+                    await this._logger.logWarning(`Error while storing event of type ${t.event.name} (ATTEMPT = ${numStoreAttempts}) => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
                     await this._logger.logError(error);
-                    throw error;
+                    
+                    if (numStoreAttempts >= maxStoreAttempts)
+                        throw error;
+                    else
+                        await Delay.milliseconds(500);
                 }
-            }, 20, 500)();
+            }
+            
+            // await Make.retryWithDelay(async () =>
+            // {
+            //     try 
+            //     {
+            //         await this.storeEvent(t.index, t.compressed);
+            //     }
+            //     catch (error)
+            //     {
+            //         await this._logger.logWarning(`Error while storing event of type ${t.event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
+            //         await this._logger.logError(error);
+            //         throw error;
+            //     }
+            // }, 20, 500)();
         });
     }
     
@@ -81,27 +106,35 @@ export class Producer
 
         return compressed;
     }
-    
+    // @ts-ignore
     private async acquireWriteIndex(incrBy: number): Promise<number>
     {
         await this._mutex.lock();
 
         try
         {
-            return await Make.retryWithDelay(async () =>
+            const maxAttempts = 20;
+            let numAttempts = 0;
+            
+            while (numAttempts < maxAttempts)
             {
+                numAttempts++;
+                
                 try 
                 {
                     return await this.incrementPartitionWriteIndex(incrBy);
                 }
                 catch (error)
                 {
-                    await this._logger.logWarning(`Error while incrementing partition write index => Topic: ${this._topic}; Partition: ${this._partition};`);
+                    await this._logger.logWarning(`Error while incrementing partition write index (ATTEMPT = ${numAttempts}) => Topic: ${this._topic}; Partition: ${this._partition};`);
                     await this._logger.logError(error);
-                    throw error;
+                    
+                    if (numAttempts >= maxAttempts)
+                        throw error;
+                    else
+                        await Delay.milliseconds(500);
                 }
-
-            }, 20, 1000)();
+            }
         }
         finally
         {
