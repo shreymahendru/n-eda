@@ -17,9 +17,10 @@ const event_registration_1 = require("./event-registration");
 const MurmurHash = require("murmurhash3js");
 // public
 class EdaManager {
+    // public get metricsEnabled(): boolean { return this._metricsEnabled; }
     constructor(container) {
         // private readonly _wildKeys: Array<string>;
-        this._metricsEnabled = false;
+        // private _metricsEnabled = false;
         this._partitionKeyMapper = null;
         this._eventBusRegistered = false;
         this._eventSubMgrRegistered = false;
@@ -42,7 +43,6 @@ class EdaManager {
     get eventMap() { return this._eventMap; }
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
-    get metricsEnabled() { return this._metricsEnabled; }
     useInstaller(installer) {
         n_defensive_1.given(installer, "installer").ensureHasValue().ensureIsObject();
         n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
@@ -66,11 +66,12 @@ class EdaManager {
         }
         return this;
     }
-    enableMetrics() {
-        n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
-        this._metricsEnabled = true;
-        return this;
-    }
+    // public enableMetrics(): this
+    // {
+    //     given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+    //     this._metricsEnabled = true;
+    //     return this;
+    // }
     usePartitionKeyMapper(func) {
         n_defensive_1.given(func, "func").ensureHasValue().ensureIsFunction();
         n_defensive_1.given(this, "this")

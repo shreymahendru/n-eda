@@ -8,6 +8,7 @@ import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
 export declare class Consumer implements Disposable {
     private readonly _edaPrefix;
+    private readonly _defaultDelayMS;
     private readonly _client;
     private readonly _manager;
     private readonly _logger;
@@ -37,7 +38,7 @@ export declare class Consumer implements Disposable {
         key: string;
         value: Buffer;
     }>>;
-    protected processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string): Promise<void>;
+    protected processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string, numAttempt: number): Promise<void>;
     protected track(eventId: string): void;
     protected decompressEvent(eventData: Buffer): Promise<object>;
 }

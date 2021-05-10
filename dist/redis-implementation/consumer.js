@@ -18,6 +18,7 @@ const Zlib = require("zlib");
 class Consumer {
     constructor(client, manager, topic, partition, onEventReceived) {
         this._edaPrefix = "n-eda";
+        this._defaultDelayMS = 20;
         this._isDisposed = false;
         this._trackedIdsSet = new Set();
         this._trackedIdsArray = new Array();
@@ -60,7 +61,7 @@ class Consumer {
                     const writeIndex = yield this.fetchPartitionWriteIndex();
                     const readIndex = yield this.fetchConsumerPartitionReadIndex();
                     if (readIndex >= writeIndex) {
-                        yield n_util_1.Delay.milliseconds(100);
+                        yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
                         continue;
                     }
                     const maxRead = 50;
@@ -72,12 +73,12 @@ class Consumer {
                             return;
                         let eventData = item.value;
                         let numReadAttempts = 1;
-                        const maxReadAttempts = 10;
+                        const maxReadAttempts = 500; // the math here must correlate with the write attempts of the producer
                         while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                          {
                             if (this.isDisposed)
                                 return;
-                            yield n_util_1.Delay.milliseconds(100);
+                            yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
                             eventData = yield this.retrieveEvent(item.index);
                             numReadAttempts++;
                         }
@@ -103,13 +104,35 @@ class Consumer {
                         }
                         let failed = false;
                         try {
-                            yield n_util_1.Make.retryWithExponentialBackoff(() => __awaiter(this, void 0, void 0, function* () {
+                            const maxProcessAttempts = 10;
+                            let numProcessAttempts = 0;
+                            let successful = false;
+                            while (successful === false && numProcessAttempts < maxProcessAttempts) {
                                 if (this.isDisposed) {
                                     failed = true;
-                                    return;
+                                    break;
                                 }
-                                yield this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
-                            }), 5)();
+                                numProcessAttempts++;
+                                try {
+                                    yield this.processEvent(eventName, eventRegistration, deserializedEvent, eventId, numProcessAttempts);
+                                    successful = true;
+                                }
+                                catch (error) {
+                                    if (numProcessAttempts >= maxProcessAttempts)
+                                        throw error;
+                                    else
+                                        yield n_util_1.Delay.milliseconds(100 * numProcessAttempts);
+                                }
+                            }
+                            // await Make.retryWithExponentialBackoff(async () =>
+                            // {
+                            //     if (this.isDisposed)
+                            //     {
+                            //         failed = true;
+                            //         return;
+                            //     }
+                            //     await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
+                            // }, 5)();
                         }
                         catch (error) {
                             failed = true;
@@ -205,7 +228,7 @@ class Consumer {
             });
         });
     }
-    processEvent(eventName, eventRegistration, event, eventId) {
+    processEvent(eventName, eventRegistration, event, eventId, numAttempt) {
         return __awaiter(this, void 0, void 0, function* () {
             const scope = this._manager.serviceLocator.createScope();
             event.$scope = scope;
@@ -216,7 +239,7 @@ class Consumer {
                 yield this._logger.logInfo(`Executed EventHandler '${eventRegistration.eventHandlerTypeName}' for event '${eventName}' with id '${eventId}' => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
             }
             catch (error) {
-                yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' with data ${JSON.stringify(event.serialize())}.`);
+                yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(event.serialize())}.`);
                 yield this._logger.logWarning(error);
                 throw error;
             }

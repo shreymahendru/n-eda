@@ -45,16 +45,37 @@ class Producer {
             for (let i = 0; i < events.length; i++)
                 indexed[i].index = lowerBoundWriteIndex + i + 1;
             yield indexed.forEachAsync((t) => __awaiter(this, void 0, void 0, function* () {
-                yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
+                const maxStoreAttempts = 20;
+                let numStoreAttempts = 0;
+                let stored = false;
+                while (stored === false && numStoreAttempts < maxStoreAttempts) {
+                    numStoreAttempts++;
                     try {
                         yield this.storeEvent(t.index, t.compressed);
+                        stored = true;
                     }
                     catch (error) {
-                        yield this._logger.logWarning(`Error while storing event of type ${t.event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
+                        yield this._logger.logWarning(`Error while storing event of type ${t.event.name} (ATTEMPT = ${numStoreAttempts}) => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
                         yield this._logger.logError(error);
-                        throw error;
+                        if (numStoreAttempts >= maxStoreAttempts)
+                            throw error;
+                        else
+                            yield n_util_1.Delay.milliseconds(500);
                     }
-                }), 20, 500)();
+                }
+                // await Make.retryWithDelay(async () =>
+                // {
+                //     try 
+                //     {
+                //         await this.storeEvent(t.index, t.compressed);
+                //     }
+                //     catch (error)
+                //     {
+                //         await this._logger.logWarning(`Error while storing event of type ${t.event.name} => Topic: ${this._topic}; Partition: ${this._partition}; WriteIndex: ${t.index};`);
+                //         await this._logger.logError(error);
+                //         throw error;
+                //     }
+                // }, 20, 500)();
             }));
         });
     }
@@ -65,20 +86,27 @@ class Producer {
             return compressed;
         });
     }
+    // @ts-ignore
     acquireWriteIndex(incrBy) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this._mutex.lock();
             try {
-                return yield n_util_1.Make.retryWithDelay(() => __awaiter(this, void 0, void 0, function* () {
+                const maxAttempts = 20;
+                let numAttempts = 0;
+                while (numAttempts < maxAttempts) {
+                    numAttempts++;
                     try {
                         return yield this.incrementPartitionWriteIndex(incrBy);
                     }
                     catch (error) {
-                        yield this._logger.logWarning(`Error while incrementing partition write index => Topic: ${this._topic}; Partition: ${this._partition};`);
+                        yield this._logger.logWarning(`Error while incrementing partition write index (ATTEMPT = ${numAttempts}) => Topic: ${this._topic}; Partition: ${this._partition};`);
                         yield this._logger.logError(error);
-                        throw error;
+                        if (numAttempts >= maxAttempts)
+                            throw error;
+                        else
+                            yield n_util_1.Delay.milliseconds(500);
                     }
-                }), 20, 1000)();
+                }
             }
             finally {
                 this._mutex.release();

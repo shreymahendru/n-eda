@@ -26,8 +26,8 @@ const consumer_1 = require("./consumer");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
-const consumer_profiler_1 = require("./consumer-profiler");
-const profiling_consumer_1 = require("./profiling-consumer");
+// import { ConsumerProfiler } from "./consumer-profiler";
+// import { ProfilingConsumer } from "./profiling-consumer";
 // public
 let RedisEventSubMgr = class RedisEventSubMgr {
     constructor(redisClient, logger) {
@@ -47,8 +47,8 @@ let RedisEventSubMgr = class RedisEventSubMgr {
             throw new n_exception_1.ObjectDisposedException(this);
         n_defensive_1.given(this, "this").ensure(t => !t._manager, "already initialized");
         this._manager = manager;
-        if (this._manager.metricsEnabled)
-            consumer_profiler_1.ConsumerProfiler.initialize();
+        // if (this._manager.metricsEnabled)
+        //     ConsumerProfiler.initialize();
     }
     consume() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -62,17 +62,23 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                         return;
                     if (topic.partitionAffinity != null) {
                         topic.partitionAffinity.forEach(partition => {
-                            const consumer = this._manager.metricsEnabled
-                                ? new profiling_consumer_1.ProfilingConsumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this))
-                                : new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this));
+                            // const consumer = this._manager.metricsEnabled
+                            //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
+                            //         this.onEventReceived.bind(this))
+                            //     : new Consumer(this._client, this._manager, topic.name, partition,
+                            //         this.onEventReceived.bind(this));
+                            const consumer = new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this));
                             this._consumers.push(consumer);
                         });
                     }
                     else {
                         for (let partition = 0; partition < topic.numPartitions; partition++) {
-                            const consumer = this._manager.metricsEnabled
-                                ? new profiling_consumer_1.ProfilingConsumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this))
-                                : new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this));
+                            // const consumer = this._manager.metricsEnabled
+                            //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
+                            //         this.onEventReceived.bind(this))
+                            //     : new Consumer(this._client, this._manager, topic.name, partition,
+                            //         this.onEventReceived.bind(this));
+                            const consumer = new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this));
                             this._consumers.push(consumer);
                         }
                     }
@@ -89,10 +95,11 @@ let RedisEventSubMgr = class RedisEventSubMgr {
             if (!this._isDisposed) {
                 this._isDisposed = true;
                 this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
-                if (this._manager.metricsEnabled) {
-                    yield n_util_1.Delay.seconds(3);
-                    consumer_profiler_1.ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => t.profiler));
-                }
+                // if (this._manager.metricsEnabled)
+                // {
+                //     await Delay.seconds(3);
+                //     ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => (<ProfilingConsumer>t).profiler));
+                // }
             }
             yield this._disposePromise;
         });
