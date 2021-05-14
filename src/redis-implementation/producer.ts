@@ -56,7 +56,7 @@ export class Producer
         
         await indexed.forEachAsync(async (t) =>
         {
-            const maxStoreAttempts = 20;
+            const maxStoreAttempts = 500; // correlates with read attempts in consumer
             let numStoreAttempts = 0;
             let stored = false;
             
@@ -77,7 +77,7 @@ export class Producer
                     if (numStoreAttempts >= maxStoreAttempts)
                         throw error;
                     else
-                        await Delay.milliseconds(500);
+                        await Delay.milliseconds(20);
                 }
             }
             
