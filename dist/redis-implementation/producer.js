@@ -45,7 +45,7 @@ class Producer {
             for (let i = 0; i < events.length; i++)
                 indexed[i].index = lowerBoundWriteIndex + i + 1;
             yield indexed.forEachAsync((t) => __awaiter(this, void 0, void 0, function* () {
-                const maxStoreAttempts = 20;
+                const maxStoreAttempts = 500; // correlates with read attempts in consumer
                 let numStoreAttempts = 0;
                 let stored = false;
                 while (stored === false && numStoreAttempts < maxStoreAttempts) {
@@ -60,7 +60,7 @@ class Producer {
                         if (numStoreAttempts >= maxStoreAttempts)
                             throw error;
                         else
-                            yield n_util_1.Delay.milliseconds(500);
+                            yield n_util_1.Delay.milliseconds(20);
                     }
                 }
                 // await Make.retryWithDelay(async () =>
