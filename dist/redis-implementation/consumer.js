@@ -22,6 +22,7 @@ class Consumer {
         this._isDisposed = false;
         this._trackedIdsSet = new Set();
         this._trackedIdsArray = new Array();
+        this._trackedKeysArray = new Array();
         this._consumePromise = null;
         n_defensive_1.given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -32,6 +33,7 @@ class Consumer {
         this._topic = topic;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
+        this._cleanKeys = this._manager.cleanKeys;
         n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
         this._onEventReceived = onEventReceived;
     }
@@ -79,7 +81,7 @@ class Consumer {
                             if (this.isDisposed)
                                 return;
                             yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
-                            eventData = yield this.retrieveEvent(item.index);
+                            eventData = yield this.retrieveEvent(item.key);
                             numReadAttempts++;
                         }
                         if (eventData == null) {
@@ -142,7 +144,7 @@ class Consumer {
                         finally {
                             if (failed && this.isDisposed)
                                 return;
-                            this.track(eventId);
+                            yield this.track(eventId, item.key);
                             yield this.incrementConsumerPartitionReadIndex();
                         }
                     }
@@ -193,9 +195,9 @@ class Consumer {
             });
         });
     }
-    retrieveEvent(indexToRead) {
+    retrieveEvent(key) {
         return new Promise((resolve, reject) => {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
+            // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
             this._client.get(key, (err, value) => {
                 if (err) {
                     reject(err);
@@ -207,8 +209,8 @@ class Consumer {
     }
     batchRetrieveEvents(lowerBoundIndex, upperBoundIndex) {
         return new Promise((resolve, reject) => {
-            n_defensive_1.given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
-            n_defensive_1.given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
+            // given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
+            // given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
             const keys = new Array();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++) {
                 const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${i}`;
@@ -248,20 +250,44 @@ class Consumer {
             }
         });
     }
-    track(eventId) {
-        n_defensive_1.given(eventId, "eventId").ensureHasValue().ensureIsString();
-        if (this._trackedIdsArray.length >= 300) {
-            this._trackedIdsArray = this._trackedIdsArray.skip(200);
-            this._trackedIdsSet = new Set(this._trackedIdsArray);
-        }
-        this._trackedIdsArray.push(eventId);
-        this._trackedIdsSet.add(eventId);
+    track(eventId, eventKey) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // given(eventId, "eventId").ensureHasValue().ensureIsString();
+            // given(eventKey, "eventKey").ensureHasValue().ensureIsString();
+            if (this._trackedIdsArray.length >= 300) {
+                this._trackedIdsArray = this._trackedIdsArray.skip(200);
+                this._trackedIdsSet = new Set(this._trackedIdsArray);
+                if (this._cleanKeys) {
+                    const erasedKeys = this._trackedKeysArray.take(200);
+                    this._trackedKeysArray = this._trackedKeysArray.skip(200);
+                    yield this.removeKeys(erasedKeys);
+                }
+            }
+            this._trackedIdsArray.push(eventId);
+            this._trackedIdsSet.add(eventId);
+            if (this._cleanKeys)
+                this._trackedKeysArray.push(eventKey);
+        });
     }
     decompressEvent(eventData) {
         return __awaiter(this, void 0, void 0, function* () {
-            n_defensive_1.given(eventData, "eventData").ensureHasValue();
+            // given(eventData, "eventData").ensureHasValue();
             const decompressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliDecompress)(eventData, { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
             return JSON.parse(decompressed.toString("utf8"));
+        });
+    }
+    removeKeys(keys) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
+                this._client.unlink(...keys, (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                });
+            });
         });
     }
 }

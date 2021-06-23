@@ -14,10 +14,12 @@ export declare class Consumer implements Disposable {
     private readonly _logger;
     private readonly _topic;
     private readonly _partition;
+    private readonly _cleanKeys;
     private readonly _onEventReceived;
     private _isDisposed;
     private _trackedIdsSet;
     private _trackedIdsArray;
+    private _trackedKeysArray;
     private _consumePromise;
     protected get manager(): EdaManager;
     protected get topic(): string;
@@ -32,13 +34,14 @@ export declare class Consumer implements Disposable {
     protected fetchPartitionWriteIndex(): Promise<number>;
     protected fetchConsumerPartitionReadIndex(): Promise<number>;
     protected incrementConsumerPartitionReadIndex(): Promise<number>;
-    protected retrieveEvent(indexToRead: number): Promise<Buffer>;
+    protected retrieveEvent(key: string): Promise<Buffer>;
     protected batchRetrieveEvents(lowerBoundIndex: number, upperBoundIndex: number): Promise<Array<{
         index: number;
         key: string;
         value: Buffer;
     }>>;
     protected processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string, numAttempt: number): Promise<void>;
-    protected track(eventId: string): void;
+    protected track(eventId: string, eventKey: string): Promise<void>;
     protected decompressEvent(eventData: Buffer): Promise<object>;
+    protected removeKeys(keys: string[]): Promise<void>;
 }

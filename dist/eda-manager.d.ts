@@ -16,6 +16,7 @@ export declare class EdaManager implements Disposable {
     private _eventSubMgrRegistered;
     private _consumerName;
     private _consumerGroupId;
+    private _cleanKeys;
     private _isDisposed;
     private _isBootstrapped;
     static get eventBusKey(): string;
@@ -26,6 +27,7 @@ export declare class EdaManager implements Disposable {
     get eventMap(): ReadonlyMap<string, EventRegistration>;
     get consumerName(): string;
     get consumerGroupId(): string | null;
+    get cleanKeys(): boolean;
     constructor(container?: Container);
     useInstaller(installer: ComponentInstaller): this;
     useConsumerName(name: string): this;
@@ -34,6 +36,7 @@ export declare class EdaManager implements Disposable {
     registerEventHandlers<TClass extends new (...args: any[]) => EdaEventHandler<any>>(...eventHandlerClasses: TClass[]): this;
     registerEventBus<TClass extends new (...args: any[]) => EventBus>(eventBus: EventBus | TClass): this;
     registerEventSubscriptionManager<TClass extends new (...args: any[]) => EventSubMgr>(eventSubMgr: EventSubMgr | TClass, consumerGroupId: string): this;
+    cleanUpKeys(): this;
     bootstrap(): void;
     beginConsumption(): Promise<void>;
     mapToPartition(topic: string, event: EdaEvent): number;

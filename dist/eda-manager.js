@@ -26,6 +26,7 @@ class EdaManager {
         this._eventSubMgrRegistered = false;
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
+        this._cleanKeys = false;
         this._isDisposed = false;
         this._isBootstrapped = false;
         n_defensive_1.given(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
@@ -43,6 +44,7 @@ class EdaManager {
     get eventMap() { return this._eventMap; }
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
+    get cleanKeys() { return this._cleanKeys; }
     useInstaller(installer) {
         n_defensive_1.given(installer, "installer").ensureHasValue().ensureIsObject();
         n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
@@ -115,6 +117,12 @@ class EdaManager {
             this._container.registerInstance(EdaManager.eventSubMgrKey, eventSubMgr);
         this._consumerGroupId = consumerGroupId.trim();
         this._eventSubMgrRegistered = true;
+        return this;
+    }
+    cleanUpKeys() {
+        n_defensive_1.given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._cleanKeys = true;
         return this;
     }
     bootstrap() {
