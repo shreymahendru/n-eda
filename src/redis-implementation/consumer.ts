@@ -20,11 +20,13 @@ export class Consumer implements Disposable
     private readonly _logger: Logger;
     private readonly _topic: string;
     private readonly _partition: number;
+    private readonly _cleanKeys: boolean;
     private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
     
     private _isDisposed = false;
     private _trackedIdsSet = new Set<string>();
     private _trackedIdsArray = new Array<string>();
+    private _trackedKeysArray = new Array<string>();
     private _consumePromise: Promise<void> | null = null;
     
     
@@ -52,6 +54,8 @@ export class Consumer implements Disposable
         
         given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
+        
+        this._cleanKeys = this._manager.cleanKeys;
         
         given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
         this._onEventReceived = onEventReceived;
@@ -115,7 +119,7 @@ export class Consumer implements Disposable
                         
                         await Delay.milliseconds(this._defaultDelayMS);
                         
-                        eventData = await this.retrieveEvent(item.index);
+                        eventData = await this.retrieveEvent(item.key);
                         numReadAttempts++;
                     }
 
@@ -199,7 +203,7 @@ export class Consumer implements Disposable
                         if (failed && this.isDisposed)
                             return;
                         
-                        this.track(eventId);
+                        await this.track(eventId, item.key);
                         await this.incrementConsumerPartitionReadIndex();
                     }
                 }
@@ -272,11 +276,11 @@ export class Consumer implements Disposable
         });
     }
     
-    protected retrieveEvent(indexToRead: number): Promise<Buffer>
+    protected retrieveEvent(key: string): Promise<Buffer>
     {
         return new Promise((resolve, reject) =>
         {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
+            // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
             
             this._client.get(key, (err, value) =>
             {
@@ -296,8 +300,8 @@ export class Consumer implements Disposable
     {
         return new Promise((resolve, reject) =>
         {
-            given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
-            given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
+            // given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
+            // given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
             
             const keys = new Array<{ index: number; key: string; }>();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++)
@@ -352,27 +356,57 @@ export class Consumer implements Disposable
         }   
     }
     
-    protected track(eventId: string): void
+    protected async track(eventId: string, eventKey: string): Promise<void>
     {
-        given(eventId, "eventId").ensureHasValue().ensureIsString();
+        // given(eventId, "eventId").ensureHasValue().ensureIsString();
+        // given(eventKey, "eventKey").ensureHasValue().ensureIsString();
         
         if (this._trackedIdsArray.length >= 300)
         {
             this._trackedIdsArray = this._trackedIdsArray.skip(200);
             this._trackedIdsSet = new Set<string>(this._trackedIdsArray);
+            
+            if (this._cleanKeys)
+            {
+                const erasedKeys = this._trackedKeysArray.take(200);
+                this._trackedKeysArray = this._trackedKeysArray.skip(200);
+                await this.removeKeys(erasedKeys);
+            }
         }
         
         this._trackedIdsArray.push(eventId);
         this._trackedIdsSet.add(eventId);
+        
+        if (this._cleanKeys)
+            this._trackedKeysArray.push(eventKey);
     }
     
     protected async decompressEvent(eventData: Buffer): Promise<object>
     {
-        given(eventData, "eventData").ensureHasValue();
+        // given(eventData, "eventData").ensureHasValue();
         
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(eventData,
             { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
 
         return JSON.parse(decompressed.toString("utf8"));
+    }
+    
+    protected async removeKeys(keys: string[]): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
+
+            this._client.unlink(...keys, (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+
+                resolve();
+            });
+        });
     }
 }

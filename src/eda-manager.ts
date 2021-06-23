@@ -25,6 +25,7 @@ export class EdaManager implements Disposable
     private _eventSubMgrRegistered = false;
     private _consumerName: string = "UNNAMED";
     private _consumerGroupId: string | null = null;
+    private _cleanKeys = false;
     private _isDisposed = false;
     private _isBootstrapped = false;
     
@@ -38,6 +39,7 @@ export class EdaManager implements Disposable
     public get eventMap(): ReadonlyMap<string, EventRegistration> { return this._eventMap; }
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
+    public get cleanKeys(): boolean { return this._cleanKeys; }
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
     
     
@@ -158,6 +160,16 @@ export class EdaManager implements Disposable
         
         this._consumerGroupId = consumerGroupId.trim();
         this._eventSubMgrRegistered = true;
+        
+        return this;
+    }
+    
+    public cleanUpKeys(): this
+    {
+        given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        
+        this._cleanKeys = true;
         
         return this;
     }
