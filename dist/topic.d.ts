@@ -12,7 +12,7 @@ export declare class Topic {
     get partitionAffinity(): ReadonlyArray<number> | null;
     get isDisabled(): boolean;
     constructor(name: string, ttlMinutes: number, numPartitions: number);
-    makePublishOnly(): Topic;
+    subscribe(): Topic;
     configurePartitionAffinity(partitionAffinity: string): Topic;
     disable(): Topic;
 }

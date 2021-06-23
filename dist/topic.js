@@ -7,7 +7,7 @@ const n_util_1 = require("@nivinjoseph/n-util");
 // public
 class Topic {
     constructor(name, ttlMinutes, numPartitions) {
-        this._publishOnly = false;
+        this._publishOnly = true;
         this._partitionAffinity = null;
         this._isDisabled = false;
         n_defensive_1.given(name, "name").ensureHasValue().ensureIsString();
@@ -23,11 +23,11 @@ class Topic {
     get publishOnly() { return this._publishOnly; }
     get partitionAffinity() { return this._partitionAffinity; }
     get isDisabled() { return this._isDisabled; }
-    makePublishOnly() {
+    subscribe() {
         const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
         result._partitionAffinity = this._partitionAffinity;
         result._isDisabled = this._isDisabled;
-        result._publishOnly = true;
+        result._publishOnly = false;
         return result;
     }
     configurePartitionAffinity(partitionAffinity) {
