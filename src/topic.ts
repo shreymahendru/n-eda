@@ -9,7 +9,7 @@ export class Topic
     private readonly _ttlMinutes: number;
     private readonly _numPartitions: number;
     
-    private _publishOnly: boolean = false;
+    private _publishOnly: boolean = true;
     private _partitionAffinity: ReadonlyArray<number> | null = null;
     private _isDisabled: boolean = false;
     
@@ -35,13 +35,13 @@ export class Topic
     }
     
     
-    public makePublishOnly(): Topic
+    public subscribe(): Topic
     {
         const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
         result._partitionAffinity = this._partitionAffinity;
         result._isDisabled = this._isDisabled;
         
-        result._publishOnly = true;
+        result._publishOnly = false;
         
         return result;
     }
