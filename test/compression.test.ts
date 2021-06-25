@@ -141,7 +141,7 @@ suite("compression tests", () =>
         // Assert.ok(true);
     });
     
-    test.only("Brotli performance", async () =>
+    test("Brotli performance", async () =>
     {
         const compressed = new Array<Buffer>();
         
