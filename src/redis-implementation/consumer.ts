@@ -3,31 +3,31 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { EdaManager } from "../eda-manager";
 import { EventRegistration } from "../event-registration";
-import { EdaEventHandler } from "../eda-event-handler";
 import { EdaEvent } from "../eda-event";
-import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
 import * as Zlib from "zlib";
+import { Broker } from "./broker";
 
 
 export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
-    private readonly _defaultDelayMS = 20;
+    private readonly _defaultDelayMS = 150;
     private readonly _client: Redis.RedisClient;
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
     private readonly _topic: string;
     private readonly _partition: number;
+    private readonly _id: string;
     private readonly _cleanKeys: boolean;
-    private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
     
     private _isDisposed = false;
     private _trackedIdsSet = new Set<string>();
     private _trackedIdsArray = new Array<string>();
     private _trackedKeysArray = new Array<string>();
     private _consumePromise: Promise<void> | null = null;
+    private _broker: Broker = null as any;
     
     
     protected get manager(): EdaManager { return this._manager; }
@@ -37,9 +37,10 @@ export class Consumer implements Disposable
     protected get trackedIdsSet(): ReadonlySet<string> { return this._trackedIdsSet; }
     protected get isDisposed(): boolean { return this._isDisposed; }
     
+    public get id(): string { return this._id; }
     
-    public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number,
-        onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void)
+    
+    public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -55,12 +56,17 @@ export class Consumer implements Disposable
         given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
         
-        this._cleanKeys = this._manager.cleanKeys;
+        this._id = `${this._topic}-${this._partition}`;
         
-        given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
-        this._onEventReceived = onEventReceived;
+        this._cleanKeys = this._manager.cleanKeys;
     }
     
+    
+    public registerBroker(broker: Broker): void
+    {
+        given(broker, "broker").ensureHasValue().ensureIsObject().ensureIsObject().ensureIsType(Broker);
+        this._broker = broker;
+    }
     
     public consume(): void
     {
@@ -104,6 +110,8 @@ export class Consumer implements Disposable
                 const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? (readIndex + maxRead - 1) : writeIndex;
                 const eventsData = await this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                 
+                const routed = new Array<Promise<void>>();
+                
                 for (const item of eventsData)
                 {
                     if (this.isDisposed)
@@ -117,7 +125,7 @@ export class Consumer implements Disposable
                         if (this.isDisposed)
                             return;
                         
-                        await Delay.milliseconds(this._defaultDelayMS);
+                        await Delay.milliseconds(20);
                         
                         eventData = await this.retrieveEvent(item.key);
                         numReadAttempts++;
@@ -143,7 +151,7 @@ export class Consumer implements Disposable
                     const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                     const eventRegistration = this.manager.eventMap.get(eventName) as EventRegistration;
                     // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
-                    const deserializedEvent = Deserializer.deserialize(event);
+                    const deserializedEvent = Deserializer.deserialize(event) as EdaEvent;
 
                     if (this.trackedIdsSet.has(eventId))
                     {
@@ -151,62 +159,17 @@ export class Consumer implements Disposable
                         continue;
                     }
 
-                    let failed = false;
-                    try 
-                    {
-                        const maxProcessAttempts = 10;
-                        let numProcessAttempts = 0;
-                        let successful = false;
-                        while (successful === false && numProcessAttempts < maxProcessAttempts)
-                        {
-                            if (this.isDisposed)
-                            {
-                                failed = true;
-                                break;
-                            }
-                            
-                            numProcessAttempts++;
-                            
-                            try 
-                            {
-                                await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId, numProcessAttempts);
-                                successful = true;
-                            }
-                            catch (error)
-                            {
-                                if (numProcessAttempts >= maxProcessAttempts)
-                                    throw error;
-                                else
-                                    await Delay.milliseconds(100 * numProcessAttempts);
-                            }
-                        }
-                        
-                        // await Make.retryWithExponentialBackoff(async () =>
-                        // {
-                        //     if (this.isDisposed)
-                        //     {
-                        //         failed = true;
-                        //         return;
-                        //     }
-                            
-                        //     await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
-                        // }, 5)();
-                    }
-                    catch (error)
-                    {
-                        failed = true;
-                        await this.logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
-                        await this.logger.logError(error);
-                    }
-                    finally
-                    {
-                        if (failed && this.isDisposed)
-                            return;
-                        
-                        await this.track(eventId, item.key);
-                        await this.incrementConsumerPartitionReadIndex();
-                    }
+                    routed.push(
+                        this.attemptRoute(
+                            eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
                 }
+                
+                await Promise.all(routed);
+                
+                if (this.isDisposed)
+                    return; // TODO: probably throw error here?
+                
+                await this.incrementConsumerPartitionReadIndex(upperBoundReadIndex);
             }
             catch (error)
             {
@@ -216,6 +179,29 @@ export class Consumer implements Disposable
                     return;
                 await Delay.seconds(5);
             }
+        }
+    }
+    
+    private async attemptRoute(eventName: string, eventRegistration: EventRegistration,
+        eventIndex: number, eventKey: string, eventId: string, event: EdaEvent): Promise<void>
+    {
+        let failed = false;
+        try 
+        {
+            await this._broker.route(this._id, this._topic, this._partition, eventName, eventRegistration, eventIndex, eventKey, eventId, event);
+        }
+        catch (error)
+        {
+            failed = true;
+            await this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event)}`);
+            await this.logger.logError(error);
+        }
+        finally
+        {
+            if (failed && this.isDisposed)
+                return;
+
+            await this.track(eventId, eventKey);
         }
     }
     
@@ -257,13 +243,30 @@ export class Consumer implements Disposable
         });
     }
     
-    protected incrementConsumerPartitionReadIndex(): Promise<number>
+    protected incrementConsumerPartitionReadIndex(index?: number): Promise<void>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
+        if (index != null)
+        {
+            return new Promise((resolve, reject) =>
+            {
+                this._client.set(key, index.toString(), (err) =>
+                {
+                    if (err)
+                    {
+                        reject(err);
+                        return;
+                    }
+
+                    resolve();
+                });
+            });
+        }        
+        
         return new Promise((resolve, reject) =>
         {
-            this._client.incr(key, (err, val) =>
+            this._client.incr(key, (err) =>
             {
                 if (err)
                 {
@@ -271,7 +274,7 @@ export class Consumer implements Disposable
                     return;
                 }
 
-                resolve(val);
+                resolve();
             });
         });
     }
@@ -329,34 +332,9 @@ export class Consumer implements Disposable
         });
     }
     
-    protected async processEvent(eventName: string, eventRegistration: EventRegistration, event: any, eventId: string, numAttempt: number): Promise<void>
-    {
-        const scope = this._manager.serviceLocator.createScope();
-        event.$scope = scope;
-
-        this._onEventReceived(scope, this._topic, event);
-
-        const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
-
-        try 
-        {
-            await handler.handle(event);
-            
-            await this._logger.logInfo(`Executed EventHandler '${eventRegistration.eventHandlerTypeName}' for event '${eventName}' with id '${eventId}' => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
-        }
-        catch (error)
-        {
-            await this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify((event as EdaEvent).serialize())}.`);
-            await this._logger.logWarning(error);
-            throw error;
-        }
-        finally
-        {
-            await scope.dispose();
-        }   
-    }
     
-    protected async track(eventId: string, eventKey: string): Promise<void>
+    
+    private async track(eventId: string, eventKey: string): Promise<void>
     {
         // given(eventId, "eventId").ensureHasValue().ensureIsString();
         // given(eventKey, "eventKey").ensureHasValue().ensureIsString();
@@ -381,7 +359,7 @@ export class Consumer implements Disposable
             this._trackedKeysArray.push(eventKey);
     }
     
-    protected async decompressEvent(eventData: Buffer): Promise<object>
+    private async decompressEvent(eventData: Buffer): Promise<object>
     {
         // given(eventData, "eventData").ensureHasValue();
         
@@ -391,7 +369,7 @@ export class Consumer implements Disposable
         return JSON.parse(decompressed.toString("utf8"));
     }
     
-    protected async removeKeys(keys: string[]): Promise<void>
+    private async removeKeys(keys: string[]): Promise<void>
     {
         return new Promise((resolve, reject) =>
         {

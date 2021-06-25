@@ -40,6 +40,7 @@ export class EdaManager implements Disposable
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     public get cleanKeys(): boolean { return this._cleanKeys; }
+    public get partitionKeyMapper(): (event: EdaEvent) => string { return this._partitionKeyMapper; }
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
     
     

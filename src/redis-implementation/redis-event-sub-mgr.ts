@@ -8,6 +8,8 @@ import { ServiceLocator, inject } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
+import { Broker } from "./broker";
+import { Processor } from "./processor";
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 
@@ -18,7 +20,7 @@ export class RedisEventSubMgr implements EventSubMgr
     private readonly _client: Redis.RedisClient;
     // @ts-ignore
     private readonly _logger: Logger;
-    private readonly _consumers = new Array<Consumer>();
+    private readonly _brokers = new Array<Broker>();
 
     private _isDisposed = false;
     private _disposePromise: Promise<any> | null = null;
@@ -66,41 +68,25 @@ export class RedisEventSubMgr implements EventSubMgr
                 if (topic.isDisabled || topic.publishOnly)
                     return;
                 
-                if (topic.partitionAffinity != null)
+                let partitions = topic.partitionAffinity as number[];
+                if (partitions == null)
                 {
-                    topic.partitionAffinity.forEach(partition =>
-                    {
-                        // const consumer = this._manager.metricsEnabled
-                        //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
-                        //         this.onEventReceived.bind(this))
-                        //     : new Consumer(this._client, this._manager, topic.name, partition,
-                        //         this.onEventReceived.bind(this));
-                        
-                        const consumer = new Consumer(this._client, this._manager, topic.name, partition,
-                                this.onEventReceived.bind(this));
-                        
-                        this._consumers.push(consumer);
-                    });
-                }
-                else
-                {
+                    partitions = new Array<number>();
                     for (let partition = 0; partition < topic.numPartitions; partition++)
-                    {
-                        // const consumer = this._manager.metricsEnabled
-                        //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
-                        //         this.onEventReceived.bind(this))
-                        //     : new Consumer(this._client, this._manager, topic.name, partition,
-                        //         this.onEventReceived.bind(this));
-                        
-                        const consumer = new Consumer(this._client, this._manager, topic.name, partition,
-                                this.onEventReceived.bind(this));
-                        
-                        this._consumers.push(consumer);
-                    }
+                        partitions.push(partition);
                 }
+                
+                const consumers = partitions
+                    .map(partition => new Consumer(this._client, this._manager, topic.name, partition));
+                
+                const processors = consumers
+                    .map(_ => new Processor(this._manager, this.onEventReceived.bind(this)));
+                
+                const broker = new Broker(this._manager, consumers, processors);
+                this._brokers.push(broker);
             });
-
-            this._consumers.forEach(t => t.consume());
+            
+            this._brokers.forEach(t => t.initialize());
         }
         
         while (!this._isDisposed)
@@ -115,7 +101,7 @@ export class RedisEventSubMgr implements EventSubMgr
         {
             this._isDisposed = true;
             
-            this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
+            this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()));
             
             // if (this._manager.metricsEnabled)
             // {
