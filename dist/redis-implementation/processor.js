@@ -33,7 +33,7 @@ class Processor {
     }
     process() {
         if (this._isDisposed)
-            throw new n_exception_1.ObjectDisposedException(this);
+            throw new n_exception_1.ObjectDisposedException("Processor");
         n_defensive_1.given(this, "this").ensure(t => !t._processPromise, "processing has already commenced");
         this._processPromise = this.beginProcessing();
     }
@@ -58,7 +58,7 @@ class Processor {
                 try {
                     while (successful === false && numProcessAttempts < maxProcessAttempts) {
                         if (this._isDisposed) {
-                            workItem.deferred.reject(new n_exception_1.ObjectDisposedException(this));
+                            workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
                             return;
                         }
                         numProcessAttempts++;
@@ -77,7 +77,7 @@ class Processor {
                     }
                 }
                 catch (error) {
-                    yield this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event)}`);
+                    yield this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
                     yield this._logger.logError(error);
                     workItem.deferred.reject(error);
                 }

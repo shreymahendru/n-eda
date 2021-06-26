@@ -51,7 +51,7 @@ class Consumer {
     }
     consume() {
         if (this._isDisposed)
-            throw new n_exception_1.ObjectDisposedException(this);
+            throw new n_exception_1.ObjectDisposedException("Consumer");
         n_defensive_1.given(this, "this").ensure(t => !t._consumePromise, "consumption has already commenced");
         this._consumePromise = this.beginConsume();
     }
@@ -136,7 +136,7 @@ class Consumer {
             }
             catch (error) {
                 failed = true;
-                yield this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event)}`);
+                yield this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
                 yield this.logger.logError(error);
             }
             finally {

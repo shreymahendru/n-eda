@@ -34,7 +34,7 @@ class Broker {
     }
     route(consumerId, topic, partition, eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
         if (this._isDisposed)
-            throw new n_exception_1.ObjectDisposedException(this);
+            throw new n_exception_1.ObjectDisposedException("Broker");
         const partitionKey = this._manager.partitionKeyMapper(event);
         const deferred = new n_util_1.Deferred();
         this._scheduler.scheduleWork({
