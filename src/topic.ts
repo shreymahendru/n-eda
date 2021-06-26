@@ -37,13 +37,9 @@ export class Topic
     
     public subscribe(): Topic
     {
-        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
-        result._partitionAffinity = this._partitionAffinity;
-        result._isDisabled = this._isDisabled;
+        this._publishOnly = false;
         
-        result._publishOnly = false;
-        
-        return result;
+        return this;
     }
     
     public configurePartitionAffinity(partitionAffinity: string): Topic
@@ -60,24 +56,16 @@ export class Topic
         const partitions = new Array<number>();
         for (let i = lower; i <= upper; i++)
             partitions.push(i);
-
-        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
-        result._publishOnly = this._publishOnly;
-        result._isDisabled = this._isDisabled;
         
-        result._partitionAffinity = partitions;
+        this._partitionAffinity = partitions;
         
-        return result;
+        return this;
     }
     
     public disable(): Topic
     {
-        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
-        result._publishOnly = this._publishOnly;
-        result._partitionAffinity = this._partitionAffinity;
+        this._isDisabled = true;
         
-        result._isDisabled = true;
-        
-        return result;
+        return this;
     }
 }
