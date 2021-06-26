@@ -15,7 +15,7 @@
         "clean-all": "npm run clean-src && npm run clean-test && npm run clean-dist",
         "setup-redis-server": "docker run --name test-redis -p 6379:6379 -d redis:5.0 && sleep 5",
         "pretest": "npm run ts-build && npm run setup-redis-server",
-        "test": "mocha --timeout 10000000 --reporter spec --ui tdd --require ts-node/register './test/**/*.test.js' || true",
+        "test": "mocha --timeout 1000000000 --reporter spec --ui tdd --require ts-node/register './test/**/*.test.js' || true",
         "posttest": "docker stop test-redis && docker rm test-redis",
         "pretest-ci": "npm run pretest",
         "test-ci": "mocha --reporter spec --ui tdd --require ts-node/register './test/**/*.test.js'",
