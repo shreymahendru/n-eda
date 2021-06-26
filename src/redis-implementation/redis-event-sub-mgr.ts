@@ -82,7 +82,7 @@ export class RedisEventSubMgr implements EventSubMgr
                 const processors = consumers
                     .map(_ => new Processor(this._manager, this.onEventReceived.bind(this)));
                 
-                const broker = new Broker(this._manager, consumers, processors);
+                const broker = new Broker(consumers, processors);
                 this._brokers.push(broker);
             });
             

@@ -30,12 +30,12 @@ export class Consumer implements Disposable
     private _broker: Broker = null as any;
     
     
-    protected get manager(): EdaManager { return this._manager; }
-    protected get topic(): string { return this._topic; }
-    protected get partition(): number { return this._partition; }
-    protected get logger(): Logger { return this._logger; }
-    protected get trackedIdsSet(): ReadonlySet<string> { return this._trackedIdsSet; }
-    protected get isDisposed(): boolean { return this._isDisposed; }
+    // protected get manager(): EdaManager { return this._manager; }
+    // protected get topic(): string { return this._topic; }
+    // protected get partition(): number { return this._partition; }
+    // protected get logger(): Logger { return this._logger; }
+    // protected get trackedIdsSet(): ReadonlySet<string> { return this._trackedIdsSet; }
+    // protected get isDisposed(): boolean { return this._isDisposed; }
     
     public get id(): string { return this._id; }
     
@@ -90,13 +90,13 @@ export class Consumer implements Disposable
     {
         while (true)
         {
-            if (this.isDisposed)
+            if (this._isDisposed)
                 return;
 
             try 
             {
-                const writeIndex = await this.fetchPartitionWriteIndex();
-                const readIndex = await this.fetchConsumerPartitionReadIndex();
+                const writeIndex = await this._fetchPartitionWriteIndex();
+                const readIndex = await this._fetchConsumerPartitionReadIndex();
                 
 
                 if (readIndex >= writeIndex)
@@ -108,26 +108,29 @@ export class Consumer implements Disposable
                 const maxRead = 50;
                 const lowerBoundReadIndex = readIndex + 1;
                 const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? (readIndex + maxRead - 1) : writeIndex;
-                const eventsData = await this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                const eventsData = await this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                 
                 const routed = new Array<Promise<void>>();
                 
                 for (const item of eventsData)
                 {
-                    if (this.isDisposed)
+                    if (this._isDisposed)
                         return;
                     
                     let eventData = item.value;
+                    if (eventData == null)
+                        eventData = await this._retrieveEvent(item.key);
+                    
                     let numReadAttempts = 1;
-                    const maxReadAttempts = 500; // the math here must correlate with the write attempts of the producer
+                    const maxReadAttempts = 50;
                     while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                     {
-                        if (this.isDisposed)
+                        if (this._isDisposed)
                             return;
                         
-                        await Delay.milliseconds(20);
+                        await Delay.milliseconds(100);
                         
-                        eventData = await this.retrieveEvent(item.key);
+                        eventData = await this._retrieveEvent(item.key);
                         numReadAttempts++;
                     }
 
@@ -135,77 +138,88 @@ export class Consumer implements Disposable
                     {
                         try 
                         {
-                            throw new ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this.topic}; Partition=${this.partition}; ReadIndex=${item.index};`);
+                            throw new ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${item.index};`);
                         }
                         catch (error)
                         {
-                            await this.logger.logError(error);
+                            await this._logger.logError(error);
                         }
 
-                        await this.incrementConsumerPartitionReadIndex();
+                        await this._incrementConsumerPartitionReadIndex();
                         continue;
                     }
 
                     const event = await this.decompressEvent(eventData);
                     const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
                     const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
-                    const eventRegistration = this.manager.eventMap.get(eventName) as EventRegistration;
+                    const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
                     // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
                     const deserializedEvent = Deserializer.deserialize(event) as EdaEvent;
 
-                    if (this.trackedIdsSet.has(eventId))
+                    if (this._trackedIdsSet.has(eventId))
                     {
-                        await this.incrementConsumerPartitionReadIndex();    
+                        await this._incrementConsumerPartitionReadIndex();    
                         continue;
                     }
 
                     routed.push(
-                        this.attemptRoute(
+                        this._attemptRoute(
                             eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
                 }
                 
                 await Promise.all(routed);
                 
-                if (this.isDisposed)
-                    return; // TODO: probably throw error here?
+                if (this._isDisposed)
+                    return; // TODO: probably throw error here? / or just pass?
                 
-                await this.incrementConsumerPartitionReadIndex(upperBoundReadIndex);
+                await this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
             }
             catch (error)
             {
-                await this.logger.logWarning(`Error in consumer => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
-                await this.logger.logError(error);
-                if (this.isDisposed)
+                await this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
+                await this._logger.logError(error);
+                if (this._isDisposed)
                     return;
                 await Delay.seconds(5);
             }
         }
     }
     
-    private async attemptRoute(eventName: string, eventRegistration: EventRegistration,
+    private async _attemptRoute(eventName: string, eventRegistration: EventRegistration,
         eventIndex: number, eventKey: string, eventId: string, event: EdaEvent): Promise<void>
     {
-        let failed = false;
+        // let failed = false;
         try 
         {
-            await this._broker.route(this._id, this._topic, this._partition, eventName, eventRegistration, eventIndex, eventKey, eventId, event);
+            await this._broker.route({
+                consumerId: this._id,
+                topic: this._topic,
+                partition: this._partition,
+                eventName,
+                eventRegistration,
+                eventIndex,
+                eventKey,
+                eventId,
+                event,
+                partitionKey: this._manager.partitionKeyMapper(event)
+            });
         }
         catch (error)
         {
-            failed = true;
-            await this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
-            await this.logger.logError(error);
+            // failed = true;
+            await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
+            await this._logger.logError(error);
         }
         finally
         {
-            if (failed && this.isDisposed)
-                return;
+            // if (failed && this._isDisposed) // FIXME: questionable
+            //     return;
 
             await this.track(eventId, eventKey);
         }
     }
     
-    protected fetchPartitionWriteIndex(): Promise<number>
+    protected _fetchPartitionWriteIndex(): Promise<number>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
         
@@ -224,7 +238,7 @@ export class Consumer implements Disposable
         });
     }
     
-    protected fetchConsumerPartitionReadIndex(): Promise<number>
+    protected _fetchConsumerPartitionReadIndex(): Promise<number>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
@@ -243,7 +257,7 @@ export class Consumer implements Disposable
         });
     }
     
-    protected incrementConsumerPartitionReadIndex(index?: number): Promise<void>
+    protected _incrementConsumerPartitionReadIndex(index?: number): Promise<void>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
@@ -279,12 +293,10 @@ export class Consumer implements Disposable
         });
     }
     
-    protected retrieveEvent(key: string): Promise<Buffer>
+    private _retrieveEvent(key: string): Promise<Buffer>
     {
         return new Promise((resolve, reject) =>
         {
-            // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
-            
             this._client.get(key, (err, value) =>
             {
                 if (err)
@@ -298,14 +310,11 @@ export class Consumer implements Disposable
         });
     }
     
-    protected batchRetrieveEvents(lowerBoundIndex: number, upperBoundIndex: number)
+    private _batchRetrieveEvents(lowerBoundIndex: number, upperBoundIndex: number)
         : Promise<Array<{ index: number; key: string; value: Buffer }>>
     {
         return new Promise((resolve, reject) =>
         {
-            // given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
-            // given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
-            
             const keys = new Array<{ index: number; key: string; }>();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++)
             {
@@ -338,6 +347,9 @@ export class Consumer implements Disposable
     {
         // given(eventId, "eventId").ensureHasValue().ensureIsString();
         // given(eventKey, "eventKey").ensureHasValue().ensureIsString();
+        
+        if (this._isDisposed)
+            return;
         
         if (this._trackedIdsArray.length >= 300)
         {

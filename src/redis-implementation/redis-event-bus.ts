@@ -46,7 +46,7 @@ export class RedisEventBus implements EventBus
             
             for (let partition = 0; partition < topic.numPartitions; partition++)
             {
-                const key = this.generateKey(topic.name, partition);
+                const key = this._generateKey(topic.name, partition);
                 this._producers.set(key, new Producer(this._client, this._logger, topic.name, topic.ttlMinutes,
                     partition));
             }
@@ -82,7 +82,7 @@ export class RedisEventBus implements EventBus
             .forEachAsync(async (group) =>
             {
                 const partition = Number.parseInt(group.key);
-                const key = this.generateKey(topic, partition);
+                const key = this._generateKey(topic, partition);
                 await this._producers.get(key)!.produce(...group.values);
             });
     }
@@ -99,11 +99,8 @@ export class RedisEventBus implements EventBus
         await this._disposePromise;
     }
     
-    private generateKey(topic: string, partition: number): string
+    private _generateKey(topic: string, partition: number): string
     {
-        given(topic, "topic").ensureHasValue().ensureIsString();
-        given(partition, "partition").ensureHasValue().ensureIsNumber();
-        
         return `${topic}+++${partition}`;
     }
 }

@@ -2,7 +2,6 @@ import { given } from "@nivinjoseph/n-defensive";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Deferred, Disposable } from "@nivinjoseph/n-util";
 import { EdaEvent } from "../eda-event";
-import { EdaManager } from "../eda-manager";
 import { EventRegistration } from "../event-registration";
 import { Consumer } from "./consumer";
 import { Processor } from "./processor";
@@ -10,25 +9,20 @@ import { Processor } from "./processor";
 
 export class Broker implements Disposable
 {
-    private readonly _manager: EdaManager;
     private readonly _consumers: ReadonlyArray<Consumer>;
-    private readonly _processors: ReadonlyArray<Processor>;
-    private readonly _scheduler = new Scheduler();
+    private readonly _scheduler: Scheduler;
     
     private _isDisposed = false;
     
     
-    public constructor(manager: EdaManager, consumers: ReadonlyArray<Consumer>, processors: ReadonlyArray<Processor>)
+    public constructor(consumers: ReadonlyArray<Consumer>, processors: ReadonlyArray<Processor>)
     {
-        given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
-        this._manager = manager;
-        
         given(consumers, "consumers").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty);
         this._consumers = consumers;
         
         given(processors, "processors").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty)
             .ensure(t => t.length === consumers.length, "length has to match consumers length");
-        this._processors = processors;
+        this._scheduler = new Scheduler(processors);
     }
     
     
@@ -36,35 +30,14 @@ export class Broker implements Disposable
     {
         this._consumers.forEach(t => t.registerBroker(this));
         this._consumers.forEach(t => t.consume());
-        
-        this._processors.forEach(t => t.registerScheduler(this._scheduler));
-        this._processors.forEach(t => t.process());
     }
     
-    public route(consumerId: string, topic: string, partition: number, eventName: string, eventRegistration: EventRegistration,
-        eventIndex: number, eventKey: string, eventId: string, event: EdaEvent): Promise<void>
+    public route(routedEvent: RoutedEvent): Promise<void>
     {
         if (this._isDisposed)
             throw new ObjectDisposedException("Broker");
         
-        const partitionKey = this._manager.partitionKeyMapper(event);
-        const deferred = new Deferred<void>();
-        
-        this._scheduler.scheduleWork({
-            consumerId,
-            topic,
-            partition,
-            eventName,
-            eventRegistration,
-            eventIndex,
-            eventKey,
-            eventId,
-            event,
-            partitionKey,
-            deferred
-        });
-        
-        return deferred.promise;        
+        return this._scheduler.scheduleWork(routedEvent);
     }
     
     public async dispose(): Promise<void>
@@ -74,42 +47,94 @@ export class Broker implements Disposable
     }
 }
 
-export class Scheduler
+class Scheduler
 {
-    private readonly _queues = new Map<string, Array<WorkItem>>();
+    private readonly _queues = new Map<string, SchedulerQueue>();
+    private readonly _processors: ReadonlyArray<Processor>;
     
     
-    public scheduleWork(workItem: WorkItem): void
+    public constructor(processors: ReadonlyArray<Processor>)
     {
-        if (this._queues.has(workItem.partitionKey))
-        {
-            this._queues.get(workItem.partitionKey)!.unshift(workItem);
-        }
-        else
-        {
-            this._queues.set(workItem.partitionKey, [workItem]);
-        }
+        given(processors, "processors").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty);
+        this._processors = processors;
+        
+        this._processors.forEach(t => t.initialize(this._onAvailable.bind(this)));
     }
     
-    public next(): WorkItem | null
+    
+    public scheduleWork(routedEvent: RoutedEvent): Promise<void>
     {
-        // TODO: make this round robin
-        for (const entry of this._queues.entries())
+        const deferred = new Deferred<void>();
+        
+        const workItem: WorkItem = {
+            ...routedEvent,
+            deferred
+        };
+        
+        if (this._queues.has(workItem.partitionKey))
+            this._queues.get(workItem.partitionKey)!.queue.unshift(workItem);
+        else
+            this._queues.set(workItem.partitionKey, {
+                partitionKey: workItem.partitionKey,
+                lastAccessed: Date.now(),
+                queue: [workItem]
+            });
+        
+        this._executeAvailableWork();
+        
+        return workItem.deferred.promise;
+    }
+    
+    private _onAvailable(processor: Processor): void
+    {
+        given(processor, "processor").ensureHasValue().ensureIsObject().ensureIsType(Processor);
+        
+        this._executeAvailableWork(processor);
+    }
+    
+    private _executeAvailableWork(processor?: Processor): void
+    {
+        const availableProcessor = processor ?? this._processors.find(t => !t.isBusy);
+        if (availableProcessor == null)
+            return;
+        
+        let workItem: WorkItem | null = null;
+        
+        // FIXME: this is a shitty priority queue
+        const entries = [...this._queues.values()].orderBy(t => t.lastAccessed);
+        
+        for (const entry of entries)
         {
-            if (entry[1].isEmpty)
+            if (entry.queue.isEmpty)
             {
-                this._queues.delete(entry[0]);
+                this._queues.delete(entry.partitionKey);
                 continue;
             }
+
+            workItem = entry.queue.pop()!;
+            if (entry.queue.isEmpty)
+                this._queues.delete(entry.partitionKey);
+            else
+                entry.lastAccessed = Date.now();
             
-            return entry[1].pop()!;
+            break;
         }
         
-        return null;
+        if (workItem == null)
+            return;
+        
+        availableProcessor.process(workItem);
     }
 }
 
-export interface WorkItem
+interface SchedulerQueue
+{
+    partitionKey: string;
+    lastAccessed: number;
+    queue: Array<WorkItem>;
+}
+
+export interface RoutedEvent
 {
     consumerId: string;
     topic: string;
@@ -121,5 +146,9 @@ export interface WorkItem
     eventId: string;
     event: EdaEvent;
     partitionKey: string;
+}
+
+export interface WorkItem extends RoutedEvent
+{
     deferred: Deferred<void>;
 }
