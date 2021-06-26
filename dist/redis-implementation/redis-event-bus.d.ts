@@ -13,5 +13,5 @@ export declare class RedisEventBus implements EventBus {
     initialize(manager: EdaManager): void;
     publish(topic: string, ...events: ReadonlyArray<EdaEvent>): Promise<void>;
     dispose(): Promise<void>;
-    private generateKey;
+    private _generateKey;
 }

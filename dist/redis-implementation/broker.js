@@ -9,48 +9,28 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Scheduler = exports.Broker = void 0;
+exports.Broker = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
-const eda_manager_1 = require("../eda-manager");
+const processor_1 = require("./processor");
 class Broker {
-    constructor(manager, consumers, processors) {
-        this._scheduler = new Scheduler();
+    constructor(consumers, processors) {
         this._isDisposed = false;
-        n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
-        this._manager = manager;
         n_defensive_1.given(consumers, "consumers").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty);
         this._consumers = consumers;
         n_defensive_1.given(processors, "processors").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty)
             .ensure(t => t.length === consumers.length, "length has to match consumers length");
-        this._processors = processors;
+        this._scheduler = new Scheduler(processors);
     }
     initialize() {
         this._consumers.forEach(t => t.registerBroker(this));
         this._consumers.forEach(t => t.consume());
-        this._processors.forEach(t => t.registerScheduler(this._scheduler));
-        this._processors.forEach(t => t.process());
     }
-    route(consumerId, topic, partition, eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
+    route(routedEvent) {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException("Broker");
-        const partitionKey = this._manager.partitionKeyMapper(event);
-        const deferred = new n_util_1.Deferred();
-        this._scheduler.scheduleWork({
-            consumerId,
-            topic,
-            partition,
-            eventName,
-            eventRegistration,
-            eventIndex,
-            eventKey,
-            eventId,
-            event,
-            partitionKey,
-            deferred
-        });
-        return deferred.promise;
+        return this._scheduler.scheduleWork(routedEvent);
     }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -61,28 +41,52 @@ class Broker {
 }
 exports.Broker = Broker;
 class Scheduler {
-    constructor() {
+    constructor(processors) {
         this._queues = new Map();
+        n_defensive_1.given(processors, "processors").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty);
+        this._processors = processors;
+        this._processors.forEach(t => t.initialize(this._onAvailable.bind(this)));
     }
-    scheduleWork(workItem) {
-        if (this._queues.has(workItem.partitionKey)) {
-            this._queues.get(workItem.partitionKey).unshift(workItem);
-        }
-        else {
-            this._queues.set(workItem.partitionKey, [workItem]);
-        }
+    scheduleWork(routedEvent) {
+        const deferred = new n_util_1.Deferred();
+        const workItem = Object.assign(Object.assign({}, routedEvent), { deferred });
+        if (this._queues.has(workItem.partitionKey))
+            this._queues.get(workItem.partitionKey).queue.unshift(workItem);
+        else
+            this._queues.set(workItem.partitionKey, {
+                partitionKey: workItem.partitionKey,
+                lastAccessed: Date.now(),
+                queue: [workItem]
+            });
+        this._executeAvailableWork();
+        return workItem.deferred.promise;
     }
-    next() {
-        // TODO: make this round robin
-        for (const entry of this._queues.entries()) {
-            if (entry[1].isEmpty) {
-                this._queues.delete(entry[0]);
+    _onAvailable(processor) {
+        n_defensive_1.given(processor, "processor").ensureHasValue().ensureIsObject().ensureIsType(processor_1.Processor);
+        this._executeAvailableWork(processor);
+    }
+    _executeAvailableWork(processor) {
+        const availableProcessor = processor !== null && processor !== void 0 ? processor : this._processors.find(t => !t.isBusy);
+        if (availableProcessor == null)
+            return;
+        let workItem = null;
+        // FIXME: this is a shitty priority queue
+        const entries = [...this._queues.values()].orderBy(t => t.lastAccessed);
+        for (const entry of entries) {
+            if (entry.queue.isEmpty) {
+                this._queues.delete(entry.partitionKey);
                 continue;
             }
-            return entry[1].pop();
+            workItem = entry.queue.pop();
+            if (entry.queue.isEmpty)
+                this._queues.delete(entry.partitionKey);
+            else
+                entry.lastAccessed = Date.now();
+            break;
         }
-        return null;
+        if (workItem == null)
+            return;
+        availableProcessor.process(workItem);
     }
 }
-exports.Scheduler = Scheduler;
 //# sourceMappingURL=broker.js.map

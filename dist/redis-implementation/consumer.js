@@ -38,12 +38,12 @@ class Consumer {
         this._id = `${this._topic}-${this._partition}`;
         this._cleanKeys = this._manager.cleanKeys;
     }
-    get manager() { return this._manager; }
-    get topic() { return this._topic; }
-    get partition() { return this._partition; }
-    get logger() { return this._logger; }
-    get trackedIdsSet() { return this._trackedIdsSet; }
-    get isDisposed() { return this._isDisposed; }
+    // protected get manager(): EdaManager { return this._manager; }
+    // protected get topic(): string { return this._topic; }
+    // protected get partition(): number { return this._partition; }
+    // protected get logger(): Logger { return this._logger; }
+    // protected get trackedIdsSet(): ReadonlySet<string> { return this._trackedIdsSet; }
+    // protected get isDisposed(): boolean { return this._isDisposed; }
     get id() { return this._id; }
     registerBroker(broker) {
         n_defensive_1.given(broker, "broker").ensureHasValue().ensureIsObject().ensureIsObject().ensureIsType(broker_1.Broker);
@@ -63,11 +63,11 @@ class Consumer {
     beginConsume() {
         return __awaiter(this, void 0, void 0, function* () {
             while (true) {
-                if (this.isDisposed)
+                if (this._isDisposed)
                     return;
                 try {
-                    const writeIndex = yield this.fetchPartitionWriteIndex();
-                    const readIndex = yield this.fetchConsumerPartitionReadIndex();
+                    const writeIndex = yield this._fetchPartitionWriteIndex();
+                    const readIndex = yield this._fetchConsumerPartitionReadIndex();
                     if (readIndex >= writeIndex) {
                         yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
                         continue;
@@ -75,78 +75,91 @@ class Consumer {
                     const maxRead = 50;
                     const lowerBoundReadIndex = readIndex + 1;
                     const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? (readIndex + maxRead - 1) : writeIndex;
-                    const eventsData = yield this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                    const eventsData = yield this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                     const routed = new Array();
                     for (const item of eventsData) {
-                        if (this.isDisposed)
+                        if (this._isDisposed)
                             return;
                         let eventData = item.value;
+                        if (eventData == null)
+                            eventData = yield this._retrieveEvent(item.key);
                         let numReadAttempts = 1;
-                        const maxReadAttempts = 500; // the math here must correlate with the write attempts of the producer
+                        const maxReadAttempts = 50;
                         while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                          {
-                            if (this.isDisposed)
+                            if (this._isDisposed)
                                 return;
-                            yield n_util_1.Delay.milliseconds(20);
-                            eventData = yield this.retrieveEvent(item.key);
+                            yield n_util_1.Delay.milliseconds(100);
+                            eventData = yield this._retrieveEvent(item.key);
                             numReadAttempts++;
                         }
                         if (eventData == null) {
                             try {
-                                throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this.topic}; Partition=${this.partition}; ReadIndex=${item.index};`);
+                                throw new n_exception_1.ApplicationException(`Failed to read event data after ${maxReadAttempts} read attempts => Topic=${this._topic}; Partition=${this._partition}; ReadIndex=${item.index};`);
                             }
                             catch (error) {
-                                yield this.logger.logError(error);
+                                yield this._logger.logError(error);
                             }
-                            yield this.incrementConsumerPartitionReadIndex();
+                            yield this._incrementConsumerPartitionReadIndex();
                             continue;
                         }
                         const event = yield this.decompressEvent(eventData);
                         const eventId = event.$id || event.id; // for compatibility with n-domain DomainEvent
                         const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
-                        const eventRegistration = this.manager.eventMap.get(eventName);
+                        const eventRegistration = this._manager.eventMap.get(eventName);
                         // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
                         const deserializedEvent = n_util_1.Deserializer.deserialize(event);
-                        if (this.trackedIdsSet.has(eventId)) {
-                            yield this.incrementConsumerPartitionReadIndex();
+                        if (this._trackedIdsSet.has(eventId)) {
+                            yield this._incrementConsumerPartitionReadIndex();
                             continue;
                         }
-                        routed.push(this.attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
+                        routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
                     }
                     yield Promise.all(routed);
-                    if (this.isDisposed)
-                        return; // TODO: probably throw error here?
-                    yield this.incrementConsumerPartitionReadIndex(upperBoundReadIndex);
+                    if (this._isDisposed)
+                        return; // TODO: probably throw error here? / or just pass?
+                    yield this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
                 }
                 catch (error) {
-                    yield this.logger.logWarning(`Error in consumer => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
-                    yield this.logger.logError(error);
-                    if (this.isDisposed)
+                    yield this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
+                    yield this._logger.logError(error);
+                    if (this._isDisposed)
                         return;
                     yield n_util_1.Delay.seconds(5);
                 }
             }
         });
     }
-    attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
+    _attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
         return __awaiter(this, void 0, void 0, function* () {
-            let failed = false;
+            // let failed = false;
             try {
-                yield this._broker.route(this._id, this._topic, this._partition, eventName, eventRegistration, eventIndex, eventKey, eventId, event);
+                yield this._broker.route({
+                    consumerId: this._id,
+                    topic: this._topic,
+                    partition: this._partition,
+                    eventName,
+                    eventRegistration,
+                    eventIndex,
+                    eventKey,
+                    eventId,
+                    event,
+                    partitionKey: this._manager.partitionKeyMapper(event)
+                });
             }
             catch (error) {
-                failed = true;
-                yield this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
-                yield this.logger.logError(error);
+                // failed = true;
+                yield this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
+                yield this._logger.logError(error);
             }
             finally {
-                if (failed && this.isDisposed)
-                    return;
+                // if (failed && this._isDisposed) // FIXME: questionable
+                //     return;
                 yield this.track(eventId, eventKey);
             }
         });
     }
-    fetchPartitionWriteIndex() {
+    _fetchPartitionWriteIndex() {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
         return new Promise((resolve, reject) => {
             this._client.get(key, (err, value) => {
@@ -158,7 +171,7 @@ class Consumer {
             });
         });
     }
-    fetchConsumerPartitionReadIndex() {
+    _fetchConsumerPartitionReadIndex() {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         return new Promise((resolve, reject) => {
             this._client.get(key, (err, value) => {
@@ -170,7 +183,7 @@ class Consumer {
             });
         });
     }
-    incrementConsumerPartitionReadIndex(index) {
+    _incrementConsumerPartitionReadIndex(index) {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         if (index != null) {
             return new Promise((resolve, reject) => {
@@ -193,9 +206,8 @@ class Consumer {
             });
         });
     }
-    retrieveEvent(key) {
+    _retrieveEvent(key) {
         return new Promise((resolve, reject) => {
-            // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
             this._client.get(key, (err, value) => {
                 if (err) {
                     reject(err);
@@ -205,10 +217,8 @@ class Consumer {
             });
         });
     }
-    batchRetrieveEvents(lowerBoundIndex, upperBoundIndex) {
+    _batchRetrieveEvents(lowerBoundIndex, upperBoundIndex) {
         return new Promise((resolve, reject) => {
-            // given(lowerBoundIndex, "lowerBoundIndex").ensureHasValue().ensureIsNumber();
-            // given(upperBoundIndex, "upperBoundIndex").ensureHasValue().ensureIsNumber();
             const keys = new Array();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++) {
                 const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${i}`;
@@ -232,6 +242,8 @@ class Consumer {
         return __awaiter(this, void 0, void 0, function* () {
             // given(eventId, "eventId").ensureHasValue().ensureIsString();
             // given(eventKey, "eventKey").ensureHasValue().ensureIsString();
+            if (this._isDisposed)
+                return;
             if (this._trackedIdsArray.length >= 300) {
                 this._trackedIdsArray = this._trackedIdsArray.skip(200);
                 this._trackedIdsSet = new Set(this._trackedIdsArray);

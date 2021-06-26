@@ -72,7 +72,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                         .map(partition => new consumer_1.Consumer(this._client, this._manager, topic.name, partition));
                     const processors = consumers
                         .map(_ => new processor_1.Processor(this._manager, this.onEventReceived.bind(this)));
-                    const broker = new broker_1.Broker(this._manager, consumers, processors);
+                    const broker = new broker_1.Broker(consumers, processors);
                     this._brokers.push(broker);
                 });
                 this._brokers.forEach(t => t.initialize());

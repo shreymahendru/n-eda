@@ -47,7 +47,7 @@ let RedisEventBus = class RedisEventBus {
             if (topic.isDisabled)
                 return;
             for (let partition = 0; partition < topic.numPartitions; partition++) {
-                const key = this.generateKey(topic.name, partition);
+                const key = this._generateKey(topic.name, partition);
                 this._producers.set(key, new producer_1.Producer(this._client, this._logger, topic.name, topic.ttlMinutes, partition));
             }
         });
@@ -72,7 +72,7 @@ let RedisEventBus = class RedisEventBus {
             yield events.groupBy(event => this._manager.mapToPartition(topic, event).toString())
                 .forEachAsync((group) => __awaiter(this, void 0, void 0, function* () {
                 const partition = Number.parseInt(group.key);
-                const key = this.generateKey(topic, partition);
+                const key = this._generateKey(topic, partition);
                 yield this._producers.get(key).produce(...group.values);
             }));
         });
@@ -87,9 +87,7 @@ let RedisEventBus = class RedisEventBus {
             yield this._disposePromise;
         });
     }
-    generateKey(topic, partition) {
-        n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
-        n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
+    _generateKey(topic, partition) {
         return `${topic}+++${partition}`;
     }
 };

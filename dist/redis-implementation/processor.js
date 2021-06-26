@@ -14,11 +14,10 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
 const eda_manager_1 = require("../eda-manager");
-const broker_1 = require("./broker");
 class Processor {
     constructor(manager, onEventReceived) {
-        this._defaultDelayMS = 150;
-        this._scheduler = null;
+        this._availabilityObserver = null;
+        this._currentWorkItem = null;
         this._processPromise = null;
         this._isDisposed = false;
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
@@ -27,60 +26,66 @@ class Processor {
         n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
         this._onEventReceived = onEventReceived;
     }
-    registerScheduler(scheduler) {
-        n_defensive_1.given(scheduler, "scheduler").ensureHasValue().ensureIsObject().ensureIsType(broker_1.Scheduler);
-        this._scheduler = scheduler;
+    get _isInitialized() { return this._availabilityObserver != null; }
+    get isBusy() { return this._currentWorkItem != null; }
+    initialize(availabilityCallback) {
+        n_defensive_1.given(availabilityCallback, "availabilityCallback").ensureHasValue().ensureIsFunction();
+        n_defensive_1.given(this, "this").ensure(t => !t._isInitialized);
+        if (this._isDisposed)
+            throw new n_exception_1.ObjectDisposedException(this);
+        this._availabilityObserver = new n_util_1.Observer("available", availabilityCallback);
+        return this._availabilityObserver.subscription;
     }
-    process() {
+    process(workItem) {
+        n_defensive_1.given(this, "this")
+            .ensure(t => t._isInitialized, "processor not initialized")
+            .ensure(t => !t.isBusy, "processor is busy");
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException("Processor");
-        n_defensive_1.given(this, "this").ensure(t => !t._processPromise, "processing has already commenced");
-        this._processPromise = this.beginProcessing();
+        this._currentWorkItem = workItem;
+        this._processPromise = this._process()
+            .then(() => {
+            this._currentWorkItem = null;
+            this._availabilityObserver.notify(this);
+        })
+            .catch((e) => this._logger.logError(e));
     }
     dispose() {
         if (!this._isDisposed)
             this._isDisposed = true;
         return this._processPromise || Promise.resolve();
     }
-    beginProcessing() {
+    _process() {
         return __awaiter(this, void 0, void 0, function* () {
-            while (true) {
-                if (this._isDisposed)
-                    return;
-                const workItem = this._scheduler.next();
-                if (workItem == null) {
-                    yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
-                    continue;
-                }
-                const maxProcessAttempts = 5;
-                let numProcessAttempts = 0;
-                let successful = false;
-                try {
-                    while (successful === false && numProcessAttempts < maxProcessAttempts) {
-                        if (this._isDisposed) {
-                            workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
-                            return;
-                        }
-                        numProcessAttempts++;
-                        try {
-                            yield this.processEvent(workItem, numProcessAttempts);
-                            successful = true;
-                            workItem.deferred.resolve();
-                            break;
-                        }
-                        catch (error) {
-                            if (numProcessAttempts >= maxProcessAttempts)
-                                throw error;
-                            else
-                                yield n_util_1.Delay.milliseconds(100 * numProcessAttempts);
-                        }
+            const workItem = this._currentWorkItem;
+            const maxProcessAttempts = 5;
+            let numProcessAttempts = 0;
+            let successful = false;
+            try {
+                while (successful === false && numProcessAttempts < maxProcessAttempts) {
+                    if (this._isDisposed) {
+                        workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
+                        return;
+                    }
+                    numProcessAttempts++;
+                    try {
+                        yield this.processEvent(workItem, numProcessAttempts);
+                        successful = true;
+                        workItem.deferred.resolve();
+                        break;
+                    }
+                    catch (error) {
+                        if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
+                            throw error;
+                        else
+                            yield n_util_1.Delay.milliseconds(100 * numProcessAttempts);
                     }
                 }
-                catch (error) {
-                    yield this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
-                    yield this._logger.logError(error);
-                    workItem.deferred.reject(error);
-                }
+            }
+            catch (error) {
+                yield this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
+                yield this._logger.logError(error);
+                workItem.deferred.reject(error);
             }
         });
     }
