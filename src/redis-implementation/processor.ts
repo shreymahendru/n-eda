@@ -42,7 +42,7 @@ export class Processor implements Disposable
     public process(): void
     {
         if (this._isDisposed)
-            throw new ObjectDisposedException(this);
+            throw new ObjectDisposedException("Processor");
 
         given(this, "this").ensure(t => !t._processPromise, "processing has already commenced");
 
@@ -81,7 +81,7 @@ export class Processor implements Disposable
                 {
                     if (this._isDisposed)
                     {
-                        workItem.deferred.reject(new ObjectDisposedException(this));
+                        workItem.deferred.reject(new ObjectDisposedException("Processor"));
                         return;
                     }
 
@@ -105,7 +105,7 @@ export class Processor implements Disposable
             }
             catch (error)
             {
-                await this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event)}`);
+                await this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
                 await this._logger.logError(error);
                 workItem.deferred.reject(error);
             }

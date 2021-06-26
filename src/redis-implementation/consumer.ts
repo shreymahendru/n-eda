@@ -71,7 +71,7 @@ export class Consumer implements Disposable
     public consume(): void
     {
         if (this._isDisposed)
-            throw new ObjectDisposedException(this);
+            throw new ObjectDisposedException("Consumer");
         
         given(this, "this").ensure(t => !t._consumePromise, "consumption has already commenced");
         
@@ -193,7 +193,7 @@ export class Consumer implements Disposable
         catch (error)
         {
             failed = true;
-            await this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event)}`);
+            await this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
             await this.logger.logError(error);
         }
         finally

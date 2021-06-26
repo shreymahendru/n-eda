@@ -45,7 +45,7 @@ export class Broker implements Disposable
         eventIndex: number, eventKey: string, eventId: string, event: EdaEvent): Promise<void>
     {
         if (this._isDisposed)
-            throw new ObjectDisposedException(this);
+            throw new ObjectDisposedException("Broker");
         
         const partitionKey = this._manager.partitionKeyMapper(event);
         const deferred = new Deferred<void>();
