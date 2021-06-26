@@ -26,12 +26,14 @@ const consumer_1 = require("./consumer");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
+const broker_1 = require("./broker");
+const processor_1 = require("./processor");
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 // public
 let RedisEventSubMgr = class RedisEventSubMgr {
     constructor(redisClient, logger) {
-        this._consumers = new Array();
+        this._brokers = new Array();
         this._isDisposed = false;
         this._disposePromise = null;
         this._manager = null;
@@ -60,30 +62,20 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                 this._manager.topics.forEach(topic => {
                     if (topic.isDisabled || topic.publishOnly)
                         return;
-                    if (topic.partitionAffinity != null) {
-                        topic.partitionAffinity.forEach(partition => {
-                            // const consumer = this._manager.metricsEnabled
-                            //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
-                            //         this.onEventReceived.bind(this))
-                            //     : new Consumer(this._client, this._manager, topic.name, partition,
-                            //         this.onEventReceived.bind(this));
-                            const consumer = new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this));
-                            this._consumers.push(consumer);
-                        });
+                    let partitions = topic.partitionAffinity;
+                    if (partitions == null) {
+                        partitions = new Array();
+                        for (let partition = 0; partition < topic.numPartitions; partition++)
+                            partitions.push(partition);
                     }
-                    else {
-                        for (let partition = 0; partition < topic.numPartitions; partition++) {
-                            // const consumer = this._manager.metricsEnabled
-                            //     ? new ProfilingConsumer(this._client, this._manager, topic.name, partition,
-                            //         this.onEventReceived.bind(this))
-                            //     : new Consumer(this._client, this._manager, topic.name, partition,
-                            //         this.onEventReceived.bind(this));
-                            const consumer = new consumer_1.Consumer(this._client, this._manager, topic.name, partition, this.onEventReceived.bind(this));
-                            this._consumers.push(consumer);
-                        }
-                    }
+                    const consumers = partitions
+                        .map(partition => new consumer_1.Consumer(this._client, this._manager, topic.name, partition));
+                    const processors = consumers
+                        .map(_ => new processor_1.Processor(this._manager, this.onEventReceived.bind(this)));
+                    const broker = new broker_1.Broker(this._manager, consumers, processors);
+                    this._brokers.push(broker);
                 });
-                this._consumers.forEach(t => t.consume());
+                this._brokers.forEach(t => t.initialize());
             }
             while (!this._isDisposed) {
                 yield n_util_1.Delay.seconds(2);
@@ -94,7 +86,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
-                this._disposePromise = Promise.all(this._consumers.map(t => t.dispose()));
+                this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()));
                 // if (this._manager.metricsEnabled)
                 // {
                 //     await Delay.seconds(3);

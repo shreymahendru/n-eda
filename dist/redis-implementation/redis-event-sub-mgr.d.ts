@@ -7,7 +7,7 @@ import { Logger } from "@nivinjoseph/n-log";
 export declare class RedisEventSubMgr implements EventSubMgr {
     private readonly _client;
     private readonly _logger;
-    private readonly _consumers;
+    private readonly _brokers;
     private _isDisposed;
     private _disposePromise;
     private _manager;

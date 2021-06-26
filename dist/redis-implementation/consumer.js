@@ -15,15 +15,17 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const Zlib = require("zlib");
+const broker_1 = require("./broker");
 class Consumer {
-    constructor(client, manager, topic, partition, onEventReceived) {
+    constructor(client, manager, topic, partition) {
         this._edaPrefix = "n-eda";
-        this._defaultDelayMS = 20;
+        this._defaultDelayMS = 150;
         this._isDisposed = false;
         this._trackedIdsSet = new Set();
         this._trackedIdsArray = new Array();
         this._trackedKeysArray = new Array();
         this._consumePromise = null;
+        this._broker = null;
         n_defensive_1.given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
@@ -33,9 +35,8 @@ class Consumer {
         this._topic = topic;
         n_defensive_1.given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
+        this._id = `${this._topic}-${this._partition}`;
         this._cleanKeys = this._manager.cleanKeys;
-        n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
-        this._onEventReceived = onEventReceived;
     }
     get manager() { return this._manager; }
     get topic() { return this._topic; }
@@ -43,6 +44,11 @@ class Consumer {
     get logger() { return this._logger; }
     get trackedIdsSet() { return this._trackedIdsSet; }
     get isDisposed() { return this._isDisposed; }
+    get id() { return this._id; }
+    registerBroker(broker) {
+        n_defensive_1.given(broker, "broker").ensureHasValue().ensureIsObject().ensureIsObject().ensureIsType(broker_1.Broker);
+        this._broker = broker;
+    }
     consume() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
@@ -70,6 +76,7 @@ class Consumer {
                     const lowerBoundReadIndex = readIndex + 1;
                     const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? (readIndex + maxRead - 1) : writeIndex;
                     const eventsData = yield this.batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                    const routed = new Array();
                     for (const item of eventsData) {
                         if (this.isDisposed)
                             return;
@@ -80,7 +87,7 @@ class Consumer {
                          {
                             if (this.isDisposed)
                                 return;
-                            yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
+                            yield n_util_1.Delay.milliseconds(20);
                             eventData = yield this.retrieveEvent(item.key);
                             numReadAttempts++;
                         }
@@ -104,50 +111,12 @@ class Consumer {
                             yield this.incrementConsumerPartitionReadIndex();
                             continue;
                         }
-                        let failed = false;
-                        try {
-                            const maxProcessAttempts = 10;
-                            let numProcessAttempts = 0;
-                            let successful = false;
-                            while (successful === false && numProcessAttempts < maxProcessAttempts) {
-                                if (this.isDisposed) {
-                                    failed = true;
-                                    break;
-                                }
-                                numProcessAttempts++;
-                                try {
-                                    yield this.processEvent(eventName, eventRegistration, deserializedEvent, eventId, numProcessAttempts);
-                                    successful = true;
-                                }
-                                catch (error) {
-                                    if (numProcessAttempts >= maxProcessAttempts)
-                                        throw error;
-                                    else
-                                        yield n_util_1.Delay.milliseconds(100 * numProcessAttempts);
-                                }
-                            }
-                            // await Make.retryWithExponentialBackoff(async () =>
-                            // {
-                            //     if (this.isDisposed)
-                            //     {
-                            //         failed = true;
-                            //         return;
-                            //     }
-                            //     await this.processEvent(eventName, eventRegistration, deserializedEvent, eventId);
-                            // }, 5)();
-                        }
-                        catch (error) {
-                            failed = true;
-                            yield this.logger.logWarning(`Failed to process event of type '${eventName}' with data ${JSON.stringify(event)} after 5 attempts.`);
-                            yield this.logger.logError(error);
-                        }
-                        finally {
-                            if (failed && this.isDisposed)
-                                return;
-                            yield this.track(eventId, item.key);
-                            yield this.incrementConsumerPartitionReadIndex();
-                        }
+                        routed.push(this.attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
                     }
+                    yield Promise.all(routed);
+                    if (this.isDisposed)
+                        return; // TODO: probably throw error here?
+                    yield this.incrementConsumerPartitionReadIndex(upperBoundReadIndex);
                 }
                 catch (error) {
                     yield this.logger.logWarning(`Error in consumer => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
@@ -156,6 +125,24 @@ class Consumer {
                         return;
                     yield n_util_1.Delay.seconds(5);
                 }
+            }
+        });
+    }
+    attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let failed = false;
+            try {
+                yield this._broker.route(this._id, this._topic, this._partition, eventName, eventRegistration, eventIndex, eventKey, eventId, event);
+            }
+            catch (error) {
+                failed = true;
+                yield this.logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event)}`);
+                yield this.logger.logError(error);
+            }
+            finally {
+                if (failed && this.isDisposed)
+                    return;
+                yield this.track(eventId, eventKey);
             }
         });
     }
@@ -183,15 +170,26 @@ class Consumer {
             });
         });
     }
-    incrementConsumerPartitionReadIndex() {
+    incrementConsumerPartitionReadIndex(index) {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+        if (index != null) {
+            return new Promise((resolve, reject) => {
+                this._client.set(key, index.toString(), (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                });
+            });
+        }
         return new Promise((resolve, reject) => {
-            this._client.incr(key, (err, val) => {
+            this._client.incr(key, (err) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-                resolve(val);
+                resolve();
             });
         });
     }
@@ -228,26 +226,6 @@ class Consumer {
                 }));
                 resolve(result);
             });
-        });
-    }
-    processEvent(eventName, eventRegistration, event, eventId, numAttempt) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const scope = this._manager.serviceLocator.createScope();
-            event.$scope = scope;
-            this._onEventReceived(scope, this._topic, event);
-            const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
-            try {
-                yield handler.handle(event);
-                yield this._logger.logInfo(`Executed EventHandler '${eventRegistration.eventHandlerTypeName}' for event '${eventName}' with id '${eventId}' => ConsumerGroupId: ${this.manager.consumerGroupId}; Topic: ${this.topic}; Partition: ${this.partition};`);
-            }
-            catch (error) {
-                yield this._logger.logWarning(`Error in EventHandler while handling event of type '${eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(event.serialize())}.`);
-                yield this._logger.logWarning(error);
-                throw error;
-            }
-            finally {
-                yield scope.dispose();
-            }
         });
     }
     track(eventId, eventKey) {

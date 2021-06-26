@@ -45,6 +45,7 @@ class EdaManager {
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
     get cleanKeys() { return this._cleanKeys; }
+    get partitionKeyMapper() { return this._partitionKeyMapper; }
     useInstaller(installer) {
         n_defensive_1.given(installer, "installer").ensureHasValue().ensureIsObject();
         n_defensive_1.given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");

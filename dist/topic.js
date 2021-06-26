@@ -24,11 +24,8 @@ class Topic {
     get partitionAffinity() { return this._partitionAffinity; }
     get isDisabled() { return this._isDisabled; }
     subscribe() {
-        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
-        result._partitionAffinity = this._partitionAffinity;
-        result._isDisabled = this._isDisabled;
-        result._publishOnly = false;
-        return result;
+        this._publishOnly = false;
+        return this;
     }
     configurePartitionAffinity(partitionAffinity) {
         n_defensive_1.given(partitionAffinity, "partitionAffinity").ensureHasValue().ensureIsString()
@@ -40,18 +37,12 @@ class Topic {
         const partitions = new Array();
         for (let i = lower; i <= upper; i++)
             partitions.push(i);
-        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
-        result._publishOnly = this._publishOnly;
-        result._isDisabled = this._isDisabled;
-        result._partitionAffinity = partitions;
-        return result;
+        this._partitionAffinity = partitions;
+        return this;
     }
     disable() {
-        const result = new Topic(this.name, this.ttlMinutes, this.numPartitions);
-        result._publishOnly = this._publishOnly;
-        result._partitionAffinity = this._partitionAffinity;
-        result._isDisabled = true;
-        return result;
+        this._isDisabled = true;
+        return this;
     }
 }
 exports.Topic = Topic;

@@ -28,6 +28,7 @@ export declare class EdaManager implements Disposable {
     get consumerName(): string;
     get consumerGroupId(): string | null;
     get cleanKeys(): boolean;
+    get partitionKeyMapper(): (event: EdaEvent) => string;
     constructor(container?: Container);
     useInstaller(installer: ComponentInstaller): this;
     useConsumerName(name: string): this;
