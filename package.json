@@ -52,7 +52,7 @@
         "@nivinjoseph/n-ext": "^1.1.23",
         "@nivinjoseph/n-ject": "^1.1.13",
         "@nivinjoseph/n-log": "^1.0.13",
-        "@nivinjoseph/n-util": "^1.0.71",
+        "@nivinjoseph/n-util": "^1.0.72",
         "@types/redis": "^2.8.28",
         "murmurhash3js": "^3.0.1",
         "redis": "^3.1.2",

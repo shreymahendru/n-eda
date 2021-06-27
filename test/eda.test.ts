@@ -62,7 +62,7 @@ suite.only("eda tests", () =>
 
         await eventBus.publish("basic", ...testEvents);
 
-        await Delay.minutes(3);
+        await Delay.minutes(4);
 
         // Assert.ok(history.records.length === 1 && history.records[0] === testEvent.id);
 
@@ -79,4 +79,9 @@ suite.only("eda tests", () =>
         // Assert.deepStrictEqual(historyIds, testEvents.map(t => t.id), "eventIds don't match");
         Assert.deepStrictEqual(historyNumbers, numbers, "numbers don't match");
     });
+    
+    // test("ordering", async () =>
+    // {
+        
+    // });
 });

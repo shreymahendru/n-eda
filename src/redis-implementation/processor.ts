@@ -2,11 +2,11 @@ import { given } from "@nivinjoseph/n-defensive";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
-import { Delay, Disposable, Observer, Subscription } from "@nivinjoseph/n-util";
+import { Delay, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
 import { EdaEvent } from "../eda-event";
 import { EdaEventHandler } from "../eda-event-handler";
 import { EdaManager } from "../eda-manager";
-import { WorkItem } from "./broker";
+import { WorkItem } from "./scheduler";
 
 
 export class Processor implements Disposable
@@ -14,16 +14,21 @@ export class Processor implements Disposable
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
     private readonly _onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void;
+    private readonly _availabilityObserver = new Observer<this>("available");
+    private readonly _doneProcessingObserver = new Observer<WorkItem>("done-processing");
     
-    
-    private _availabilityObserver: Observer<this> | null = null;
     private _currentWorkItem: WorkItem | null = null;
     private _processPromise: Promise<void> | null = null;
     private _isDisposed = false;
     
     
-    private get _isInitialized(): boolean { return this._availabilityObserver != null; }
+    private get _isInitialized(): boolean
+    {
+        return this._availabilityObserver.hasSubscriptions && this._doneProcessingObserver.hasSubscriptions;
+    }
     
+    public get availability(): Observable<this> { return this._availabilityObserver; }
+    public get doneProcessing(): Observable<WorkItem> { return this._doneProcessingObserver; }
     public get isBusy(): boolean { return this._currentWorkItem != null; }
     
     
@@ -39,19 +44,6 @@ export class Processor implements Disposable
     }
     
     
-    public initialize(availabilityCallback: (p: this) => void): Subscription
-    {
-        given(availabilityCallback, "availabilityCallback").ensureHasValue().ensureIsFunction();
-        
-        given(this, "this").ensure(t => !t._isInitialized);
-        
-        if (this._isDisposed)
-            throw new ObjectDisposedException(this);
-        
-        this._availabilityObserver = new Observer<this>("available", availabilityCallback);
-        return this._availabilityObserver.subscription;
-    }
-    
     public process(workItem: WorkItem): void
     {
         given(this, "this")
@@ -66,8 +58,10 @@ export class Processor implements Disposable
         this._processPromise = this._process()
             .then(() =>
             {
+                const doneWorkItem = this._currentWorkItem!;
+                this._doneProcessingObserver.notify(doneWorkItem);
                 this._currentWorkItem = null;
-                this._availabilityObserver!.notify(this);
+                this._availabilityObserver.notify(this);
             })
             .catch((e) => this._logger.logError(e));
     }
