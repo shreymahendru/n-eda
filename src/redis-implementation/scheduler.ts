@@ -38,7 +38,7 @@ export class Scheduler
         else
             this._queues.set(workItem.partitionKey, {
                 partitionKey: workItem.partitionKey,
-                lastAccessed: Date.now(),
+                // lastAccessed: Date.now(),
                 queue: [workItem]
             });
 
@@ -61,27 +61,55 @@ export class Scheduler
         this._processing.add(workItem.partitionKey);
     }
 
+    // private _findWork(): WorkItem | null
+    // {
+    //     // FIXME: this is a shitty priority queue
+    //     const entries = [...this._queues.values()].orderBy(t => t.lastAccessed);
+
+    //     for (const entry of entries)
+    //     {
+    //         if (entry.queue.isEmpty)
+    //         {
+    //             this._queues.delete(entry.partitionKey);
+    //             continue;
+    //         }
+            
+    //         if (this._processing.has(entry.partitionKey))
+    //             continue;
+
+    //         const workItem = entry.queue.pop()!;
+    //         if (entry.queue.isEmpty)
+    //             this._queues.delete(entry.partitionKey);
+    //         else
+    //             entry.lastAccessed = Date.now();
+
+    //         return workItem;
+    //     }
+
+    //     return null;
+    // }
+    
     private _findWork(): WorkItem | null
     {
-        // FIXME: this is a shitty priority queue
-        const entries = [...this._queues.values()].orderBy(t => t.lastAccessed);
-
-        for (const entry of entries)
+        // Because we know that Map.Values() returns entries in insertion order
+        for (const entry of this._queues.values())
         {
             if (entry.queue.isEmpty)
             {
                 this._queues.delete(entry.partitionKey);
                 continue;
             }
-            
+
             if (this._processing.has(entry.partitionKey))
                 continue;
 
             const workItem = entry.queue.pop()!;
-            if (entry.queue.isEmpty)
-                this._queues.delete(entry.partitionKey);
-            else
-                entry.lastAccessed = Date.now();
+            this._queues.delete(entry.partitionKey);
+            if (entry.queue.isNotEmpty)
+            {
+                // entry.lastAccessed = Date.now();
+                this._queues.set(entry.partitionKey, entry);
+            }
 
             return workItem;
         }
@@ -100,6 +128,6 @@ export interface WorkItem extends RoutedEvent
 interface SchedulerQueue
 {
     partitionKey: string;
-    lastAccessed: number;
+    // lastAccessed: number;
     queue: Array<WorkItem>;
 }
