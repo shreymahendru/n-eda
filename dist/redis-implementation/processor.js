@@ -16,7 +16,8 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const eda_manager_1 = require("../eda-manager");
 class Processor {
     constructor(manager, onEventReceived) {
-        this._availabilityObserver = null;
+        this._availabilityObserver = new n_util_1.Observer("available");
+        this._doneProcessingObserver = new n_util_1.Observer("done-processing");
         this._currentWorkItem = null;
         this._processPromise = null;
         this._isDisposed = false;
@@ -26,16 +27,12 @@ class Processor {
         n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
         this._onEventReceived = onEventReceived;
     }
-    get _isInitialized() { return this._availabilityObserver != null; }
-    get isBusy() { return this._currentWorkItem != null; }
-    initialize(availabilityCallback) {
-        n_defensive_1.given(availabilityCallback, "availabilityCallback").ensureHasValue().ensureIsFunction();
-        n_defensive_1.given(this, "this").ensure(t => !t._isInitialized);
-        if (this._isDisposed)
-            throw new n_exception_1.ObjectDisposedException(this);
-        this._availabilityObserver = new n_util_1.Observer("available", availabilityCallback);
-        return this._availabilityObserver.subscription;
+    get _isInitialized() {
+        return this._availabilityObserver.hasSubscriptions && this._doneProcessingObserver.hasSubscriptions;
     }
+    get availability() { return this._availabilityObserver; }
+    get doneProcessing() { return this._doneProcessingObserver; }
+    get isBusy() { return this._currentWorkItem != null; }
     process(workItem) {
         n_defensive_1.given(this, "this")
             .ensure(t => t._isInitialized, "processor not initialized")
@@ -45,6 +42,8 @@ class Processor {
         this._currentWorkItem = workItem;
         this._processPromise = this._process()
             .then(() => {
+            const doneWorkItem = this._currentWorkItem;
+            this._doneProcessingObserver.notify(doneWorkItem);
             this._currentWorkItem = null;
             this._availabilityObserver.notify(this);
         })

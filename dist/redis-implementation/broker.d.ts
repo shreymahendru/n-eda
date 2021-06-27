@@ -1,4 +1,4 @@
-import { Deferred, Disposable } from "@nivinjoseph/n-util";
+import { Disposable } from "@nivinjoseph/n-util";
 import { EdaEvent } from "../eda-event";
 import { EventRegistration } from "../event-registration";
 import { Consumer } from "./consumer";
@@ -23,7 +23,4 @@ export interface RoutedEvent {
     eventId: string;
     event: EdaEvent;
     partitionKey: string;
-}
-export interface WorkItem extends RoutedEvent {
-    deferred: Deferred<void>;
 }
