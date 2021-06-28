@@ -35,6 +35,7 @@ class Consumer {
         this._partition = partition;
         this._id = `${this._topic}-${this._partition}`;
         this._cleanKeys = this._manager.cleanKeys;
+        this._trackedKeysKey = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
     }
     get id() { return this._id; }
     registerBroker(broker) {
@@ -45,20 +46,20 @@ class Consumer {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException("Consumer");
         n_defensive_1.given(this, "this").ensure(t => !t._consumePromise, "consumption has already commenced");
-        this._consumePromise = this.beginConsume();
+        this._consumePromise = this._beginConsume();
     }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
-                yield this._saveTrackedKeys();
+                yield this._snapshotTrackedKeys();
                 const consumePromise = this._consumePromise || Promise.resolve();
                 yield consumePromise;
-                yield this._saveTrackedKeys();
+                yield this._snapshotTrackedKeys();
             }
         });
     }
-    beginConsume() {
+    _beginConsume() {
         return __awaiter(this, void 0, void 0, function* () {
             yield this._loadTrackedKeys();
             while (true) {
@@ -106,7 +107,7 @@ class Consumer {
                             yield this._incrementConsumerPartitionReadIndex();
                             continue;
                         }
-                        const event = yield this.decompressEvent(eventData);
+                        const event = yield this._decompressEvent(eventData);
                         const eventId = event.$id || event.id; // for compatibility with n-domain DomainEvent
                         const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
                         const eventRegistration = this._manager.eventMap.get(eventName);
@@ -154,7 +155,7 @@ class Consumer {
             finally {
                 if (failed && this._isDisposed) // cuz it could have failed because things were disposed
                     return;
-                yield this.track(eventKey);
+                yield this._track(eventKey);
             }
         });
     }
@@ -166,6 +167,7 @@ class Consumer {
                     reject(err);
                     return;
                 }
+                // console.log("fetchPartitionWriteIndex", JSON.parse(value!));
                 resolve(value != null ? JSON.parse(value) : 0);
             });
         });
@@ -178,6 +180,7 @@ class Consumer {
                     reject(err);
                     return;
                 }
+                // console.log("fetchConsumerPartitionReadIndex", JSON.parse(value!));
                 resolve(value != null ? JSON.parse(value) : 0);
             });
         });
@@ -237,26 +240,37 @@ class Consumer {
             });
         });
     }
-    track(eventKey) {
+    _track(eventKey) {
         return __awaiter(this, void 0, void 0, function* () {
             this._trackedKeysSet.add(eventKey);
+            yield this._saveTrackedKey(eventKey);
             if (this._trackedKeysSet.size >= 300) {
                 const trackedKeysArray = [...this._trackedKeysSet.values()];
                 this._trackedKeysSet = new Set(trackedKeysArray.skip(200));
                 if (this._cleanKeys) {
                     const erasedKeys = trackedKeysArray.take(200);
-                    yield this.removeKeys(erasedKeys);
+                    yield this._removeKeys(erasedKeys);
                 }
-                yield this._saveTrackedKeys();
+                yield this._snapshotTrackedKeys();
             }
         });
     }
-    _saveTrackedKeys() {
+    _saveTrackedKey(key) {
+        return new Promise((resolve, reject) => {
+            this._client.lpush(this._trackedKeysKey, key, (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            });
+        });
+    }
+    _snapshotTrackedKeys() {
         if (this._trackedKeysSet.size === 0)
             return Promise.resolve();
         return new Promise((resolve, reject) => {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
-            this._client.lpush(key, ...this._trackedKeysSet.values(), (err) => {
+            this._client.lpush(this._trackedKeysKey, ...this._trackedKeysSet.values(), (err) => {
                 if (err) {
                     reject(err);
                     return;
@@ -265,7 +279,7 @@ class Consumer {
                     resolve();
                     return;
                 }
-                this._client.ltrim(key, 0, 200, (err) => {
+                this._client.ltrim(this._trackedKeysKey, 0, 200, (err) => {
                     if (err) {
                         reject(err);
                         return;
@@ -277,27 +291,27 @@ class Consumer {
     }
     _loadTrackedKeys() {
         return new Promise((resolve, reject) => {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
-            this._client.lrange(key, 0, -1, (err, keys) => {
+            this._client.lrange(this._trackedKeysKey, 0, -1, (err, keys) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-                this._trackedKeysSet = new Set(keys.reverse());
+                keys = keys.reverse().map(t => t.toString("utf8"));
+                // console.log(keys);
+                this._trackedKeysSet = new Set(keys);
                 resolve();
             });
         });
     }
-    decompressEvent(eventData) {
+    _decompressEvent(eventData) {
         return __awaiter(this, void 0, void 0, function* () {
             const decompressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliDecompress)(eventData, { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
             return JSON.parse(decompressed.toString("utf8"));
         });
     }
-    removeKeys(keys) {
+    _removeKeys(keys) {
         return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
-                // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
                 this._client.unlink(...keys, (err) => {
                     if (err) {
                         reject(err);
