@@ -51,6 +51,7 @@ class Consumer {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
+                yield this._saveTrackedKeys();
                 const consumePromise = this._consumePromise || Promise.resolve();
                 yield consumePromise;
                 yield this._saveTrackedKeys();
