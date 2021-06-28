@@ -23,19 +23,10 @@ export class Consumer implements Disposable
     private readonly _cleanKeys: boolean;
     
     private _isDisposed = false;
-    private _trackedIdsSet = new Set<string>();
-    private _trackedIdsArray = new Array<string>();
-    private _trackedKeysArray = new Array<string>();
+    private _trackedKeysSet = new Set<string>();
     private _consumePromise: Promise<void> | null = null;
     private _broker: Broker = null as any;
     
-    
-    // protected get manager(): EdaManager { return this._manager; }
-    // protected get topic(): string { return this._topic; }
-    // protected get partition(): number { return this._partition; }
-    // protected get logger(): Logger { return this._logger; }
-    // protected get trackedIdsSet(): ReadonlySet<string> { return this._trackedIdsSet; }
-    // protected get isDisposed(): boolean { return this._isDisposed; }
     
     public get id(): string { return this._id; }
     
@@ -78,16 +69,22 @@ export class Consumer implements Disposable
         this._consumePromise = this.beginConsume();
     }
     
-    public dispose(): Promise<void>
+    public async dispose(): Promise<void>
     {
         if (!this._isDisposed)
+        {
             this._isDisposed = true;
-        
-        return this._consumePromise || Promise.resolve();
+            
+            const consumePromise = this._consumePromise || Promise.resolve();
+            await consumePromise;
+            await this._saveTrackedKeys();
+        }
     }
     
     protected async beginConsume(): Promise<void>
     {
+        await this._loadTrackedKeys();
+        
         while (true)
         {
             if (this._isDisposed)
@@ -116,6 +113,12 @@ export class Consumer implements Disposable
                 {
                     if (this._isDisposed)
                         return;
+                    
+                    if (this._trackedKeysSet.has(item.key))
+                    {
+                        await this._incrementConsumerPartitionReadIndex();
+                        continue;
+                    }
                     
                     let eventData = item.value;
                     if (eventData == null)
@@ -156,12 +159,6 @@ export class Consumer implements Disposable
                     // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
                     const deserializedEvent = Deserializer.deserialize(event) as EdaEvent;
 
-                    if (this._trackedIdsSet.has(eventId))
-                    {
-                        await this._incrementConsumerPartitionReadIndex();    
-                        continue;
-                    }
-
                     routed.push(
                         this._attemptRoute(
                             eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
@@ -170,7 +167,7 @@ export class Consumer implements Disposable
                 await Promise.all(routed);
                 
                 if (this._isDisposed)
-                    return; // TODO: probably throw error here? / or just pass?
+                    return;
                 
                 await this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
             }
@@ -188,7 +185,7 @@ export class Consumer implements Disposable
     private async _attemptRoute(eventName: string, eventRegistration: EventRegistration,
         eventIndex: number, eventKey: string, eventId: string, event: EdaEvent): Promise<void>
     {
-        // let failed = false;
+        let failed = false;
         try 
         {
             await this._broker.route({
@@ -206,16 +203,16 @@ export class Consumer implements Disposable
         }
         catch (error)
         {
-            // failed = true;
+            failed = true;
             await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
             await this._logger.logError(error);
         }
         finally
         {
-            // if (failed && this._isDisposed) // FIXME: questionable
-            //     return;
+            if (failed && this._isDisposed) // cuz it could have failed because things were disposed
+                return;
 
-            await this.track(eventId, eventKey);
+            await this.track(eventKey);
         }
     }
     
@@ -341,40 +338,85 @@ export class Consumer implements Disposable
         });
     }
     
-    
-    
-    private async track(eventId: string, eventKey: string): Promise<void>
+    private async track(eventKey: string): Promise<void>
     {
-        // given(eventId, "eventId").ensureHasValue().ensureIsString();
-        // given(eventKey, "eventKey").ensureHasValue().ensureIsString();
+        this._trackedKeysSet.add(eventKey);
         
-        if (this._isDisposed)
-            return;
-        
-        if (this._trackedIdsArray.length >= 300)
+        if (this._trackedKeysSet.size >= 300)
         {
-            this._trackedIdsArray = this._trackedIdsArray.skip(200);
-            this._trackedIdsSet = new Set<string>(this._trackedIdsArray);
-            
+            const trackedKeysArray = [...this._trackedKeysSet.values()];
+            this._trackedKeysSet = new Set<string>(trackedKeysArray.skip(200));
+
             if (this._cleanKeys)
             {
-                const erasedKeys = this._trackedKeysArray.take(200);
-                this._trackedKeysArray = this._trackedKeysArray.skip(200);
+                const erasedKeys = trackedKeysArray.take(200);
                 await this.removeKeys(erasedKeys);
             }
+            
+            await this._saveTrackedKeys();
         }
+    }
+    
+    private _saveTrackedKeys(): Promise<void>
+    {
+        if (this._trackedKeysSet.size === 0)
+            return Promise.resolve();
         
-        this._trackedIdsArray.push(eventId);
-        this._trackedIdsSet.add(eventId);
-        
-        if (this._cleanKeys)
-            this._trackedKeysArray.push(eventKey);
+        return new Promise((resolve, reject) =>
+        {
+            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+
+            this._client.lpush(key, ...this._trackedKeysSet.values(), (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+                
+                if (this._isDisposed)
+                {
+                    resolve();
+                    return;
+                }
+                
+                this._client.ltrim(key, 0, 200, (err) =>
+                {
+                    if (err)
+                    {
+                        reject(err);
+                        return;
+                    }
+                    
+                    resolve();
+                });
+            });
+        });
+    }
+    
+    private _loadTrackedKeys(): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+
+            this._client.lrange(key, 0, -1, (err, keys) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+                
+                this._trackedKeysSet = new Set<string>(keys.reverse());
+
+                resolve();
+            });
+        });
     }
     
     private async decompressEvent(eventData: Buffer): Promise<object>
-    {
-        // given(eventData, "eventData").ensureHasValue();
-        
+    { 
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(eventData,
             { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
 
