@@ -75,6 +75,7 @@ export class Consumer implements Disposable
         {
             this._isDisposed = true;
             
+            await this._saveTrackedKeys();
             const consumePromise = this._consumePromise || Promise.resolve();
             await consumePromise;
             await this._saveTrackedKeys();
