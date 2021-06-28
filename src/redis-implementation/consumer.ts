@@ -21,6 +21,7 @@ export class Consumer implements Disposable
     private readonly _partition: number;
     private readonly _id: string;
     private readonly _cleanKeys: boolean;
+    private readonly _trackedKeysKey: string;
     
     private _isDisposed = false;
     private _trackedKeysSet = new Set<string>();
@@ -50,6 +51,8 @@ export class Consumer implements Disposable
         this._id = `${this._topic}-${this._partition}`;
         
         this._cleanKeys = this._manager.cleanKeys;
+        
+        this._trackedKeysKey = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
     }
     
     
@@ -66,7 +69,7 @@ export class Consumer implements Disposable
         
         given(this, "this").ensure(t => !t._consumePromise, "consumption has already commenced");
         
-        this._consumePromise = this.beginConsume();
+        this._consumePromise = this._beginConsume();
     }
     
     public async dispose(): Promise<void>
@@ -75,14 +78,14 @@ export class Consumer implements Disposable
         {
             this._isDisposed = true;
             
-            await this._saveTrackedKeys();
+            await this._snapshotTrackedKeys();
             const consumePromise = this._consumePromise || Promise.resolve();
             await consumePromise;
-            await this._saveTrackedKeys();
+            await this._snapshotTrackedKeys();
         }
     }
     
-    protected async beginConsume(): Promise<void>
+    private async _beginConsume(): Promise<void>
     {
         await this._loadTrackedKeys();
         
@@ -153,7 +156,7 @@ export class Consumer implements Disposable
                         continue;
                     }
 
-                    const event = await this.decompressEvent(eventData);
+                    const event = await this._decompressEvent(eventData);
                     const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
                     const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                     const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
@@ -213,11 +216,11 @@ export class Consumer implements Disposable
             if (failed && this._isDisposed) // cuz it could have failed because things were disposed
                 return;
 
-            await this.track(eventKey);
+            await this._track(eventKey);
         }
     }
     
-    protected _fetchPartitionWriteIndex(): Promise<number>
+    private _fetchPartitionWriteIndex(): Promise<number>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
         
@@ -230,13 +233,15 @@ export class Consumer implements Disposable
                     reject(err);
                     return;
                 }
+                
+                // console.log("fetchPartitionWriteIndex", JSON.parse(value!));
 
                 resolve(value != null ? JSON.parse(value) : 0);
             });
         });
     }
     
-    protected _fetchConsumerPartitionReadIndex(): Promise<number>
+    private _fetchConsumerPartitionReadIndex(): Promise<number>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
@@ -249,13 +254,15 @@ export class Consumer implements Disposable
                     reject(err);
                     return;
                 }
+                
+                // console.log("fetchConsumerPartitionReadIndex", JSON.parse(value!));
 
                 resolve(value != null ? JSON.parse(value) : 0);
             });
         });
     }
     
-    protected _incrementConsumerPartitionReadIndex(index?: number): Promise<void>
+    private _incrementConsumerPartitionReadIndex(index?: number): Promise<void>
     {
         const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
@@ -339,9 +346,10 @@ export class Consumer implements Disposable
         });
     }
     
-    private async track(eventKey: string): Promise<void>
+    private async _track(eventKey: string): Promise<void>
     {
         this._trackedKeysSet.add(eventKey);
+        await this._saveTrackedKey(eventKey);
         
         if (this._trackedKeysSet.size >= 300)
         {
@@ -351,23 +359,38 @@ export class Consumer implements Disposable
             if (this._cleanKeys)
             {
                 const erasedKeys = trackedKeysArray.take(200);
-                await this.removeKeys(erasedKeys);
+                await this._removeKeys(erasedKeys);
             }
             
-            await this._saveTrackedKeys();
+            await this._snapshotTrackedKeys();
         }
     }
     
-    private _saveTrackedKeys(): Promise<void>
+    private _saveTrackedKey(key: string): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            this._client.lpush(this._trackedKeysKey, key, (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+                
+                resolve();
+            });
+        });
+    }
+    
+    private _snapshotTrackedKeys(): Promise<void>
     {
         if (this._trackedKeysSet.size === 0)
             return Promise.resolve();
         
         return new Promise((resolve, reject) =>
         {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
-
-            this._client.lpush(key, ...this._trackedKeysSet.values(), (err) =>
+            this._client.lpush(this._trackedKeysKey, ...this._trackedKeysSet.values(), (err) =>
             {
                 if (err)
                 {
@@ -381,7 +404,7 @@ export class Consumer implements Disposable
                     return;
                 }
                 
-                this._client.ltrim(key, 0, 200, (err) =>
+                this._client.ltrim(this._trackedKeysKey, 0, 200, (err) =>
                 {
                     if (err)
                     {
@@ -399,9 +422,7 @@ export class Consumer implements Disposable
     {
         return new Promise((resolve, reject) =>
         {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
-
-            this._client.lrange(key, 0, -1, (err, keys) =>
+            this._client.lrange(this._trackedKeysKey, 0, -1, (err, keys) =>
             {
                 if (err)
                 {
@@ -409,14 +430,18 @@ export class Consumer implements Disposable
                     return;
                 }
                 
-                this._trackedKeysSet = new Set<string>(keys.reverse());
+                keys = keys.reverse().map(t => (t as unknown as Buffer).toString("utf8"));
+                
+                // console.log(keys);
+                
+                this._trackedKeysSet = new Set<string>(keys);
 
                 resolve();
             });
         });
     }
     
-    private async decompressEvent(eventData: Buffer): Promise<object>
+    private async _decompressEvent(eventData: Buffer): Promise<object>
     { 
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(eventData,
             { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
@@ -424,12 +449,10 @@ export class Consumer implements Disposable
         return JSON.parse(decompressed.toString("utf8"));
     }
     
-    private async removeKeys(keys: string[]): Promise<void>
+    private async _removeKeys(keys: string[]): Promise<void>
     {
         return new Promise((resolve, reject) =>
         {
-            // const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${indexToRead}`;
-
             this._client.unlink(...keys, (err) =>
             {
                 if (err)
