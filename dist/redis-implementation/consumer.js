@@ -21,9 +21,7 @@ class Consumer {
         this._edaPrefix = "n-eda";
         this._defaultDelayMS = 150;
         this._isDisposed = false;
-        this._trackedIdsSet = new Set();
-        this._trackedIdsArray = new Array();
-        this._trackedKeysArray = new Array();
+        this._trackedKeysSet = new Set();
         this._consumePromise = null;
         this._broker = null;
         n_defensive_1.given(client, "client").ensureHasValue().ensureIsObject();
@@ -38,12 +36,6 @@ class Consumer {
         this._id = `${this._topic}-${this._partition}`;
         this._cleanKeys = this._manager.cleanKeys;
     }
-    // protected get manager(): EdaManager { return this._manager; }
-    // protected get topic(): string { return this._topic; }
-    // protected get partition(): number { return this._partition; }
-    // protected get logger(): Logger { return this._logger; }
-    // protected get trackedIdsSet(): ReadonlySet<string> { return this._trackedIdsSet; }
-    // protected get isDisposed(): boolean { return this._isDisposed; }
     get id() { return this._id; }
     registerBroker(broker) {
         n_defensive_1.given(broker, "broker").ensureHasValue().ensureIsObject().ensureIsObject().ensureIsType(broker_1.Broker);
@@ -56,12 +48,18 @@ class Consumer {
         this._consumePromise = this.beginConsume();
     }
     dispose() {
-        if (!this._isDisposed)
-            this._isDisposed = true;
-        return this._consumePromise || Promise.resolve();
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this._isDisposed) {
+                this._isDisposed = true;
+                const consumePromise = this._consumePromise || Promise.resolve();
+                yield consumePromise;
+                yield this._saveTrackedKeys();
+            }
+        });
     }
     beginConsume() {
         return __awaiter(this, void 0, void 0, function* () {
+            yield this._loadTrackedKeys();
             while (true) {
                 if (this._isDisposed)
                     return;
@@ -80,6 +78,10 @@ class Consumer {
                     for (const item of eventsData) {
                         if (this._isDisposed)
                             return;
+                        if (this._trackedKeysSet.has(item.key)) {
+                            yield this._incrementConsumerPartitionReadIndex();
+                            continue;
+                        }
                         let eventData = item.value;
                         if (eventData == null)
                             eventData = yield this._retrieveEvent(item.key);
@@ -109,15 +111,11 @@ class Consumer {
                         const eventRegistration = this._manager.eventMap.get(eventName);
                         // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
                         const deserializedEvent = n_util_1.Deserializer.deserialize(event);
-                        if (this._trackedIdsSet.has(eventId)) {
-                            yield this._incrementConsumerPartitionReadIndex();
-                            continue;
-                        }
                         routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
                     }
                     yield Promise.all(routed);
                     if (this._isDisposed)
-                        return; // TODO: probably throw error here? / or just pass?
+                        return;
                     yield this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
                 }
                 catch (error) {
@@ -132,7 +130,7 @@ class Consumer {
     }
     _attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
         return __awaiter(this, void 0, void 0, function* () {
-            // let failed = false;
+            let failed = false;
             try {
                 yield this._broker.route({
                     consumerId: this._id,
@@ -148,14 +146,14 @@ class Consumer {
                 });
             }
             catch (error) {
-                // failed = true;
+                failed = true;
                 yield this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
                 yield this._logger.logError(error);
             }
             finally {
-                // if (failed && this._isDisposed) // FIXME: questionable
-                //     return;
-                yield this.track(eventId, eventKey);
+                if (failed && this._isDisposed) // cuz it could have failed because things were disposed
+                    return;
+                yield this.track(eventKey);
             }
         });
     }
@@ -238,30 +236,59 @@ class Consumer {
             });
         });
     }
-    track(eventId, eventKey) {
+    track(eventKey) {
         return __awaiter(this, void 0, void 0, function* () {
-            // given(eventId, "eventId").ensureHasValue().ensureIsString();
-            // given(eventKey, "eventKey").ensureHasValue().ensureIsString();
-            if (this._isDisposed)
-                return;
-            if (this._trackedIdsArray.length >= 300) {
-                this._trackedIdsArray = this._trackedIdsArray.skip(200);
-                this._trackedIdsSet = new Set(this._trackedIdsArray);
+            this._trackedKeysSet.add(eventKey);
+            if (this._trackedKeysSet.size >= 300) {
+                const trackedKeysArray = [...this._trackedKeysSet.values()];
+                this._trackedKeysSet = new Set(trackedKeysArray.skip(200));
                 if (this._cleanKeys) {
-                    const erasedKeys = this._trackedKeysArray.take(200);
-                    this._trackedKeysArray = this._trackedKeysArray.skip(200);
+                    const erasedKeys = trackedKeysArray.take(200);
                     yield this.removeKeys(erasedKeys);
                 }
+                yield this._saveTrackedKeys();
             }
-            this._trackedIdsArray.push(eventId);
-            this._trackedIdsSet.add(eventId);
-            if (this._cleanKeys)
-                this._trackedKeysArray.push(eventKey);
+        });
+    }
+    _saveTrackedKeys() {
+        if (this._trackedKeysSet.size === 0)
+            return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+            this._client.lpush(key, ...this._trackedKeysSet.values(), (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                if (this._isDisposed) {
+                    resolve();
+                    return;
+                }
+                this._client.ltrim(key, 0, 200, (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                });
+            });
+        });
+    }
+    _loadTrackedKeys() {
+        return new Promise((resolve, reject) => {
+            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+            this._client.lrange(key, 0, -1, (err, keys) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                this._trackedKeysSet = new Set(keys.reverse());
+                resolve();
+            });
         });
     }
     decompressEvent(eventData) {
         return __awaiter(this, void 0, void 0, function* () {
-            // given(eventData, "eventData").ensureHasValue();
             const decompressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliDecompress)(eventData, { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
             return JSON.parse(decompressed.toString("utf8"));
         });
