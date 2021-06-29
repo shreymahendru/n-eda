@@ -50,18 +50,15 @@ class Consumer {
     }
     dispose() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this._isDisposed) {
+            if (!this._isDisposed)
                 this._isDisposed = true;
-                yield this._snapshotTrackedKeys();
-                const consumePromise = this._consumePromise || Promise.resolve();
-                yield consumePromise;
-                yield this._snapshotTrackedKeys();
-            }
+            return this._consumePromise || Promise.resolve();
         });
     }
     _beginConsume() {
         return __awaiter(this, void 0, void 0, function* () {
             yield this._loadTrackedKeys();
+            yield this._logger.logInfo(`Loaded tracked keys for Consumer ${this._id} => ${this._trackedKeysSet.size}`);
             while (true) {
                 if (this._isDisposed)
                     return;
@@ -251,7 +248,7 @@ class Consumer {
                     const erasedKeys = trackedKeysArray.take(200);
                     yield this._removeKeys(erasedKeys);
                 }
-                yield this._snapshotTrackedKeys();
+                yield this._purgeTrackedKeys();
             }
         });
     }
@@ -266,26 +263,14 @@ class Consumer {
             });
         });
     }
-    _snapshotTrackedKeys() {
-        if (this._trackedKeysSet.size === 0)
-            return Promise.resolve();
+    _purgeTrackedKeys() {
         return new Promise((resolve, reject) => {
-            this._client.lpush(this._trackedKeysKey, ...this._trackedKeysSet.values(), (err) => {
+            this._client.ltrim(this._trackedKeysKey, 0, 300, (err) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-                if (this._isDisposed) {
-                    resolve();
-                    return;
-                }
-                this._client.ltrim(this._trackedKeysKey, 0, 200, (err) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    resolve();
-                });
+                resolve();
             });
         });
     }

@@ -31,7 +31,7 @@ export declare class Consumer implements Disposable {
     private _batchRetrieveEvents;
     private _track;
     private _saveTrackedKey;
-    private _snapshotTrackedKeys;
+    private _purgeTrackedKeys;
     private _loadTrackedKeys;
     private _decompressEvent;
     private _removeKeys;
