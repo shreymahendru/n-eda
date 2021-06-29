@@ -75,19 +75,15 @@ export class Consumer implements Disposable
     public async dispose(): Promise<void>
     {
         if (!this._isDisposed)
-        {
             this._isDisposed = true;
-            
-            await this._snapshotTrackedKeys();
-            const consumePromise = this._consumePromise || Promise.resolve();
-            await consumePromise;
-            await this._snapshotTrackedKeys();
-        }
+        
+        return this._consumePromise || Promise.resolve();
     }
     
     private async _beginConsume(): Promise<void>
     {
         await this._loadTrackedKeys();
+        await this._logger.logInfo(`Loaded tracked keys for Consumer ${this._id} => ${this._trackedKeysSet.size}`);
         
         while (true)
         {
@@ -362,7 +358,7 @@ export class Consumer implements Disposable
                 await this._removeKeys(erasedKeys);
             }
             
-            await this._snapshotTrackedKeys();
+            await this._purgeTrackedKeys();
         }
     }
     
@@ -383,37 +379,19 @@ export class Consumer implements Disposable
         });
     }
     
-    private _snapshotTrackedKeys(): Promise<void>
+    private _purgeTrackedKeys(): Promise<void>
     {
-        if (this._trackedKeysSet.size === 0)
-            return Promise.resolve();
-        
         return new Promise((resolve, reject) =>
         {
-            this._client.lpush(this._trackedKeysKey, ...this._trackedKeysSet.values(), (err) =>
+            this._client.ltrim(this._trackedKeysKey, 0, 300, (err) =>
             {
                 if (err)
                 {
                     reject(err);
                     return;
                 }
-                
-                if (this._isDisposed)
-                {
-                    resolve();
-                    return;
-                }
-                
-                this._client.ltrim(this._trackedKeysKey, 0, 200, (err) =>
-                {
-                    if (err)
-                    {
-                        reject(err);
-                        return;
-                    }
-                    
-                    resolve();
-                });
+
+                resolve();
             });
         });
     }
@@ -428,7 +406,7 @@ export class Consumer implements Disposable
                 {
                     reject(err);
                     return;
-                }
+                }    
                 
                 keys = keys.reverse().map(t => (t as unknown as Buffer).toString("utf8"));
                 

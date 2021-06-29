@@ -101,7 +101,7 @@ class TestEventHandler implements EdaEventHandler<TestEvent>
         await this._eventHistory.recordEvent(event);
         
         const message = `Event '${event.name}' with id '${event.id}'.`;
-        // if (event.id.endsWith("50"))
+        if (event.id.endsWith("9"))
             await this._logger.logInfo(message);
     }
 }
