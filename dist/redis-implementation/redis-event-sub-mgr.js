@@ -27,7 +27,8 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const broker_1 = require("./broker");
-const processor_1 = require("./processor");
+const default_processor_1 = require("./default-processor");
+const aws_lambda_proxy_processor_1 = require("./aws-lambda-proxy-processor");
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 // public
@@ -70,8 +71,9 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                     }
                     const consumers = partitions
                         .map(partition => new consumer_1.Consumer(this._client, this._manager, topic.name, partition));
-                    const processors = consumers
-                        .map(_ => new processor_1.Processor(this._manager, this.onEventReceived.bind(this)));
+                    const processors = this._manager.awsLambdaProxyEnabled
+                        ? consumers.map(_ => new aws_lambda_proxy_processor_1.AwsLambdaProxyProcessor(this._manager))
+                        : consumers.map(_ => new default_processor_1.DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                     const broker = new broker_1.Broker(consumers, processors);
                     this._brokers.push(broker);
                 });

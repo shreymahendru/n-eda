@@ -1,24 +1,24 @@
-import { ServiceLocator } from "@nivinjoseph/n-ject";
+import { Logger } from "@nivinjoseph/n-log";
 import { Disposable, Observable } from "@nivinjoseph/n-util";
-import { EdaEvent } from "../eda-event";
 import { EdaManager } from "../eda-manager";
 import { WorkItem } from "./scheduler";
-export declare class Processor implements Disposable {
+export declare abstract class Processor implements Disposable {
     private readonly _manager;
     private readonly _logger;
-    private readonly _onEventReceived;
     private readonly _availabilityObserver;
     private readonly _doneProcessingObserver;
     private _currentWorkItem;
     private _processPromise;
     private _isDisposed;
     private get _isInitialized();
+    protected get manager(): EdaManager;
+    protected get logger(): Logger;
     get availability(): Observable<this>;
     get doneProcessing(): Observable<WorkItem>;
     get isBusy(): boolean;
-    constructor(manager: EdaManager, onEventReceived: (scope: ServiceLocator, topic: string, event: EdaEvent) => void);
+    constructor(manager: EdaManager);
     process(workItem: WorkItem): void;
     dispose(): Promise<void>;
+    protected abstract processEvent(workItem: WorkItem, numAttempt: number): Promise<void>;
     private _process;
-    private processEvent;
 }

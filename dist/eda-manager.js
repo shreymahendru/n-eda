@@ -15,6 +15,7 @@ const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const event_registration_1 = require("./event-registration");
 const MurmurHash = require("murmurhash3js");
+const aws_lambda_event_handler_1 = require("./redis-implementation/aws-lambda-event-handler");
 // public
 class EdaManager {
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
@@ -27,6 +28,9 @@ class EdaManager {
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
         this._cleanKeys = false;
+        this._awsLambdaFuncName = null;
+        this._awsLambdaProxyEnabled = false;
+        this._isAwsLambdaConsumer = false;
         this._isDisposed = false;
         this._isBootstrapped = false;
         n_defensive_1.given(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
@@ -45,6 +49,9 @@ class EdaManager {
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
     get cleanKeys() { return this._cleanKeys; }
+    get awsLambdaFuncName() { return this._awsLambdaFuncName; }
+    get awsLambdaProxyEnabled() { return this._awsLambdaProxyEnabled; }
+    get isAwsLambdaConsumer() { return this._isAwsLambdaConsumer; }
     get partitionKeyMapper() { return this._partitionKeyMapper; }
     useInstaller(installer) {
         n_defensive_1.given(installer, "installer").ensureHasValue().ensureIsObject();
@@ -126,6 +133,20 @@ class EdaManager {
         this._cleanKeys = true;
         return this;
     }
+    proxyToAwsLambda(funcName) {
+        n_defensive_1.given(funcName, "funcName").ensureHasValue().ensureIsString();
+        n_defensive_1.given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._awsLambdaFuncName = funcName.trim();
+        this._awsLambdaProxyEnabled = true;
+        return this;
+    }
+    actAsAwsLambdaConsumer() {
+        n_defensive_1.given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._isAwsLambdaConsumer = true;
+        return this;
+    }
     bootstrap() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
@@ -133,7 +154,8 @@ class EdaManager {
             .ensure(t => !t._isBootstrapped, "bootstrapping more than once")
             .ensure(t => t._topics.length > 0, "no topics registered")
             .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
-            .ensure(t => t._eventBusRegistered, "no event bus registered");
+            .ensure(t => t._eventBusRegistered, "no event bus registered")
+            .ensure(t => !(t._eventBusRegistered && t._isAwsLambdaConsumer), "cannot be both event subscriber and lambda consumer");
         this._topics.map(t => this._topicMap.set(t.name, t));
         this._eventMap.forEach(t => this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType));
         this._container.bootstrap();
@@ -142,6 +164,9 @@ class EdaManager {
             this._container.resolve(EdaManager.eventSubMgrKey)
                 .initialize(this);
         this._isBootstrapped = true;
+    }
+    createAwsLambdaEventHandler() {
+        return new aws_lambda_event_handler_1.AwsLambdaEventHandler(this);
     }
     beginConsumption() {
         return __awaiter(this, void 0, void 0, function* () {

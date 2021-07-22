@@ -15,7 +15,7 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
 const eda_manager_1 = require("../eda-manager");
 class Processor {
-    constructor(manager, onEventReceived) {
+    constructor(manager) {
         this._availabilityObserver = new n_util_1.Observer("available");
         this._doneProcessingObserver = new n_util_1.Observer("done-processing");
         this._currentWorkItem = null;
@@ -24,12 +24,12 @@ class Processor {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
         this._manager = manager;
         this._logger = this._manager.serviceLocator.resolve("Logger");
-        n_defensive_1.given(onEventReceived, "onEventReceived").ensureHasValue().ensureIsFunction();
-        this._onEventReceived = onEventReceived;
     }
     get _isInitialized() {
         return this._availabilityObserver.hasSubscriptions && this._doneProcessingObserver.hasSubscriptions;
     }
+    get manager() { return this._manager; }
+    get logger() { return this._logger; }
     get availability() { return this._availabilityObserver; }
     get doneProcessing() { return this._doneProcessingObserver; }
     get isBusy() { return this._currentWorkItem != null; }
@@ -85,26 +85,6 @@ class Processor {
                 yield this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
                 yield this._logger.logError(error);
                 workItem.deferred.reject(error);
-            }
-        });
-    }
-    processEvent(workItem, numAttempt) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const scope = this._manager.serviceLocator.createScope();
-            workItem.event.$scope = scope;
-            this._onEventReceived(scope, workItem.topic, workItem.event);
-            const handler = scope.resolve(workItem.eventRegistration.eventHandlerTypeName);
-            try {
-                yield handler.handle(workItem.event);
-                // await this._logger.logInfo(`Executed EventHandler '${workItem.eventRegistration.eventHandlerTypeName}' for event '${workItem.eventName}' with id '${workItem.eventId}' => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${workItem.topic}; Partition: ${workItem.partition};`);
-            }
-            catch (error) {
-                yield this._logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-                yield this._logger.logWarning(error);
-                throw error;
-            }
-            finally {
-                yield scope.dispose();
             }
         });
     }
