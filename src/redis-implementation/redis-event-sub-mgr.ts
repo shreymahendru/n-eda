@@ -10,6 +10,8 @@ import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
 import { Broker } from "./broker";
 import { Processor } from "./processor";
+import { DefaultProcessor } from "./default-processor";
+import { AwsLambdaProxyProcessor } from "./aws-lambda-proxy-processor";
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 
@@ -79,8 +81,9 @@ export class RedisEventSubMgr implements EventSubMgr
                 const consumers = partitions
                     .map(partition => new Consumer(this._client, this._manager, topic.name, partition));
                 
-                const processors = consumers
-                    .map(_ => new Processor(this._manager, this.onEventReceived.bind(this)));
+                const processors: Array<Processor> = this._manager.awsLambdaProxyEnabled
+                    ? consumers.map(_ => new AwsLambdaProxyProcessor(this._manager))
+                    : consumers.map(_ => new DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                 
                 const broker = new Broker(consumers, processors);
                 this._brokers.push(broker);

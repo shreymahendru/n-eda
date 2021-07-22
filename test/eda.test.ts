@@ -48,9 +48,9 @@ suite.only("eda tests", () =>
         const history = edaManager.serviceLocator.resolve<EventHistory>("EventHistory");
         const testEvents = new Array<EdaEvent>();
         
-        for (let i = 0; i < 100; i++)
+        for (let i = 0; i < 10; i++)
         {
-            for (let j = 0; j < 100; j++)
+            for (let j = 0; j < 1; j++)
             {
                 const event = new TestEvent({ id: `test_${i}-evt_${j}` });
                 testEvents.push(event);
