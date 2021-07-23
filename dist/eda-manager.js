@@ -31,6 +31,7 @@ class EdaManager {
         this._awsLambdaFuncName = null;
         this._awsLambdaProxyEnabled = false;
         this._isAwsLambdaConsumer = false;
+        this._awsLambdaEventHandler = null;
         this._isDisposed = false;
         this._isBootstrapped = false;
         n_defensive_1.given(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
@@ -141,9 +142,11 @@ class EdaManager {
         this._awsLambdaProxyEnabled = true;
         return this;
     }
-    actAsAwsLambdaConsumer() {
+    actAsAwsLambdaConsumer(handler) {
+        n_defensive_1.given(handler, "handler").ensureHasValue().ensureIsObject().ensureIsInstanceOf(aws_lambda_event_handler_1.AwsLambdaEventHandler);
         n_defensive_1.given(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._awsLambdaEventHandler = handler;
         this._isAwsLambdaConsumer = true;
         return this;
     }
@@ -155,7 +158,7 @@ class EdaManager {
             .ensure(t => t._topics.length > 0, "no topics registered")
             .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
             .ensure(t => t._eventBusRegistered, "no event bus registered")
-            .ensure(t => !(t._eventBusRegistered && t._isAwsLambdaConsumer), "cannot be both event subscriber and lambda consumer");
+            .ensure(t => !(t._eventSubMgrRegistered && t._isAwsLambdaConsumer), "cannot be both event subscriber and lambda consumer");
         this._topics.map(t => this._topicMap.set(t.name, t));
         this._eventMap.forEach(t => this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType));
         this._container.bootstrap();
@@ -163,10 +166,9 @@ class EdaManager {
         if (this._eventSubMgrRegistered)
             this._container.resolve(EdaManager.eventSubMgrKey)
                 .initialize(this);
+        if (this._isAwsLambdaConsumer)
+            this._awsLambdaEventHandler.initialize(this);
         this._isBootstrapped = true;
-    }
-    createAwsLambdaEventHandler() {
-        return new aws_lambda_event_handler_1.AwsLambdaEventHandler(this);
     }
     beginConsumption() {
         return __awaiter(this, void 0, void 0, function* () {

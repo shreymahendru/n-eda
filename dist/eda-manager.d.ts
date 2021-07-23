@@ -21,6 +21,7 @@ export declare class EdaManager implements Disposable {
     private _awsLambdaFuncName;
     private _awsLambdaProxyEnabled;
     private _isAwsLambdaConsumer;
+    private _awsLambdaEventHandler;
     private _isDisposed;
     private _isBootstrapped;
     static get eventBusKey(): string;
@@ -46,9 +47,8 @@ export declare class EdaManager implements Disposable {
     registerEventSubscriptionManager<TClass extends new (...args: any[]) => EventSubMgr>(eventSubMgr: EventSubMgr | TClass, consumerGroupId: string): this;
     cleanUpKeys(): this;
     proxyToAwsLambda(funcName: string): this;
-    actAsAwsLambdaConsumer(): this;
+    actAsAwsLambdaConsumer(handler: AwsLambdaEventHandler): this;
     bootstrap(): void;
-    createAwsLambdaEventHandler(): AwsLambdaEventHandler;
     beginConsumption(): Promise<void>;
     mapToPartition(topic: string, event: EdaEvent): number;
     dispose(): Promise<void>;

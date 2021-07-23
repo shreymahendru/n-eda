@@ -14,7 +14,11 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_util_1 = require("@nivinjoseph/n-util");
 const eda_manager_1 = require("../eda-manager");
 class AwsLambdaEventHandler {
-    constructor(manager) {
+    constructor() {
+        this._manager = null;
+        this._logger = null;
+    }
+    initialize(manager) {
         n_defensive_1.given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager)
             .ensure(t => t.isAwsLambdaConsumer, "AWS Lambda consumer not enabled");
         this._manager = manager;
@@ -24,6 +28,7 @@ class AwsLambdaEventHandler {
         return __awaiter(this, void 0, void 0, function* () {
             n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
             n_defensive_1.given(context, "context").ensureHasValue().ensureIsObject();
+            n_defensive_1.given(this, "this").ensure(t => t._manager != null, "not initialized");
             const ctx = context.clientContext;
             const eventData = {
                 consumerId: ctx.consumerId,
