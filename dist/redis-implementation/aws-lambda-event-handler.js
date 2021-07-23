@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AwsLambdaEventHandler = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
+const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
 const eda_manager_1 = require("../eda-manager");
 class AwsLambdaEventHandler {
@@ -37,7 +38,15 @@ class AwsLambdaEventHandler {
                 eventName: ctx.eventName,
                 event: n_util_1.Deserializer.deserialize(event)
             };
-            yield this._process(eventData);
+            try {
+                yield this._process(eventData);
+            }
+            catch (error) {
+                return {
+                    statusCode: 500,
+                    error: this._getErrorMessage(error)
+                };
+            }
             return {
                 eventName: eventData.eventName,
                 eventId: eventData.event.id,
@@ -76,6 +85,22 @@ class AwsLambdaEventHandler {
         n_defensive_1.given(scope, "scope").ensureHasValue().ensureIsObject();
         n_defensive_1.given(topic, "topic").ensureHasValue().ensureIsString();
         n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
+    }
+    _getErrorMessage(exp) {
+        let logMessage = "";
+        try {
+            if (exp instanceof n_exception_1.Exception)
+                logMessage = exp.toString();
+            else if (exp instanceof Error)
+                logMessage = exp.stack;
+            else
+                logMessage = exp.toString();
+        }
+        catch (error) {
+            console.warn(error);
+            logMessage = "There was an error while attempting to log another message.";
+        }
+        return logMessage;
     }
 }
 exports.AwsLambdaEventHandler = AwsLambdaEventHandler;

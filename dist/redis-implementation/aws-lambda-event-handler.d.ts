@@ -11,4 +11,5 @@ export declare class AwsLambdaEventHandler {
     }>;
     private _process;
     protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void;
+    private _getErrorMessage;
 }
