@@ -30,6 +30,7 @@ export class EdaManager implements Disposable
     private _awsLambdaFuncName: string | null = null;
     private _awsLambdaProxyEnabled = false;
     private _isAwsLambdaConsumer = false;
+    private _awsLambdaEventHandler: AwsLambdaEventHandler | null = null;
     private _isDisposed = false;
     private _isBootstrapped = false;
     
@@ -195,11 +196,14 @@ export class EdaManager implements Disposable
         return this;
     }
     
-    public actAsAwsLambdaConsumer(): this
+    public actAsAwsLambdaConsumer(handler: AwsLambdaEventHandler): this
     {
+        given(handler, "handler").ensureHasValue().ensureIsObject().ensureIsInstanceOf(AwsLambdaEventHandler);
+        
         given(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
         
+        this._awsLambdaEventHandler = handler;
         this._isAwsLambdaConsumer = true;
         
         return this;
@@ -215,7 +219,7 @@ export class EdaManager implements Disposable
             .ensure(t => t._topics.length > 0, "no topics registered")
             .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
             .ensure(t => t._eventBusRegistered, "no event bus registered")
-            .ensure(t => !(t._eventBusRegistered && t._isAwsLambdaConsumer),
+            .ensure(t => !(t._eventSubMgrRegistered && t._isAwsLambdaConsumer),
                 "cannot be both event subscriber and lambda consumer");
         
         this._topics.map(t => this._topicMap.set(t.name, t));
@@ -230,12 +234,10 @@ export class EdaManager implements Disposable
             this._container.resolve<EventSubMgr>(EdaManager.eventSubMgrKey)
                 .initialize(this);
         
+        if (this._isAwsLambdaConsumer)
+            this._awsLambdaEventHandler!.initialize(this);
+        
         this._isBootstrapped = true;
-    }
-    
-    public createAwsLambdaEventHandler(): AwsLambdaEventHandler
-    {
-        return new AwsLambdaEventHandler(this);
     }
     
     public async beginConsumption(): Promise<void>

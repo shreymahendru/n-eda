@@ -10,16 +10,16 @@ import { EventRegistration } from "../event-registration";
 
 export class AwsLambdaEventHandler
 {
-    private readonly _manager: EdaManager;
-    private readonly _logger: Logger;
+    private _manager: EdaManager = null as any;
+    private _logger: Logger = null as any;
     
     
-    public constructor(manager: EdaManager)
+    public initialize(manager: EdaManager): void
     {
         given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager)
             .ensure(t => t.isAwsLambdaConsumer, "AWS Lambda consumer not enabled");
         this._manager = manager;
-        
+
         this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
     }
     
@@ -28,6 +28,8 @@ export class AwsLambdaEventHandler
     {
         given(event, "event").ensureHasValue().ensureIsObject();
         given(context, "context").ensureHasValue().ensureIsObject();
+        
+        given(this, "this").ensure(t => t._manager != null, "not initialized");
         
         const ctx = context.clientContext;
         
