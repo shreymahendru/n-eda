@@ -43,14 +43,19 @@ export class AwsLambdaProxyProcessor extends Processor
         try 
         {
             const response = await this._invokeLambda(workItem);
+            
+            const result = response.Payload ? JSON.parse(response.Payload as string) : null;
+            
+            if (result != null && result.error)
+                throw new ApplicationException("Error during invocation of AWS Lambda.", result.error);
+            
             if (response.StatusCode !== 200)
                 throw new ApplicationException(
-                    `Error during invocation of AWS Lambda. Details => ${response.LogResult?.base64Decode() ?? "NONE"}`);
+                    `Error during invocation of AWS Lambda. Details => ${response.LogResult?.base64Decode() ?? "Check CloudWatch logs for details."}`);
             
-            const awsLambdaInvocationResult = JSON.parse(response.Payload as string);
-            given(awsLambdaInvocationResult, "awsLambdaInvocationResult")
-                .ensure(t => t.eventName === workItem.eventName, "eventName mismatch")
-                .ensure(t => t.eventId === workItem.eventId, "eventId mismatch");
+            if (result.eventName !== workItem.eventName || result.eventId !== workItem.eventId)
+                throw new ApplicationException(
+                    `Error during invocation of AWS Lambda. Details => ${response.LogResult?.base64Decode() ?? "Check CloudWatch logs for details."}`);
         }
         catch (error)
         {

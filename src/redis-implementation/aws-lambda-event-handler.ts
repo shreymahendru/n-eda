@@ -1,4 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
+import { Exception } from "@nivinjoseph/n-exception";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
 import { Deserializer } from "@nivinjoseph/n-util";
@@ -41,7 +42,17 @@ export class AwsLambdaEventHandler
             event: Deserializer.deserialize<EdaEvent>(event)
         };
         
-        await this._process(eventData);
+        try 
+        {
+            await this._process(eventData);
+        }
+        catch (error)
+        {
+            return {
+                statusCode: 500,
+                error: this._getErrorMessage(error)
+            } as any;
+        }
         
         return {
             eventName: eventData.eventName,
@@ -91,6 +102,27 @@ export class AwsLambdaEventHandler
         given(scope, "scope").ensureHasValue().ensureIsObject();
         given(topic, "topic").ensureHasValue().ensureIsString();
         given(event, "event").ensureHasValue().ensureIsObject();
+    }
+    
+    private _getErrorMessage(exp: Exception | Error | any): string
+    {
+        let logMessage = "";
+        try 
+        {
+            if (exp instanceof Exception)
+                logMessage = exp.toString();
+            else if (exp instanceof Error)
+                logMessage = exp.stack!;
+            else
+                logMessage = exp.toString();
+        }
+        catch (error)
+        {
+            console.warn(error);
+            logMessage = "There was an error while attempting to log another message.";
+        }
+
+        return logMessage;
     }
 }
 
