@@ -10,6 +10,7 @@ import { Topic } from "./topic";
 // import { InMemoryEventSubMgr } from "./in-memory-implementation/in-memory-event-sub-mgr";
 import { RedisEventBus } from "./redis-implementation/redis-event-bus";
 import { RedisEventSubMgr } from "./redis-implementation/redis-event-sub-mgr";
+import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
 
 
 export
@@ -18,5 +19,5 @@ export
     
     // InMemoryEventBus, InMemoryEventSubMgr,
     
-    RedisEventBus, RedisEventSubMgr
+    RedisEventBus, RedisEventSubMgr, AwsLambdaEventHandler
 };
