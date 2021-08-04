@@ -50,7 +50,7 @@
         "@nivinjoseph/n-config": "^1.0.33",
         "@nivinjoseph/n-defensive": "^1.0.35",
         "@nivinjoseph/n-exception": "^1.0.23",
-        "@nivinjoseph/n-ext": "^1.1.26",
+        "@nivinjoseph/n-ext": "^1.1.27",
         "@nivinjoseph/n-ject": "^1.1.14",
         "@nivinjoseph/n-log": "^1.0.14",
         "@nivinjoseph/n-util": "^1.0.73",

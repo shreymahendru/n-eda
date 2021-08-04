@@ -62,7 +62,7 @@ suite.only("eda tests", () =>
 
         await eventBus.publish("basic", ...testEvents);
 
-        await Delay.minutes(4);
+        await Delay.minutes(1);
 
         // Assert.ok(history.records.length === 1 && history.records[0] === testEvent.id);
 

@@ -115,7 +115,7 @@ export function createEdaManager(): EdaManager
     edaManager
         .registerEventSubscriptionManager(RedisEventSubMgr, "main")
         .cleanUpKeys()
-        .proxyToAwsLambda("testFunc")
+        // .proxyToAwsLambda("testFunc")
         .useConsumerName("test")
         .registerTopics(basicTopic)
         .usePartitionKeyMapper((event) =>
