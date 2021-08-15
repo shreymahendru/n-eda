@@ -14,21 +14,16 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const processor_1 = require("./processor");
 const aws_sdk_1 = require("aws-sdk");
 const n_exception_1 = require("@nivinjoseph/n-exception");
-const n_config_1 = require("@nivinjoseph/n-config");
 class AwsLambdaProxyProcessor extends processor_1.Processor {
     constructor(manager) {
         super(manager);
         n_defensive_1.given(manager, "manager").ensure(t => t.awsLambdaProxyEnabled, "AWS Lambda proxy not enabled");
-        const awsLambdaAccessKeyId = n_config_1.ConfigurationManager.getConfig("awsLambdaAccessKeyId");
-        n_defensive_1.given(awsLambdaAccessKeyId, "awsLambdaAccessKeyId").ensureHasValue().ensureIsString();
-        const awsLambdaSecretAccessKey = n_config_1.ConfigurationManager.getConfig("awsLambdaSecretAccessKey");
-        n_defensive_1.given(awsLambdaSecretAccessKey, "awsLambdaSecretAccessKey").ensureHasValue().ensureIsString();
         this._lambda = new aws_sdk_1.Lambda({
             signatureVersion: "v4",
-            region: "us-east-1",
+            region: manager.awsLambdaDetails.region,
             credentials: {
-                accessKeyId: awsLambdaAccessKeyId,
-                secretAccessKey: awsLambdaSecretAccessKey
+                accessKeyId: manager.awsLambdaDetails.credentials.accessKeyId,
+                secretAccessKey: manager.awsLambdaDetails.credentials.accessKeySecret
             }
         });
     }
@@ -57,7 +52,7 @@ class AwsLambdaProxyProcessor extends processor_1.Processor {
     _invokeLambda(workItem) {
         return new Promise((resolve, reject) => {
             this._lambda.invoke({
-                FunctionName: this.manager.awsLambdaFuncName,
+                FunctionName: this.manager.awsLambdaDetails.funcName,
                 InvocationType: "RequestResponse",
                 LogType: "Tail",
                 ClientContext: JSON.stringify({

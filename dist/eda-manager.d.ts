@@ -7,6 +7,7 @@ import { Topic } from "./topic";
 import { EdaEvent } from "./eda-event";
 import { EdaEventHandler } from "./eda-event-handler";
 import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
+import { LambdaDetails } from "./lambda-details";
 export declare class EdaManager implements Disposable {
     private readonly _container;
     private readonly _topics;
@@ -18,8 +19,7 @@ export declare class EdaManager implements Disposable {
     private _consumerName;
     private _consumerGroupId;
     private _cleanKeys;
-    private _awsLambdaFuncName;
-    private _awsLambdaProxyEnabled;
+    private _awsLambdaDetails;
     private _isAwsLambdaConsumer;
     private _awsLambdaEventHandler;
     private _isDisposed;
@@ -33,7 +33,7 @@ export declare class EdaManager implements Disposable {
     get consumerName(): string;
     get consumerGroupId(): string | null;
     get cleanKeys(): boolean;
-    get awsLambdaFuncName(): string | null;
+    get awsLambdaDetails(): LambdaDetails | null;
     get awsLambdaProxyEnabled(): boolean;
     get isAwsLambdaConsumer(): boolean;
     get partitionKeyMapper(): (event: EdaEvent) => string;
@@ -46,7 +46,7 @@ export declare class EdaManager implements Disposable {
     registerEventBus<TClass extends new (...args: any[]) => EventBus>(eventBus: EventBus | TClass): this;
     registerEventSubscriptionManager<TClass extends new (...args: any[]) => EventSubMgr>(eventSubMgr: EventSubMgr | TClass, consumerGroupId: string): this;
     cleanUpKeys(): this;
-    proxyToAwsLambda(funcName: string): this;
+    proxyToAwsLambda(lambdaDetails: LambdaDetails): this;
     actAsAwsLambdaConsumer(handler: AwsLambdaEventHandler): this;
     bootstrap(): void;
     beginConsumption(): Promise<void>;

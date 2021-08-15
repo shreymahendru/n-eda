@@ -28,8 +28,7 @@ class EdaManager {
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
         this._cleanKeys = false;
-        this._awsLambdaFuncName = null;
-        this._awsLambdaProxyEnabled = false;
+        this._awsLambdaDetails = null;
         this._isAwsLambdaConsumer = false;
         this._awsLambdaEventHandler = null;
         this._isDisposed = false;
@@ -50,8 +49,8 @@ class EdaManager {
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
     get cleanKeys() { return this._cleanKeys; }
-    get awsLambdaFuncName() { return this._awsLambdaFuncName; }
-    get awsLambdaProxyEnabled() { return this._awsLambdaProxyEnabled; }
+    get awsLambdaDetails() { return this._awsLambdaDetails; }
+    get awsLambdaProxyEnabled() { return this._awsLambdaDetails != null; }
     get isAwsLambdaConsumer() { return this._isAwsLambdaConsumer; }
     get partitionKeyMapper() { return this._partitionKeyMapper; }
     useInstaller(installer) {
@@ -134,12 +133,11 @@ class EdaManager {
         this._cleanKeys = true;
         return this;
     }
-    proxyToAwsLambda(funcName) {
-        n_defensive_1.given(funcName, "funcName").ensureHasValue().ensureIsString();
+    proxyToAwsLambda(lambdaDetails) {
+        n_defensive_1.given(lambdaDetails, "lambdaDetails").ensureHasValue().ensureIsObject();
         n_defensive_1.given(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
-        this._awsLambdaFuncName = funcName.trim();
-        this._awsLambdaProxyEnabled = true;
+        this._awsLambdaDetails = lambdaDetails;
         return this;
     }
     actAsAwsLambdaConsumer(handler) {
