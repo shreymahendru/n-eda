@@ -11,11 +11,12 @@ import { Topic } from "./topic";
 import { RedisEventBus } from "./redis-implementation/redis-event-bus";
 import { RedisEventSubMgr } from "./redis-implementation/redis-event-sub-mgr";
 import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
+import { LambdaDetails } from "./lambda-details";
 
 
 export
 {
-    EdaEvent, EdaEventHandler, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager,
+    EdaEvent, EdaEventHandler, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, LambdaDetails,
     
     // InMemoryEventBus, InMemoryEventSubMgr,
     

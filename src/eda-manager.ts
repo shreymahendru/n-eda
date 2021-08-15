@@ -10,6 +10,7 @@ import { EdaEvent } from "./eda-event";
 import * as MurmurHash from "murmurhash3js";
 import { EdaEventHandler } from "./eda-event-handler";
 import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
+import { LambdaDetails } from "./lambda-details";
 
 // public
 export class EdaManager implements Disposable
@@ -27,8 +28,7 @@ export class EdaManager implements Disposable
     private _consumerName: string = "UNNAMED";
     private _consumerGroupId: string | null = null;
     private _cleanKeys = false;
-    private _awsLambdaFuncName: string | null = null;
-    private _awsLambdaProxyEnabled = false;
+    private _awsLambdaDetails: LambdaDetails | null = null;
     private _isAwsLambdaConsumer = false;
     private _awsLambdaEventHandler: AwsLambdaEventHandler | null = null;
     private _isDisposed = false;
@@ -45,8 +45,8 @@ export class EdaManager implements Disposable
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     public get cleanKeys(): boolean { return this._cleanKeys; }
-    public get awsLambdaFuncName(): string | null { return this._awsLambdaFuncName; }
-    public get awsLambdaProxyEnabled(): boolean { return this._awsLambdaProxyEnabled; }
+    public get awsLambdaDetails(): LambdaDetails | null { return this._awsLambdaDetails; }
+    public get awsLambdaProxyEnabled(): boolean { return this._awsLambdaDetails != null; }
     public get isAwsLambdaConsumer(): boolean { return this._isAwsLambdaConsumer; }
     public get partitionKeyMapper(): (event: EdaEvent) => string { return this._partitionKeyMapper; }
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
@@ -183,15 +183,14 @@ export class EdaManager implements Disposable
         return this;
     }
     
-    public proxyToAwsLambda(funcName: string): this
+    public proxyToAwsLambda(lambdaDetails: LambdaDetails): this
     {
-        given(funcName, "funcName").ensureHasValue().ensureIsString();
+        given(lambdaDetails, "lambdaDetails").ensureHasValue().ensureIsObject();
         
         given(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
 
-        this._awsLambdaFuncName = funcName.trim();
-        this._awsLambdaProxyEnabled = true;
+        this._awsLambdaDetails = lambdaDetails;
 
         return this;
     }

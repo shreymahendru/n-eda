@@ -4,7 +4,6 @@ import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import { Lambda } from "aws-sdk";
 import { ApplicationException } from "@nivinjoseph/n-exception";
-import { ConfigurationManager } from "@nivinjoseph/n-config";
 
 
 export class AwsLambdaProxyProcessor extends Processor
@@ -18,18 +17,12 @@ export class AwsLambdaProxyProcessor extends Processor
         
         given(manager, "manager").ensure(t => t.awsLambdaProxyEnabled, "AWS Lambda proxy not enabled");
         
-        const awsLambdaAccessKeyId = ConfigurationManager.getConfig<string>("awsLambdaAccessKeyId");
-        given(awsLambdaAccessKeyId, "awsLambdaAccessKeyId").ensureHasValue().ensureIsString();
-        
-        const awsLambdaSecretAccessKey = ConfigurationManager.getConfig<string>("awsLambdaSecretAccessKey");
-        given(awsLambdaSecretAccessKey, "awsLambdaSecretAccessKey").ensureHasValue().ensureIsString();
-        
         this._lambda = new Lambda({
             signatureVersion: "v4",
-            region: "us-east-1",
+            region: manager.awsLambdaDetails!.region,
             credentials: {
-                accessKeyId: awsLambdaAccessKeyId,
-                secretAccessKey: awsLambdaSecretAccessKey
+                accessKeyId: manager.awsLambdaDetails!.credentials.accessKeyId,
+                secretAccessKey: manager.awsLambdaDetails!.credentials.accessKeySecret
             }
         });
     }
@@ -70,7 +63,7 @@ export class AwsLambdaProxyProcessor extends Processor
         return new Promise<Lambda.InvocationResponse>((resolve, reject) =>
         {
             this._lambda.invoke({
-                FunctionName: this.manager.awsLambdaFuncName!,
+                FunctionName: this.manager.awsLambdaDetails!.funcName,
                 InvocationType: "RequestResponse",
                 LogType: "Tail",
                 ClientContext: JSON.stringify({
