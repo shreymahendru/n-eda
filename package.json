@@ -48,13 +48,14 @@
     },
     "dependencies": {
         "@nivinjoseph/n-config": "^1.0.33",
-        "@nivinjoseph/n-defensive": "^1.0.35",
+        "@nivinjoseph/n-defensive": "^1.0.36",
         "@nivinjoseph/n-exception": "^1.0.23",
-        "@nivinjoseph/n-ext": "^1.1.27",
+        "@nivinjoseph/n-ext": "^1.1.33",
         "@nivinjoseph/n-ject": "^1.1.14",
-        "@nivinjoseph/n-log": "^1.0.14",
+        "@nivinjoseph/n-log": "^1.0.15",
         "@nivinjoseph/n-util": "^1.0.73",
         "aws-sdk": "^2.951.0",
+        "axios": "^0.21.1",
         "murmurhash3js": "^3.0.1",
         "redis": "^3.1.2",
         "reflect-metadata": "^0.1.13"

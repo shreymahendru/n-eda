@@ -11,6 +11,8 @@ import * as MurmurHash from "murmurhash3js";
 import { EdaEventHandler } from "./eda-event-handler";
 import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
 import { LambdaDetails } from "./lambda-details";
+import { RpcDetails } from "./rpc-details";
+import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 
 // public
 export class EdaManager implements Disposable
@@ -28,9 +30,16 @@ export class EdaManager implements Disposable
     private _consumerName: string = "UNNAMED";
     private _consumerGroupId: string | null = null;
     private _cleanKeys = false;
+    
     private _awsLambdaDetails: LambdaDetails | null = null;
     private _isAwsLambdaConsumer = false;
     private _awsLambdaEventHandler: AwsLambdaEventHandler | null = null;
+    
+    private _rpcDetails: RpcDetails | null = null;
+    private _isRpcConsumer = false;
+    private _rpcEventHandler: RpcEventHandler | null = null;
+    
+    
     private _isDisposed = false;
     private _isBootstrapped = false;
     
@@ -45,9 +54,15 @@ export class EdaManager implements Disposable
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     public get cleanKeys(): boolean { return this._cleanKeys; }
+    
     public get awsLambdaDetails(): LambdaDetails | null { return this._awsLambdaDetails; }
     public get awsLambdaProxyEnabled(): boolean { return this._awsLambdaDetails != null; }
     public get isAwsLambdaConsumer(): boolean { return this._isAwsLambdaConsumer; }
+    
+    public get rpcDetails(): RpcDetails | null { return this._rpcDetails; }
+    public get rpcProxyEnabled(): boolean { return this._rpcDetails != null; }
+    public get isRpcConsumer(): boolean { return this._isRpcConsumer; }
+    
     public get partitionKeyMapper(): (event: EdaEvent) => string { return this._partitionKeyMapper; }
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
     
@@ -208,6 +223,32 @@ export class EdaManager implements Disposable
         return this;
     }
     
+    public proxyToRpc(rpcDetails: RpcDetails): this
+    {
+        given(rpcDetails, "rpcDetails").ensureHasValue().ensureIsObject();
+
+        given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+
+        this._rpcDetails = rpcDetails;
+
+        return this;
+    }
+    
+    public actAsRpcConsumer(handler: RpcEventHandler): this
+    {
+        given(handler, "handler").ensureHasValue().ensureIsObject().ensureIsInstanceOf(RpcEventHandler);
+
+        given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+
+        this._rpcEventHandler = handler;
+        this._isRpcConsumer = true;
+
+        return this;
+    }
+    
+    
     public bootstrap(): void
     {    
         if (this._isDisposed)
@@ -219,7 +260,11 @@ export class EdaManager implements Disposable
             .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
             .ensure(t => t._eventBusRegistered, "no event bus registered")
             .ensure(t => !(t._eventSubMgrRegistered && t._isAwsLambdaConsumer),
-                "cannot be both event subscriber and lambda consumer");
+                "cannot be both event subscriber and lambda consumer")
+            .ensure(t => !(t._eventSubMgrRegistered && t._isRpcConsumer),
+                "cannot be both event subscriber and rpc consumer")
+            .ensure(t => !(t._isAwsLambdaConsumer && t._isRpcConsumer),
+                "cannot be both lambda consumer and rpc consumer");
         
         this._topics.map(t => this._topicMap.set(t.name, t));
         
@@ -230,11 +275,13 @@ export class EdaManager implements Disposable
         this._container.resolve<EventBus>(EdaManager.eventBusKey).initialize(this);
         
         if (this._eventSubMgrRegistered)
-            this._container.resolve<EventSubMgr>(EdaManager.eventSubMgrKey)
-                .initialize(this);
+            this._container.resolve<EventSubMgr>(EdaManager.eventSubMgrKey).initialize(this);
         
         if (this._isAwsLambdaConsumer)
             this._awsLambdaEventHandler!.initialize(this);
+        
+        if (this._isRpcConsumer)
+            this._rpcEventHandler!.initialize(this);
         
         this._isBootstrapped = true;
     }

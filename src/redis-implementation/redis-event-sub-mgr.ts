@@ -12,6 +12,7 @@ import { Broker } from "./broker";
 import { Processor } from "./processor";
 import { DefaultProcessor } from "./default-processor";
 import { AwsLambdaProxyProcessor } from "./aws-lambda-proxy-processor";
+import { RpcProxyProcessor } from "./rpc-proxy-processor";
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 
@@ -83,7 +84,9 @@ export class RedisEventSubMgr implements EventSubMgr
                 
                 const processors: Array<Processor> = this._manager.awsLambdaProxyEnabled
                     ? consumers.map(_ => new AwsLambdaProxyProcessor(this._manager))
-                    : consumers.map(_ => new DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
+                    : this._manager.rpcProxyEnabled
+                        ? consumers.map(_ => new RpcProxyProcessor(this._manager))
+                        : consumers.map(_ => new DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                 
                 const broker = new Broker(consumers, processors);
                 this._brokers.push(broker);
