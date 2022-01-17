@@ -10,4 +10,6 @@ import { RedisEventBus } from "./redis-implementation/redis-event-bus";
 import { RedisEventSubMgr } from "./redis-implementation/redis-event-sub-mgr";
 import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
 import { LambdaDetails } from "./lambda-details";
-export { EdaEvent, EdaEventHandler, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, LambdaDetails, RedisEventBus, RedisEventSubMgr, AwsLambdaEventHandler };
+import { RpcDetails, RpcModel } from "./rpc-details";
+import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
+export { EdaEvent, EdaEventHandler, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, RedisEventBus, RedisEventSubMgr, LambdaDetails, AwsLambdaEventHandler, RpcDetails, RpcEventHandler, RpcModel };

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AwsLambdaEventHandler = exports.RedisEventSubMgr = exports.RedisEventBus = exports.EdaManager = exports.EventRegistration = exports.Topic = exports.event = void 0;
+exports.RpcEventHandler = exports.AwsLambdaEventHandler = exports.RedisEventSubMgr = exports.RedisEventBus = exports.EdaManager = exports.EventRegistration = exports.Topic = exports.event = void 0;
 const event_1 = require("./event");
 Object.defineProperty(exports, "event", { enumerable: true, get: function () { return event_1.event; } });
 const event_registration_1 = require("./event-registration");
@@ -17,4 +17,6 @@ const redis_event_sub_mgr_1 = require("./redis-implementation/redis-event-sub-mg
 Object.defineProperty(exports, "RedisEventSubMgr", { enumerable: true, get: function () { return redis_event_sub_mgr_1.RedisEventSubMgr; } });
 const aws_lambda_event_handler_1 = require("./redis-implementation/aws-lambda-event-handler");
 Object.defineProperty(exports, "AwsLambdaEventHandler", { enumerable: true, get: function () { return aws_lambda_event_handler_1.AwsLambdaEventHandler; } });
+const rpc_event_handler_1 = require("./redis-implementation/rpc-event-handler");
+Object.defineProperty(exports, "RpcEventHandler", { enumerable: true, get: function () { return rpc_event_handler_1.RpcEventHandler; } });
 //# sourceMappingURL=index.js.map

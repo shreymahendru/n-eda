@@ -16,6 +16,7 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 const event_registration_1 = require("./event-registration");
 const MurmurHash = require("murmurhash3js");
 const aws_lambda_event_handler_1 = require("./redis-implementation/aws-lambda-event-handler");
+const rpc_event_handler_1 = require("./redis-implementation/rpc-event-handler");
 // public
 class EdaManager {
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
@@ -31,6 +32,9 @@ class EdaManager {
         this._awsLambdaDetails = null;
         this._isAwsLambdaConsumer = false;
         this._awsLambdaEventHandler = null;
+        this._rpcDetails = null;
+        this._isRpcConsumer = false;
+        this._rpcEventHandler = null;
         this._isDisposed = false;
         this._isBootstrapped = false;
         n_defensive_1.given(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
@@ -52,6 +56,9 @@ class EdaManager {
     get awsLambdaDetails() { return this._awsLambdaDetails; }
     get awsLambdaProxyEnabled() { return this._awsLambdaDetails != null; }
     get isAwsLambdaConsumer() { return this._isAwsLambdaConsumer; }
+    get rpcDetails() { return this._rpcDetails; }
+    get rpcProxyEnabled() { return this._rpcDetails != null; }
+    get isRpcConsumer() { return this._isRpcConsumer; }
     get partitionKeyMapper() { return this._partitionKeyMapper; }
     useInstaller(installer) {
         n_defensive_1.given(installer, "installer").ensureHasValue().ensureIsObject();
@@ -148,6 +155,21 @@ class EdaManager {
         this._isAwsLambdaConsumer = true;
         return this;
     }
+    proxyToRpc(rpcDetails) {
+        n_defensive_1.given(rpcDetails, "rpcDetails").ensureHasValue().ensureIsObject();
+        n_defensive_1.given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._rpcDetails = rpcDetails;
+        return this;
+    }
+    actAsRpcConsumer(handler) {
+        n_defensive_1.given(handler, "handler").ensureHasValue().ensureIsObject().ensureIsInstanceOf(rpc_event_handler_1.RpcEventHandler);
+        n_defensive_1.given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._rpcEventHandler = handler;
+        this._isRpcConsumer = true;
+        return this;
+    }
     bootstrap() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
@@ -156,16 +178,19 @@ class EdaManager {
             .ensure(t => t._topics.length > 0, "no topics registered")
             .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
             .ensure(t => t._eventBusRegistered, "no event bus registered")
-            .ensure(t => !(t._eventSubMgrRegistered && t._isAwsLambdaConsumer), "cannot be both event subscriber and lambda consumer");
+            .ensure(t => !(t._eventSubMgrRegistered && t._isAwsLambdaConsumer), "cannot be both event subscriber and lambda consumer")
+            .ensure(t => !(t._eventSubMgrRegistered && t._isRpcConsumer), "cannot be both event subscriber and rpc consumer")
+            .ensure(t => !(t._isAwsLambdaConsumer && t._isRpcConsumer), "cannot be both lambda consumer and rpc consumer");
         this._topics.map(t => this._topicMap.set(t.name, t));
         this._eventMap.forEach(t => this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType));
         this._container.bootstrap();
         this._container.resolve(EdaManager.eventBusKey).initialize(this);
         if (this._eventSubMgrRegistered)
-            this._container.resolve(EdaManager.eventSubMgrKey)
-                .initialize(this);
+            this._container.resolve(EdaManager.eventSubMgrKey).initialize(this);
         if (this._isAwsLambdaConsumer)
             this._awsLambdaEventHandler.initialize(this);
+        if (this._isRpcConsumer)
+            this._rpcEventHandler.initialize(this);
         this._isBootstrapped = true;
     }
     beginConsumption() {

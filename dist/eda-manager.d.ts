@@ -8,6 +8,8 @@ import { EdaEvent } from "./eda-event";
 import { EdaEventHandler } from "./eda-event-handler";
 import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
 import { LambdaDetails } from "./lambda-details";
+import { RpcDetails } from "./rpc-details";
+import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 export declare class EdaManager implements Disposable {
     private readonly _container;
     private readonly _topics;
@@ -22,6 +24,9 @@ export declare class EdaManager implements Disposable {
     private _awsLambdaDetails;
     private _isAwsLambdaConsumer;
     private _awsLambdaEventHandler;
+    private _rpcDetails;
+    private _isRpcConsumer;
+    private _rpcEventHandler;
     private _isDisposed;
     private _isBootstrapped;
     static get eventBusKey(): string;
@@ -36,6 +41,9 @@ export declare class EdaManager implements Disposable {
     get awsLambdaDetails(): LambdaDetails | null;
     get awsLambdaProxyEnabled(): boolean;
     get isAwsLambdaConsumer(): boolean;
+    get rpcDetails(): RpcDetails | null;
+    get rpcProxyEnabled(): boolean;
+    get isRpcConsumer(): boolean;
     get partitionKeyMapper(): (event: EdaEvent) => string;
     constructor(container?: Container);
     useInstaller(installer: ComponentInstaller): this;
@@ -48,6 +56,8 @@ export declare class EdaManager implements Disposable {
     cleanUpKeys(): this;
     proxyToAwsLambda(lambdaDetails: LambdaDetails): this;
     actAsAwsLambdaConsumer(handler: AwsLambdaEventHandler): this;
+    proxyToRpc(rpcDetails: RpcDetails): this;
+    actAsRpcConsumer(handler: RpcEventHandler): this;
     bootstrap(): void;
     beginConsumption(): Promise<void>;
     mapToPartition(topic: string, event: EdaEvent): number;
