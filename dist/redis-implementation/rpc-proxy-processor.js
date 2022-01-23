@@ -43,7 +43,7 @@ class RpcProxyProcessor extends processor_1.Processor {
         });
     }
     _invokeRPC(workItem) {
-        return this._rpcClient.post(this.manager.rpcDetails.endpoint, {
+        return this._rpcClient.post(this.manager.rpcDetails.endpoint + `?event=${workItem.eventName}`, {
             consumerId: workItem.consumerId,
             topic: workItem.topic,
             partition: workItem.partition,
