@@ -71,7 +71,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                             partitions.push(partition);
                     }
                     const consumers = partitions
-                        .map(partition => new consumer_1.Consumer(this._client, this._manager, topic.name, partition));
+                        .map(partition => new consumer_1.Consumer(this._client, this._manager, topic.name, partition, topic.flush));
                     const processors = this._manager.awsLambdaProxyEnabled
                         ? consumers.map(_ => new aws_lambda_proxy_processor_1.AwsLambdaProxyProcessor(this._manager))
                         : this._manager.rpcProxyEnabled

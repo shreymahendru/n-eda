@@ -13,12 +13,13 @@ export declare class Consumer implements Disposable {
     private readonly _id;
     private readonly _cleanKeys;
     private readonly _trackedKeysKey;
+    private readonly _flush;
     private _isDisposed;
     private _trackedKeysSet;
     private _consumePromise;
     private _broker;
     get id(): string;
-    constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number);
+    constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number, flush?: boolean);
     registerBroker(broker: Broker): void;
     consume(): void;
     dispose(): Promise<void>;

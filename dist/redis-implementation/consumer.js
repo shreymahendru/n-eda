@@ -17,7 +17,7 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 const Zlib = require("zlib");
 const broker_1 = require("./broker");
 class Consumer {
-    constructor(client, manager, topic, partition) {
+    constructor(client, manager, topic, partition, flush = false) {
         this._edaPrefix = "n-eda";
         this._defaultDelayMS = 150;
         this._isDisposed = false;
@@ -36,6 +36,8 @@ class Consumer {
         this._id = `${this._topic}-${this._partition}`;
         this._cleanKeys = this._manager.cleanKeys;
         this._trackedKeysKey = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+        n_defensive_1.given(flush, "flush").ensureHasValue().ensureIsBoolean();
+        this._flush = flush;
     }
     get id() { return this._id; }
     registerBroker(broker) {
@@ -59,6 +61,7 @@ class Consumer {
         return __awaiter(this, void 0, void 0, function* () {
             yield this._loadTrackedKeys();
             yield this._logger.logInfo(`Loaded tracked keys for Consumer ${this._id} => ${this._trackedKeysSet.size}`);
+            const maxReadAttempts = 50;
             while (true) {
                 if (this._isDisposed)
                     return;
@@ -82,10 +85,14 @@ class Consumer {
                             continue;
                         }
                         let eventData = item.value;
-                        if (eventData == null)
+                        if (eventData == null) {
+                            if (this._flush) {
+                                yield this._incrementConsumerPartitionReadIndex();
+                                continue;
+                            }
                             eventData = yield this._retrieveEvent(item.key);
+                        }
                         let numReadAttempts = 1;
-                        const maxReadAttempts = 50;
                         while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                          {
                             if (this._isDisposed)

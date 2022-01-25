@@ -6,7 +6,7 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
 // public
 class Topic {
-    constructor(name, ttlMinutes, numPartitions) {
+    constructor(name, ttlMinutes, numPartitions, flush = false) {
         this._publishOnly = true;
         this._partitionAffinity = null;
         this._isDisabled = false;
@@ -16,6 +16,8 @@ class Topic {
         this._ttlMinutes = ttlMinutes;
         n_defensive_1.given(numPartitions, "numPartitions").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
         this._numPartitions = numPartitions;
+        n_defensive_1.given(flush, "flush").ensureHasValue().ensureIsBoolean();
+        this._flush = flush;
     }
     get name() { return this._name; }
     get ttlMinutes() { return this._ttlMinutes; }
@@ -23,6 +25,7 @@ class Topic {
     get publishOnly() { return this._publishOnly; }
     get partitionAffinity() { return this._partitionAffinity; }
     get isDisabled() { return this._isDisabled; }
+    get flush() { return this._flush; }
     subscribe() {
         this._publishOnly = false;
         return this;
