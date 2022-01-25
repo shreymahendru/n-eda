@@ -80,7 +80,7 @@ export class RedisEventSubMgr implements EventSubMgr
                 }
                 
                 const consumers = partitions
-                    .map(partition => new Consumer(this._client, this._manager, topic.name, partition));
+                    .map(partition => new Consumer(this._client, this._manager, topic.name, partition, topic.flush));
                 
                 const processors: Array<Processor> = this._manager.awsLambdaProxyEnabled
                     ? consumers.map(_ => new AwsLambdaProxyProcessor(this._manager))

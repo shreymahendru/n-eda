@@ -8,6 +8,7 @@ export class Topic
     private readonly _name: string;
     private readonly _ttlMinutes: number;
     private readonly _numPartitions: number;
+    private readonly _flush: boolean;
     
     private _publishOnly: boolean = true;
     private _partitionAffinity: ReadonlyArray<number> | null = null;
@@ -20,9 +21,10 @@ export class Topic
     public get publishOnly(): boolean { return this._publishOnly; }
     public get partitionAffinity(): ReadonlyArray<number> | null { return this._partitionAffinity; }
     public get isDisabled(): boolean { return this._isDisabled; }
+    public get flush(): boolean { return this._flush; }
     
     
-    public constructor(name: string, ttlMinutes: number, numPartitions: number)
+    public constructor(name: string, ttlMinutes: number, numPartitions: number, flush = false)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
@@ -32,6 +34,9 @@ export class Topic
         
         given(numPartitions, "numPartitions").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
         this._numPartitions = numPartitions;
+        
+        given(flush, "flush").ensureHasValue().ensureIsBoolean();
+        this._flush = flush;
     }
     
     

@@ -22,6 +22,7 @@ export class Consumer implements Disposable
     private readonly _id: string;
     private readonly _cleanKeys: boolean;
     private readonly _trackedKeysKey: string;
+    private readonly _flush: boolean;
     
     private _isDisposed = false;
     private _trackedKeysSet = new Set<string>();
@@ -32,7 +33,7 @@ export class Consumer implements Disposable
     public get id(): string { return this._id; }
     
     
-    public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number)
+    public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number, flush = false)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -53,6 +54,9 @@ export class Consumer implements Disposable
         this._cleanKeys = this._manager.cleanKeys;
         
         this._trackedKeysKey = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+        
+        given(flush, "flush").ensureHasValue().ensureIsBoolean();
+        this._flush = flush;
     }
     
     
@@ -85,6 +89,8 @@ export class Consumer implements Disposable
         await this._loadTrackedKeys();
         await this._logger.logInfo(`Loaded tracked keys for Consumer ${this._id} => ${this._trackedKeysSet.size}`);
         
+        const maxReadAttempts = 50;
+        
         while (true)
         {
             if (this._isDisposed)
@@ -95,7 +101,6 @@ export class Consumer implements Disposable
                 const writeIndex = await this._fetchPartitionWriteIndex();
                 const readIndex = await this._fetchConsumerPartitionReadIndex();
                 
-
                 if (readIndex >= writeIndex)
                 {
                     await Delay.milliseconds(this._defaultDelayMS);
@@ -122,10 +127,17 @@ export class Consumer implements Disposable
                     
                     let eventData = item.value;
                     if (eventData == null)
+                    {
+                        if (this._flush)
+                        {
+                            await this._incrementConsumerPartitionReadIndex();
+                            continue;
+                        }
+                        
                         eventData = await this._retrieveEvent(item.key);
+                    }
                     
                     let numReadAttempts = 1;
-                    const maxReadAttempts = 50;
                     while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                     {
                         if (this._isDisposed)
