@@ -6,7 +6,7 @@ import { EventBus } from "../src/event-bus";
 import { createEdaManager, EventHistory, TestEvent } from "./utils/eda-test-utils";
 
 
-suite.only("eda tests", () =>
+suite("eda tests", () =>
 {
     let edaManager: EdaManager;
     
@@ -50,7 +50,7 @@ suite.only("eda tests", () =>
         
         for (let i = 0; i < 10; i++)
         {
-            for (let j = 0; j < 1; j++)
+            for (let j = 0; j < 10; j++)
             {
                 const event = new TestEvent({ id: `test_${i}-evt_${j}` });
                 testEvents.push(event);

@@ -55,9 +55,12 @@
         "@nivinjoseph/n-log": "^1.0.16",
         "@nivinjoseph/n-util": "^1.0.74",
         "aws-sdk": "^2.951.0",
-        "axios": "^0.21.1",
+        "axios": "^0.26.0",
+        "msgpackr": "^1.5.4",
+        "msgpackr-extract": "^1.0.16",
         "murmurhash3js": "^3.0.1",
         "redis": "^3.1.2",
-        "reflect-metadata": "^0.1.13"
+        "reflect-metadata": "^0.1.13",
+        "snappy": "^7.1.1"
     }
 }

@@ -3,7 +3,9 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
-import * as Zlib from "zlib";
+// import * as Zlib from "zlib";
+import * as MessagePack from "msgpackr";
+import * as Snappy from "snappy";
 
 
 export class Producer
@@ -44,7 +46,7 @@ export class Producer
 
         const indexed = await events.mapAsync(async (t) => ({
             event: t,
-            compressed: await this._compressEvent((t).serialize())
+            compressed: await this._compressEvent(t.serialize())
         }));
 
         for (const item of indexed)
@@ -63,12 +65,19 @@ export class Producer
         }
     }
 
+    // private async _compressEvent(event: object): Promise<Buffer>
+    // {
+    //     given(event, "event").ensureHasValue().ensureIsObject();
+
+    //     const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
+    //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+
+    //     return compressed;
+    // }
+    
     private async _compressEvent(event: object): Promise<Buffer>
     {
-        given(event, "event").ensureHasValue().ensureIsObject();
-
-        const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
-            { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+        const compressed = await Snappy.compress(MessagePack.pack(event));
 
         return compressed;
     }

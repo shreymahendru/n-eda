@@ -18,6 +18,7 @@
         "forceConsistentCasingInFileNames": true,
         "incremental": false,
         "noImplicitOverride": true,
+        "skipLibCheck": true,
         "plugins": [
             {
                 "name": "typescript-tslint-plugin",
