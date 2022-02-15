@@ -14,8 +14,10 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
-const Zlib = require("zlib");
+// import * as Zlib from "zlib";
 const broker_1 = require("./broker");
+const MessagePack = require("msgpackr");
+const Snappy = require("snappy");
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
         this._edaPrefix = "n-eda";
@@ -295,10 +297,16 @@ class Consumer {
             });
         });
     }
+    // private async _decompressEvent(eventData: Buffer): Promise<object>
+    // { 
+    //     const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(eventData,
+    //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+    //     return JSON.parse(decompressed.toString("utf8"));
+    // }
     _decompressEvent(eventData) {
         return __awaiter(this, void 0, void 0, function* () {
-            const decompressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliDecompress)(eventData, { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
-            return JSON.parse(decompressed.toString("utf8"));
+            const decompressed = yield Snappy.uncompress(eventData, { asBuffer: true });
+            return MessagePack.unpack(decompressed);
         });
     }
     _removeKeys(keys) {

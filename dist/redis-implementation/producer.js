@@ -12,7 +12,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Producer = void 0;
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-const Zlib = require("zlib");
+// import * as Zlib from "zlib";
+const MessagePack = require("msgpackr");
+const Snappy = require("snappy");
 class Producer {
     constructor(client, logger, topic, ttlMinutes, partition) {
         this._edaPrefix = "n-eda";
@@ -35,7 +37,7 @@ class Producer {
             const indexed = yield events.mapAsync((t) => __awaiter(this, void 0, void 0, function* () {
                 return ({
                     event: t,
-                    compressed: yield this._compressEvent((t).serialize())
+                    compressed: yield this._compressEvent(t.serialize())
                 });
             }));
             for (const item of indexed) {
@@ -51,10 +53,16 @@ class Producer {
             }
         });
     }
+    // private async _compressEvent(event: object): Promise<Buffer>
+    // {
+    //     given(event, "event").ensureHasValue().ensureIsObject();
+    //     const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"),
+    //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+    //     return compressed;
+    // }
     _compressEvent(event) {
         return __awaiter(this, void 0, void 0, function* () {
-            n_defensive_1.given(event, "event").ensureHasValue().ensureIsObject();
-            const compressed = yield n_util_1.Make.callbackToPromise(Zlib.brotliCompress)(Buffer.from(JSON.stringify(event), "utf8"), { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
+            const compressed = yield Snappy.compress(MessagePack.pack(event));
             return compressed;
         });
     }
