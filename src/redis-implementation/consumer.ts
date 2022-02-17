@@ -1,4 +1,4 @@
-import { Disposable, Delay, Deserializer } from "@nivinjoseph/n-util";
+import { Disposable, Delay, Deserializer, Make } from "@nivinjoseph/n-util";
 import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { EdaManager } from "../eda-manager";
@@ -6,10 +6,10 @@ import { EventRegistration } from "../event-registration";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
-// import * as Zlib from "zlib";
+import * as Zlib from "zlib";
 import { Broker } from "./broker";
-import * as MessagePack from "msgpackr";
-import * as Snappy from "snappy";
+// import * as MessagePack from "msgpackr";
+// import * as Snappy from "snappy";
 
 
 export class Consumer implements Disposable
@@ -441,11 +441,18 @@ export class Consumer implements Disposable
     //     return JSON.parse(decompressed.toString("utf8"));
     // }
     
+    // private async _decompressEvent(eventData: Buffer): Promise<object>
+    // {
+    //     const decompressed = await Snappy.uncompress(eventData, { asBuffer: true }) as Buffer;
+
+    //     return MessagePack.unpack(decompressed);
+    // }
+    
     private async _decompressEvent(eventData: Buffer): Promise<object>
     {
-        const decompressed = await Snappy.uncompress(eventData, { asBuffer: true }) as Buffer;
+        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.inflateRaw)(eventData);
 
-        return MessagePack.unpack(decompressed);
+        return JSON.parse(decompressed.toString("utf8"));
     }
     
     private async _removeKeys(keys: string[]): Promise<void>

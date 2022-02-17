@@ -4,8 +4,14 @@ import { given } from "@nivinjoseph/n-defensive";
 import { Make, Profiler, Uuid } from "@nivinjoseph/n-util";
 // import * as MessagePack from "msgpack-lite";
 // import * as Snappy from "snappy";
-import { pack, unpack } from "msgpackr";
-import * as Snappy from "snappy";
+// import { pack, unpack } from "msgpackr";
+// import * as Snappy from "snappy";
+
+/**
+ "msgpackr": "^1.5.4",
+ "msgpackr-extract": "^1.0.16",
+ "snappy": "^7.1.1"
+ */
 
 
 suite("compression tests", () => 
@@ -16,9 +22,9 @@ suite("compression tests", () =>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
 
-        const stringified = JSON.stringify(event);
+        // const stringified = JSON.stringify(event);
         // console.log("original char length", stringified.length);
-        const buf = Buffer.from(stringified, "utf-8");
+        const buf = Buffer.from(JSON.stringify(event), "utf-8");
         // console.log("original bytes", buf.byteLength);
         const compressed = await Make.callbackToPromise<Buffer>(Zlib.brotliCompress)(buf, brotliOptions);
 
@@ -42,42 +48,42 @@ suite("compression tests", () =>
         return JSON.parse(decompressed.toString("utf8"));
     };
 
-    const snappyCompress = async (event: object) =>
-    {
-        given(event, "event").ensureHasValue().ensureIsObject();
+    // const snappyCompress = async (event: object) =>
+    // {
+    //     given(event, "event").ensureHasValue().ensureIsObject();
 
-        const buf = pack(event);
-        // console.log("original bytes", buf.byteLength);
-        const compressed = await Snappy.compress(buf);
+    //     const buf = pack(event);
+    //     // console.log("original bytes", buf.byteLength);
+    //     const compressed = await Snappy.compress(buf);
 
-        // console.log("brotli bytes", compressed.byteLength);
+    //     // console.log("brotli bytes", compressed.byteLength);
 
-        // const base64 = compressed.toString("base64");
+    //     // const base64 = compressed.toString("base64");
 
-        // console.log("base64 char length", base64.length);
+    //     // console.log("base64 char length", base64.length);
 
-        // return base64;
+    //     // return base64;
 
-        return compressed;
-    };
+    //     return compressed;
+    // };
 
-    const snappyDecompress = async (eventData: Buffer) =>
-    {
-        given(eventData, "eventData").ensureHasValue();
+    // const snappyDecompress = async (eventData: Buffer) =>
+    // {
+    //     given(eventData, "eventData").ensureHasValue();
 
-        const decompressed = await Snappy.uncompress(eventData, { asBuffer: true });
+    //     const decompressed = await Snappy.uncompress(eventData, { asBuffer: true });
 
 
-        return unpack(decompressed as Buffer);
-    };
+    //     return unpack(decompressed as Buffer);
+    // };
     
     const deflateCompress = async (event: object) =>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
 
-        const buf = pack(event);
+        const buf = Buffer.from(JSON.stringify(event), "utf8");
         // console.log("original bytes", buf.byteLength);
-        const compressed = await Make.callbackToPromise<Buffer>(Zlib.deflate)(buf);
+        const compressed = await Make.callbackToPromise<Buffer>(Zlib.deflateRaw)(buf);
 
         // console.log("brotli bytes", compressed.byteLength);
 
@@ -94,10 +100,10 @@ suite("compression tests", () =>
     {
         given(eventData, "eventData").ensureHasValue();
 
-        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.inflate)(eventData);
+        const decompressed = await Make.callbackToPromise<Buffer>(Zlib.inflateRaw)(eventData);
 
 
-        return unpack(decompressed as Buffer);
+        return JSON.parse(decompressed.toString("utf8"));
     };
 
     // const snappyCompress = async (event: object) =>
@@ -203,7 +209,93 @@ suite("compression tests", () =>
         }
     };
 
-    test("JSON with  Brotli", async () =>
+    
+
+    // test("Message pack with Snappy", async () =>
+    // {
+    //     console.log("before", JSON.stringify(data).length);
+
+    //     const compressed = await snappyCompress(data);
+
+    //     console.log("compressed", compressed.length, compressed);
+
+    //     const decompressed = await snappyDecompress(compressed);
+
+    //     Assert.deepStrictEqual(data, decompressed);
+
+    //     // Assert.ok(true);
+    // });
+
+    // test("Message pack with Snappy performance", async () =>
+    // {
+    //     const compressed = new Array<Buffer>();
+
+    //     let profiler = new Profiler("compressor");
+    //     for (let i = 0; i < 1000; i++)
+    //     {
+    //         compressed.push(await snappyCompress(data));
+    //     }
+    //     profiler.trace("compressed");
+
+    //     console.table(profiler.traces);
+
+
+    //     const decompressed = new Array<object>();
+    //     profiler = new Profiler("decompressor");
+    //     for (let i = 0; i < compressed.length; i++)
+    //     {
+    //         decompressed.push(await snappyDecompress(compressed[i]));
+    //     }
+    //     profiler.trace("decompressed");
+
+    //     console.table(profiler.traces);
+
+    //     Assert.ok(true);
+    // });
+    
+    test("JSON with Deflate", async () =>
+    {
+        console.log("before", JSON.stringify(data).length);
+
+        const compressed = await deflateCompress(data);
+
+        console.log("compressed", compressed.length, compressed);
+
+        const decompressed = await deflateDecompress(compressed);
+
+        Assert.deepStrictEqual(data, decompressed);
+
+        // Assert.ok(true);
+    });
+
+    test("JSON with Deflate performance", async () =>
+    {
+        const compressed = new Array<Buffer>();
+
+        let profiler = new Profiler("compressor");
+        for (let i = 0; i < 1000; i++)
+        {
+            compressed.push(await deflateCompress(data));
+        }
+        profiler.trace("compressed");
+
+        console.table(profiler.traces);
+
+
+        const decompressed = new Array<object>();
+        profiler = new Profiler("decompressor");
+        for (let i = 0; i < compressed.length; i++)
+        {
+            decompressed.push(await deflateDecompress(compressed[i]));
+        }
+        profiler.trace("decompressed");
+
+        console.table(profiler.traces);
+
+        Assert.ok(true);
+    });
+    
+    test("JSON with Brotli", async () =>
     {
         console.log("before", JSON.stringify(data).length);
 
@@ -237,90 +329,6 @@ suite("compression tests", () =>
         for (let i = 0; i < compressed.length; i++)
         {
             decompressed.push(await brotliDecompress(compressed[i]));
-        }
-        profiler.trace("decompressed");
-
-        console.table(profiler.traces);
-
-        Assert.ok(true);
-    });
-
-    test("Message pack with Snappy", async () =>
-    {
-        console.log("before", JSON.stringify(data).length);
-
-        const compressed = await snappyCompress(data);
-
-        console.log("compressed", compressed.length, compressed);
-
-        const decompressed = await snappyDecompress(compressed);
-
-        Assert.deepStrictEqual(data, decompressed);
-
-        // Assert.ok(true);
-    });
-
-    test("Message pack with Snappy performance", async () =>
-    {
-        const compressed = new Array<Buffer>();
-
-        let profiler = new Profiler("compressor");
-        for (let i = 0; i < 1000; i++)
-        {
-            compressed.push(await snappyCompress(data));
-        }
-        profiler.trace("compressed");
-
-        console.table(profiler.traces);
-
-
-        const decompressed = new Array<object>();
-        profiler = new Profiler("decompressor");
-        for (let i = 0; i < compressed.length; i++)
-        {
-            decompressed.push(await snappyDecompress(compressed[i]));
-        }
-        profiler.trace("decompressed");
-
-        console.table(profiler.traces);
-
-        Assert.ok(true);
-    });
-    
-    test("Message pack with Deflate", async () =>
-    {
-        console.log("before", JSON.stringify(data).length);
-
-        const compressed = await deflateCompress(data);
-
-        console.log("compressed", compressed.length, compressed);
-
-        const decompressed = await deflateDecompress(compressed);
-
-        Assert.deepStrictEqual(data, decompressed);
-
-        // Assert.ok(true);
-    });
-
-    test("Message pack with Deflate performance", async () =>
-    {
-        const compressed = new Array<Buffer>();
-
-        let profiler = new Profiler("compressor");
-        for (let i = 0; i < 1000; i++)
-        {
-            compressed.push(await deflateCompress(data));
-        }
-        profiler.trace("compressed");
-
-        console.table(profiler.traces);
-
-
-        const decompressed = new Array<object>();
-        profiler = new Profiler("decompressor");
-        for (let i = 0; i < compressed.length; i++)
-        {
-            decompressed.push(await deflateDecompress(compressed[i]));
         }
         profiler.trace("decompressed");
 

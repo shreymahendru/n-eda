@@ -3,9 +3,9 @@ import { given } from "@nivinjoseph/n-defensive";
 import * as Redis from "redis";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
-// import * as Zlib from "zlib";
-import * as MessagePack from "msgpackr";
-import * as Snappy from "snappy";
+import * as Zlib from "zlib";
+// import * as MessagePack from "msgpackr";
+// import * as Snappy from "snappy";
 
 
 export class Producer
@@ -75,11 +75,16 @@ export class Producer
     //     return compressed;
     // }
     
-    private async _compressEvent(event: object): Promise<Buffer>
-    {
-        const compressed = await Snappy.compress(MessagePack.pack(event));
+    // private async _compressEvent(event: object): Promise<Buffer>
+    // {
+    //     const compressed = await Snappy.compress(MessagePack.pack(event));
 
-        return compressed;
+    //     return compressed;
+    // }
+    
+    private _compressEvent(event: object): Promise<Buffer>
+    {
+        return Make.callbackToPromise<Buffer>(Zlib.deflateRaw)(Buffer.from(JSON.stringify(event), "utf8"));
     }
     
     private _incrementPartitionWriteIndex(): Promise<number>
@@ -112,7 +117,7 @@ export class Producer
             // const expirySeconds = 60 * 60 * 4;
             const expirySeconds = this._ttlMinutes * 60;
 
-            this._client.setex(key.trim(), expirySeconds, eventData as any, (err) =>
+            this._client.setex(key, expirySeconds, eventData as any, (err) =>
             {
                 if (err)
                 {
