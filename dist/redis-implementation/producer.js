@@ -12,9 +12,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Producer = void 0;
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-// import * as Zlib from "zlib";
-const MessagePack = require("msgpackr");
-const Snappy = require("snappy");
+const Zlib = require("zlib");
+// import * as MessagePack from "msgpackr";
+// import * as Snappy from "snappy";
 class Producer {
     constructor(client, logger, topic, ttlMinutes, partition) {
         this._edaPrefix = "n-eda";
@@ -60,11 +60,13 @@ class Producer {
     //         { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } });
     //     return compressed;
     // }
+    // private async _compressEvent(event: object): Promise<Buffer>
+    // {
+    //     const compressed = await Snappy.compress(MessagePack.pack(event));
+    //     return compressed;
+    // }
     _compressEvent(event) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const compressed = yield Snappy.compress(MessagePack.pack(event));
-            return compressed;
-        });
+        return n_util_1.Make.callbackToPromise(Zlib.deflateRaw)(Buffer.from(JSON.stringify(event), "utf8"));
     }
     _incrementPartitionWriteIndex() {
         return new Promise((resolve, reject) => {
@@ -85,7 +87,7 @@ class Producer {
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
             // const expirySeconds = 60 * 60 * 4;
             const expirySeconds = this._ttlMinutes * 60;
-            this._client.setex(key.trim(), expirySeconds, eventData, (err) => {
+            this._client.setex(key, expirySeconds, eventData, (err) => {
                 if (err) {
                     reject(err);
                     return;
