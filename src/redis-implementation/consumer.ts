@@ -121,25 +121,15 @@ export class Consumer implements Disposable
                     if (this._isDisposed)
                         return;
                     
-                    if (this._trackedKeysSet.has(item.key))
+                    if (this._trackedKeysSet.has(item.key) || this._flush)
                     {
                         await this._incrementConsumerPartitionReadIndex();
                         continue;
                     }
                     
                     let eventData = item.value;
-                    if (eventData == null)
-                    {
-                        if (this._flush)
-                        {
-                            await this._incrementConsumerPartitionReadIndex();
-                            continue;
-                        }
-                        
-                        eventData = await this._retrieveEvent(item.key);
-                    }
-                    
                     let numReadAttempts = 1;
+                    
                     while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                     {
                         if (this._isDisposed)
