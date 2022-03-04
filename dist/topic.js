@@ -6,14 +6,14 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
 // public
 class Topic {
-    constructor(name, ttlMinutes, numPartitions, flush = false) {
+    constructor(name, ttlDuration, numPartitions, flush = false) {
         this._publishOnly = true;
         this._partitionAffinity = null;
         this._isDisabled = false;
         n_defensive_1.given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
-        n_defensive_1.given(ttlMinutes, "ttlMinutes").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
-        this._ttlMinutes = ttlMinutes;
+        n_defensive_1.given(ttlDuration, "ttlDuration").ensureHasValue().ensureIsInstanceOf(n_util_1.Duration);
+        this._ttlMinutes = ttlDuration.toMinutes(true);
         n_defensive_1.given(numPartitions, "numPartitions").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
         this._numPartitions = numPartitions;
         n_defensive_1.given(flush, "flush").ensureHasValue().ensureIsBoolean();

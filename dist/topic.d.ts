@@ -1,3 +1,4 @@
+import { Duration } from "@nivinjoseph/n-util";
 export declare class Topic {
     private readonly _name;
     private readonly _ttlMinutes;
@@ -13,7 +14,7 @@ export declare class Topic {
     get partitionAffinity(): ReadonlyArray<number> | null;
     get isDisabled(): boolean;
     get flush(): boolean;
-    constructor(name: string, ttlMinutes: number, numPartitions: number, flush?: boolean);
+    constructor(name: string, ttlDuration: Duration, numPartitions: number, flush?: boolean);
     subscribe(): Topic;
     configurePartitionAffinity(partitionAffinity: string): Topic;
     disable(): Topic;
