@@ -1,6 +1,6 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { ArgumentException } from "@nivinjoseph/n-exception";
-import { TypeHelper } from "@nivinjoseph/n-util";
+import { Duration, TypeHelper } from "@nivinjoseph/n-util";
 
 // public
 export class Topic
@@ -24,13 +24,13 @@ export class Topic
     public get flush(): boolean { return this._flush; }
     
     
-    public constructor(name: string, ttlMinutes: number, numPartitions: number, flush = false)
+    public constructor(name: string, ttlDuration: Duration, numPartitions: number, flush = false)
     {
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
         
-        given(ttlMinutes, "ttlMinutes").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
-        this._ttlMinutes = ttlMinutes;
+        given(ttlDuration, "ttlDuration").ensureHasValue().ensureIsInstanceOf(Duration);
+        this._ttlMinutes = ttlDuration.toMinutes(true);
         
         given(numPartitions, "numPartitions").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
         this._numPartitions = numPartitions;
