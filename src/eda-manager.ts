@@ -18,6 +18,7 @@ import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 export class EdaManager implements Disposable
 {
     private readonly _container: Container;
+    private readonly _ownsContainer: boolean;
     private readonly _topics: Array<Topic>;
     private readonly _topicMap: Map<string, Topic>;
     private readonly _eventMap: Map<string, EventRegistration>;
@@ -71,7 +72,17 @@ export class EdaManager implements Disposable
     {   
         given(container as Container, "container").ensureIsObject().ensureIsType(Container);
         
-        this._container = container ?? new Container();
+        if (container == null)
+        {
+            this._container = new Container();
+            this._ownsContainer = true;
+        }
+        else
+        {
+            this._container = container;
+            this._ownsContainer = false;
+        }
+        
         this._topics = new Array<Topic>();
         this._topicMap = new Map<string, Topic>();
         this._eventMap = new Map<string, EventRegistration>();
@@ -147,6 +158,7 @@ export class EdaManager implements Disposable
                 throw new ApplicationException(`Multiple handlers detected for event '${eventRegistration.eventTypeName}'.`);
 
             this._eventMap.set(eventRegistration.eventTypeName, eventRegistration);
+            this._container.registerScoped(eventRegistration.eventHandlerTypeName, eventRegistration.eventHandlerType);
         }
         
         return this;
@@ -268,9 +280,8 @@ export class EdaManager implements Disposable
         
         this._topics.map(t => this._topicMap.set(t.name, t));
         
-        this._eventMap.forEach(t => this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType));
-        
-        this._container.bootstrap();
+        if (this._ownsContainer)
+            this._container.bootstrap();
         
         this._container.resolve<EventBus>(EdaManager.eventBusKey).initialize(this);
         

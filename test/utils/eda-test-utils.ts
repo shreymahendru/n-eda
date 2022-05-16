@@ -124,8 +124,10 @@ export function createEdaManager(): EdaManager
             return id.contains("-") ? id.split("-")[0] : id;
         })
         .registerEventHandlers(TestEventHandler)
-        .registerEventBus(RedisEventBus)
-        .bootstrap();
+        .registerEventBus(RedisEventBus);
+    
+    container.bootstrap();
+    edaManager.bootstrap();
     
     return edaManager;
 }
