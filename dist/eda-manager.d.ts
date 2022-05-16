@@ -12,6 +12,7 @@ import { RpcDetails } from "./rpc-details";
 import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 export declare class EdaManager implements Disposable {
     private readonly _container;
+    private readonly _ownsContainer;
     private readonly _topics;
     private readonly _topicMap;
     private readonly _eventMap;

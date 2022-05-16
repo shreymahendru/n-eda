@@ -38,7 +38,14 @@ class EdaManager {
         this._isDisposed = false;
         this._isBootstrapped = false;
         n_defensive_1.given(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
-        this._container = container !== null && container !== void 0 ? container : new n_ject_1.Container();
+        if (container == null) {
+            this._container = new n_ject_1.Container();
+            this._ownsContainer = true;
+        }
+        else {
+            this._container = container;
+            this._ownsContainer = false;
+        }
         this._topics = new Array();
         this._topicMap = new Map();
         this._eventMap = new Map();
@@ -105,6 +112,7 @@ class EdaManager {
             if (this._eventMap.has(eventRegistration.eventTypeName))
                 throw new n_exception_1.ApplicationException(`Multiple handlers detected for event '${eventRegistration.eventTypeName}'.`);
             this._eventMap.set(eventRegistration.eventTypeName, eventRegistration);
+            this._container.registerScoped(eventRegistration.eventHandlerTypeName, eventRegistration.eventHandlerType);
         }
         return this;
     }
@@ -182,8 +190,8 @@ class EdaManager {
             .ensure(t => !(t._eventSubMgrRegistered && t._isRpcConsumer), "cannot be both event subscriber and rpc consumer")
             .ensure(t => !(t._isAwsLambdaConsumer && t._isRpcConsumer), "cannot be both lambda consumer and rpc consumer");
         this._topics.map(t => this._topicMap.set(t.name, t));
-        this._eventMap.forEach(t => this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType));
-        this._container.bootstrap();
+        if (this._ownsContainer)
+            this._container.bootstrap();
         this._container.resolve(EdaManager.eventBusKey).initialize(this);
         if (this._eventSubMgrRegistered)
             this._container.resolve(EdaManager.eventSubMgrKey).initialize(this);
