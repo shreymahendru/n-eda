@@ -17,14 +17,10 @@
         "removeComments": false,
         "forceConsistentCasingInFileNames": true,
         "incremental": false,
-        "noImplicitOverride": true,
         "skipLibCheck": true,
-        "plugins": [
-            {
-                "name": "typescript-tslint-plugin",
-                "configFile": "./tslint.json",
-                "alwaysShowRuleFailuresAsWarnings": false
-            }
-        ]
+        "importHelpers": true,
+        "noEmitHelpers": true,
+        "noImplicitOverride": true,
+        "pretty": true
     }
 }

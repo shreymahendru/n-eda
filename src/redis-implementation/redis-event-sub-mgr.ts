@@ -21,7 +21,7 @@ import { RpcProxyProcessor } from "./rpc-proxy-processor";
 export class RedisEventSubMgr implements EventSubMgr
 {
     private readonly _client: Redis.RedisClient;
-    // @ts-ignore
+    // @ts-expect-error: not used atm
     private readonly _logger: Logger;
     private readonly _brokers = new Array<Broker>();
 
@@ -71,7 +71,7 @@ export class RedisEventSubMgr implements EventSubMgr
                 if (topic.isDisabled || topic.publishOnly)
                     return;
                 
-                let partitions = topic.partitionAffinity as number[];
+                let partitions = topic.partitionAffinity ? [...topic.partitionAffinity] : null;
                 if (partitions == null)
                 {
                     partitions = new Array<number>();

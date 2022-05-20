@@ -42,7 +42,7 @@ suite("eda tests", () =>
     
     test("basic", async () =>
     {
-        // @ts-ignore
+        // @ts-expect-error: not used
         const consumePromise = edaManager.beginConsumption();
         const eventBus = edaManager.serviceLocator.resolve<EventBus>("EventBus");
         const history = edaManager.serviceLocator.resolve<EventHistory>("EventHistory");

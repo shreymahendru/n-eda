@@ -11,8 +11,8 @@ import { EventRegistration } from "../event-registration";
 
 export class AwsLambdaEventHandler
 {
-    private _manager: EdaManager = null as any;
-    private _logger: Logger = null as any;
+    private _manager: EdaManager | null = null;
+    private _logger: Logger | null = null;
     
     
     public initialize(manager: EdaManager): void
@@ -25,7 +25,8 @@ export class AwsLambdaEventHandler
     }
     
     
-    public async process(event: any, context: any): Promise<{ eventName: string; eventId: string }>
+    public async process(event: object, context: Record<string, any>)
+        : Promise<{ eventName: string; eventId: string; } | { statusCode: number; error: string; }>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
         given(context, "context").ensureHasValue().ensureIsObject();
@@ -51,13 +52,20 @@ export class AwsLambdaEventHandler
             return {
                 statusCode: 500,
                 error: this._getErrorMessage(error)
-            } as any;
+            };
         }
         
         return {
             eventName: eventData.eventName,
-            eventId: eventData.event.id,
+            eventId: eventData.event.id
         };
+    }
+    
+    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
+    {
+        given(scope, "scope").ensureHasValue().ensureIsObject();
+        given(topic, "topic").ensureHasValue().ensureIsString();
+        given(event, "event").ensureHasValue().ensureIsObject();
     }
     
     private async _process(data: EventInfo): Promise<void>
@@ -71,9 +79,9 @@ export class AwsLambdaEventHandler
                 event: "object"
             });
         
-        const eventRegistration = this._manager.eventMap.get(data.eventName) as EventRegistration;
+        const eventRegistration = this._manager!.eventMap.get(data.eventName) as EventRegistration;
         
-        const scope = this._manager.serviceLocator.createScope();
+        const scope = this._manager!.serviceLocator.createScope();
         (<any>data.event).$scope = scope;
 
         this.onEventReceived(scope, data.topic, data.event);
@@ -86,22 +94,14 @@ export class AwsLambdaEventHandler
         }
         catch (error)
         {
-            await this._logger.logWarning(`Error in EventHandler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
-            await this._logger.logWarning(error);
+            await this._logger!.logWarning(`Error in EventHandler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
+            await this._logger!.logWarning(error as Exception);
             throw error;
         }
         finally
         {
             await scope.dispose();
         }
-    }
-    
-    
-    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
-    {
-        given(scope, "scope").ensureHasValue().ensureIsObject();
-        given(topic, "topic").ensureHasValue().ensureIsString();
-        given(event, "event").ensureHasValue().ensureIsObject();
     }
     
     private _getErrorMessage(exp: Exception | Error | any): string
@@ -114,7 +114,7 @@ export class AwsLambdaEventHandler
             else if (exp instanceof Error)
                 logMessage = exp.stack!;
             else
-                logMessage = exp.toString();
+                logMessage = (<object>exp).toString();
         }
         catch (error)
         {

@@ -64,7 +64,7 @@ export class TestEvent extends Serializable implements EdaEvent
     public get name(): string { return (<Object>TestEvent).getTypeName(); }
     
     
-    public constructor(data: { id: string })
+    public constructor(data: { id: string; })
     {
         super(data);
 
@@ -111,7 +111,7 @@ export function createEdaManager(): EdaManager
     const container = new Container();
     container.install(new CommonComponentInstaller());
     const edaManager = new EdaManager(container);
-    const basicTopic = (new Topic("basic", Duration.fromHours(1), 25)).subscribe();
+    const basicTopic = new Topic("basic", Duration.fromHours(1), 25).subscribe();
     edaManager
         .registerEventSubscriptionManager(RedisEventSubMgr, "main")
         .cleanUpKeys()

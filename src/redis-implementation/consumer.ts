@@ -5,7 +5,7 @@ import { EdaManager } from "../eda-manager";
 import { EventRegistration } from "../event-registration";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
-import { ObjectDisposedException, ApplicationException } from "@nivinjoseph/n-exception";
+import { ObjectDisposedException, ApplicationException, Exception } from "@nivinjoseph/n-exception";
 import * as Zlib from "zlib";
 import { Broker } from "./broker";
 // import * as MessagePack from "msgpackr";
@@ -93,6 +93,7 @@ export class Consumer implements Disposable
         
         const maxReadAttempts = 50;
         
+        // eslint-disable-next-line no-constant-condition
         while (true)
         {
             if (this._isDisposed)
@@ -111,13 +112,14 @@ export class Consumer implements Disposable
 
                 const maxRead = 50;
                 const lowerBoundReadIndex = readIndex + 1;
-                const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? (readIndex + maxRead - 1) : writeIndex;
+                const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead - 1 : writeIndex;
                 const eventsData = await this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                 
                 const routed = new Array<Promise<void>>();
                 
                 for (const item of eventsData)
                 {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (this._isDisposed)
                         return;
                     
@@ -130,8 +132,10 @@ export class Consumer implements Disposable
                     let eventData = item.value;
                     let numReadAttempts = 1;
                     
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
                     {
+                        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                         if (this._isDisposed)
                             return;
                         
@@ -141,6 +145,7 @@ export class Consumer implements Disposable
                         numReadAttempts++;
                     }
 
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (eventData == null)
                     {
                         try 
@@ -149,7 +154,7 @@ export class Consumer implements Disposable
                         }
                         catch (error)
                         {
-                            await this._logger.logError(error);
+                            await this._logger.logError(error as Exception);
                         }
 
                         await this._incrementConsumerPartitionReadIndex();
@@ -161,7 +166,7 @@ export class Consumer implements Disposable
                     const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                     const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
                     // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
-                    const deserializedEvent = Deserializer.deserialize(event) as EdaEvent;
+                    const deserializedEvent = Deserializer.deserialize<EdaEvent>(event);
 
                     routed.push(
                         this._attemptRoute(
@@ -170,6 +175,7 @@ export class Consumer implements Disposable
                 
                 await Promise.all(routed);
                 
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (this._isDisposed)
                     return;
                 
@@ -178,7 +184,8 @@ export class Consumer implements Disposable
             catch (error)
             {
                 await this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
-                await this._logger.logError(error);
+                await this._logger.logError(error as Exception);
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (this._isDisposed)
                     return;
                 await Delay.seconds(5);
@@ -209,11 +216,12 @@ export class Consumer implements Disposable
         {
             failed = true;
             await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
-            await this._logger.logError(error);
+            await this._logger.logError(error as Exception);
         }
         finally
         {
             if (failed && this._isDisposed) // cuz it could have failed because things were disposed
+                // eslint-disable-next-line no-unsafe-finally
                 return;
 
             await this._track(eventKey);
@@ -316,7 +324,7 @@ export class Consumer implements Disposable
     }
     
     private _batchRetrieveEvents(lowerBoundIndex: number, upperBoundIndex: number)
-        : Promise<Array<{ index: number; key: string; value: Buffer }>>
+        : Promise<Array<{ index: number; key: string; value: Buffer; }>>
     {
         return new Promise((resolve, reject) =>
         {
@@ -442,10 +450,10 @@ export class Consumer implements Disposable
     {
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.inflateRaw)(eventData);
 
-        return JSON.parse(decompressed.toString("utf8"));
+        return JSON.parse(decompressed.toString("utf8")) as object;
     }
     
-    private async _removeKeys(keys: string[]): Promise<void>
+    private async _removeKeys(keys: ReadonlyArray<string>): Promise<void>
     {
         return new Promise((resolve, reject) =>
         {

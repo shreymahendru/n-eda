@@ -7,7 +7,7 @@ suite("Partitioning tests", () =>
 {
     const numPartitions = 1000;
     
-    const partitionMapper = (partitionKey: string) =>
+    const partitionMapper = (partitionKey: string): number =>
     {
         return MurmurHash.x86.hash32(partitionKey) % numPartitions;
     };

@@ -2,7 +2,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
-import { ApplicationException } from "@nivinjoseph/n-exception";
+import { ApplicationException, Exception } from "@nivinjoseph/n-exception";
 import * as Axios from "axios";
 
 
@@ -46,7 +46,7 @@ export class RpcProxyProcessor extends Processor
         catch (error)
         {
             await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-            await this.logger.logWarning(error);
+            await this.logger.logWarning(error as Exception);
             throw error;
         }
     }

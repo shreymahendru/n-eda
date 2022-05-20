@@ -1,4 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
+import { Exception } from "@nivinjoseph/n-exception";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { EdaEventHandler } from "../eda-event-handler";
@@ -42,7 +43,7 @@ export class DefaultProcessor extends Processor
         catch (error)
         {
             await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-            await this.logger.logWarning(error);
+            await this.logger.logWarning(error as Exception);
             throw error;
         }
         finally

@@ -4,7 +4,7 @@ import "@nivinjoseph/n-ext";
 // import { ArgumentException } from "@nivinjoseph/n-exception";
 
 
-export const eventSymbol = Symbol("eventName");
+export const eventSymbol = Symbol.for("@nivinjoseph/n-eda/event");
 
 // public
 export function event(eventType: Function): Function

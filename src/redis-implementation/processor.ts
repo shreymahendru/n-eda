@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { Exception, ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
 import { Delay, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
 import { EdaManager } from "../eda-manager";
@@ -100,6 +100,7 @@ export abstract class Processor implements Disposable
                 }
                 catch (error)
                 {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
                         throw error;
                     else
@@ -110,7 +111,7 @@ export abstract class Processor implements Disposable
         catch (error)
         {
             await this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
-            await this._logger.logError(error);
+            await this._logger.logError(error as Exception);
             workItem.deferred.reject(error);
         }
     }

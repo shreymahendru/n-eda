@@ -4,6 +4,7 @@ import * as Redis from "redis";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
 import * as Zlib from "zlib";
+import { Exception } from "@nivinjoseph/n-exception";
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
 
@@ -59,7 +60,7 @@ export class Producer
             catch (error)
             {
                 await this._logger.logWarning(`Error while storing event of type ${item.event.name}  => Topic: ${this._topic}; Partition: ${this._partition};`);
-                await this._logger.logError(error);
+                await this._logger.logError(error as Exception);
                 throw error;
             }
         }

@@ -10,9 +10,9 @@ export class Topic
     private readonly _numPartitions: number;
     private readonly _flush: boolean;
     
-    private _publishOnly: boolean = true;
+    private _publishOnly = true;
     private _partitionAffinity: ReadonlyArray<number> | null = null;
-    private _isDisabled: boolean = false;
+    private _isDisabled = false;
     
     
     public get name(): string { return this._name; }

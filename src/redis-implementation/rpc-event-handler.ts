@@ -12,8 +12,8 @@ import { RpcModel } from "../rpc-details";
 
 export class RpcEventHandler
 {
-    private _manager: EdaManager = null as any;
-    private _logger: Logger = null as any;
+    private _manager: EdaManager | null = null;
+    private _logger: Logger | null = null;
 
 
     public initialize(manager: EdaManager): void
@@ -27,7 +27,7 @@ export class RpcEventHandler
 
 
     public async process(model: RpcModel)
-        : Promise<{ eventName: string; eventId: string } | { statusCode: number; error: string }>
+        : Promise<{ eventName: string; eventId: string; } | { statusCode: number; error: string; }>
     {
         given(model, "model").ensureHasValue().ensureIsObject();
 
@@ -50,13 +50,20 @@ export class RpcEventHandler
             return {
                 statusCode: 500,
                 error: this._getErrorMessage(error)
-            } as any;
+            };
         }
 
         return {
             eventName: eventData.eventName,
-            eventId: eventData.event.id,
+            eventId: eventData.event.id
         };
+    }
+    
+    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
+    {
+        given(scope, "scope").ensureHasValue().ensureIsObject();
+        given(topic, "topic").ensureHasValue().ensureIsString();
+        given(event, "event").ensureHasValue().ensureIsObject();
     }
 
     private async _process(data: EventInfo): Promise<void>
@@ -70,9 +77,9 @@ export class RpcEventHandler
                 event: "object"
             });
 
-        const eventRegistration = this._manager.eventMap.get(data.eventName) as EventRegistration;
+        const eventRegistration = this._manager!.eventMap.get(data.eventName) as EventRegistration;
 
-        const scope = this._manager.serviceLocator.createScope();
+        const scope = this._manager!.serviceLocator.createScope();
         (<any>data.event).$scope = scope;
 
         this.onEventReceived(scope, data.topic, data.event);
@@ -85,22 +92,14 @@ export class RpcEventHandler
         }
         catch (error)
         {
-            await this._logger.logWarning(`Error in EventHandler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
-            await this._logger.logWarning(error);
+            await this._logger!.logWarning(`Error in EventHandler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
+            await this._logger!.logWarning(error as Exception);
             throw error;
         }
         finally
         {
             await scope.dispose();
         }
-    }
-
-
-    protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
-    {
-        given(scope, "scope").ensureHasValue().ensureIsObject();
-        given(topic, "topic").ensureHasValue().ensureIsString();
-        given(event, "event").ensureHasValue().ensureIsObject();
     }
 
     private _getErrorMessage(exp: Exception | Error | any): string
@@ -113,7 +112,7 @@ export class RpcEventHandler
             else if (exp instanceof Error)
                 logMessage = exp.stack!;
             else
-                logMessage = exp.toString();
+                logMessage = (<object>exp).toString();
         }
         catch (error)
         {

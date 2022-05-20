@@ -18,7 +18,7 @@ suite("compression tests", () =>
 {
     const brotliOptions = { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } };
 
-    const brotliCompress = async (event: object) =>
+    const brotliCompress = async (event: object): Promise<Buffer> =>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
 
@@ -39,13 +39,13 @@ suite("compression tests", () =>
         return compressed;
     };
 
-    const brotliDecompress = async (eventData: Buffer) =>
+    const brotliDecompress = async (eventData: Buffer): Promise<object> =>
     {
         given(eventData, "eventData").ensureHasValue();
 
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.brotliDecompress)(eventData, brotliOptions);
 
-        return JSON.parse(decompressed.toString("utf8"));
+        return JSON.parse(decompressed.toString("utf8")) as object;
     };
 
     // const snappyCompress = async (event: object) =>
@@ -77,7 +77,7 @@ suite("compression tests", () =>
     //     return unpack(decompressed as Buffer);
     // };
     
-    const deflateCompress = async (event: object) =>
+    const deflateCompress = async (event: object): Promise<Buffer> =>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
 
@@ -96,14 +96,13 @@ suite("compression tests", () =>
         return compressed;
     };
 
-    const deflateDecompress = async (eventData: Buffer) =>
+    const deflateDecompress = async (eventData: Buffer): Promise<object> =>
     {
         given(eventData, "eventData").ensureHasValue();
 
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.inflateRaw)(eventData);
 
-
-        return JSON.parse(decompressed.toString("utf8"));
+        return JSON.parse(decompressed.toString("utf8")) as object;
     };
 
     // const snappyCompress = async (event: object) =>
