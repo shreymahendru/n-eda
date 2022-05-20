@@ -1,6 +1,6 @@
 {
     "name": "@nivinjoseph/n-eda",
-    "version": "3.0.47",
+    "version": "3.0.48",
     "description": "Event Driven Architecture framework",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
