@@ -239,7 +239,7 @@ export class GrpcServer
                     })
                     .catch(error =>
                     {
-                        callback(error.message);
+                        callback(error);
                     });
             }
         });
