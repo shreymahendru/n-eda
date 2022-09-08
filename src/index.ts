@@ -14,6 +14,9 @@ import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-h
 import { LambdaDetails } from "./lambda-details";
 import { RpcDetails, RpcModel } from "./rpc-details";
 import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
+import { GrpcDetails } from "./grpc-details";
+import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
+import { ApplicationScript, GrpcServer } from "./redis-implementation/grpc-server";
 
 
 export
@@ -26,5 +29,7 @@ export
     
     LambdaDetails, AwsLambdaEventHandler,
     
-    RpcDetails, RpcEventHandler, RpcModel
+    RpcDetails, RpcEventHandler, RpcModel,
+    
+    GrpcDetails, GrpcEventHandler, GrpcServer, ApplicationScript
 };

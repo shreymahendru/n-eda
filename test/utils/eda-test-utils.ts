@@ -44,7 +44,7 @@ class CommonComponentInstaller implements ComponentInstaller
         });
         
         registry
-            .registerInstance("Logger", new ConsoleLogger(LogDateTimeZone.est))
+            .registerInstance("Logger", new ConsoleLogger({ logDateTimeZone: LogDateTimeZone.est }))
             .registerInstance("EdaRedisClient", edaRedisClient)
             .registerInstance("EdaRedisClientDisposable", edaRedisClientDisposable)
             .registerSingleton("EventHistory", EventHistory);

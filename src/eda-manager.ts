@@ -13,6 +13,8 @@ import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-h
 import { LambdaDetails } from "./lambda-details";
 import { RpcDetails } from "./rpc-details";
 import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
+import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
+import { GrpcDetails } from "./grpc-details";
 
 // public
 export class EdaManager implements Disposable
@@ -39,6 +41,10 @@ export class EdaManager implements Disposable
     private _rpcDetails: RpcDetails | null = null;
     private _isRpcConsumer = false;
     private _rpcEventHandler: RpcEventHandler | null = null;
+    
+    private _grpcDetails: GrpcDetails | null = null;
+    private _isGrpcConsumer = false;
+    private _grpcEventHandler: GrpcEventHandler | null = null;
 
 
     private _isDisposed = false;
@@ -63,6 +69,10 @@ export class EdaManager implements Disposable
     public get rpcDetails(): RpcDetails | null { return this._rpcDetails; }
     public get rpcProxyEnabled(): boolean { return this._rpcDetails != null; }
     public get isRpcConsumer(): boolean { return this._isRpcConsumer; }
+    
+    public get grpcDetails(): GrpcDetails | null { return this._grpcDetails; }
+    public get grpcProxyEnabled(): boolean { return this._grpcDetails != null; }
+    public get isGrpcConsumer(): boolean { return this._isGrpcConsumer; }
 
     public get partitionKeyMapper(): (event: EdaEvent) => string { return this._partitionKeyMapper; }
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
@@ -166,7 +176,7 @@ export class EdaManager implements Disposable
 
     public registerEventBus(eventBus: EventBus | ClassHierarchy<EventBus>): this
     {
-        given(eventBus, "eventBus").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+        given(eventBus, "eventBus").ensureHasValue();
         given(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
             .ensure(t => !t._eventBusRegistered, "event bus already registered");
@@ -183,7 +193,7 @@ export class EdaManager implements Disposable
 
     public registerEventSubscriptionManager(eventSubMgr: EventSubMgr | ClassHierarchy<EventSubMgr>, consumerGroupId: string): this
     {
-        given(eventSubMgr, "eventSubMgr").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+        given(eventSubMgr, "eventSubMgr").ensureHasValue();
         given(consumerGroupId, "consumerGroupId").ensureHasValue().ensureIsString();
         given(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
@@ -259,6 +269,31 @@ export class EdaManager implements Disposable
 
         return this;
     }
+    
+    public proxyToGrpc(grpcDetails: GrpcDetails): this
+    {
+        given(grpcDetails, "grpcDetails").ensureHasValue().ensureIsObject();
+        
+        given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+
+        this._grpcDetails = grpcDetails;
+
+        return this;
+    }
+    
+    public actAsGrpcConsumer(handler: GrpcEventHandler): this
+    {
+        given(handler, "handler").ensureHasValue().ensureIsObject().ensureIsInstanceOf(GrpcEventHandler);
+
+        given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+
+        this._grpcEventHandler = handler;
+        this._isGrpcConsumer = true;
+
+        return this;
+    }
 
 
     public bootstrap(): void
@@ -293,6 +328,9 @@ export class EdaManager implements Disposable
 
         if (this._isRpcConsumer)
             this._rpcEventHandler!.initialize(this);
+            
+        if (this._isGrpcConsumer)
+            this._grpcEventHandler!.initialize(this);
 
         this._isBootstrapped = true;
     }

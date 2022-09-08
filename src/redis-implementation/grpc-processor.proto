@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package grpcprocessor;
+
+message EdaRequest {
+    string consumerId = 1;
+    string topic = 2;
+    int32 partition = 3;
+    string eventName = 4;
+    string payload = 5;
+}
+
+message EdaResponse {
+    string eventName = 1;
+    string eventId = 2;
+}
+
+service EdaService {
+    rpc Process(EdaRequest) returns (EdaResponse) {};
+}
