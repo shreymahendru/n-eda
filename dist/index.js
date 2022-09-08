@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RpcEventHandler = exports.AwsLambdaEventHandler = exports.RedisEventSubMgr = exports.RedisEventBus = exports.EdaManager = exports.EventRegistration = exports.Topic = exports.event = void 0;
+exports.GrpcServer = exports.GrpcEventHandler = exports.RpcEventHandler = exports.AwsLambdaEventHandler = exports.RedisEventSubMgr = exports.RedisEventBus = exports.EdaManager = exports.EventRegistration = exports.Topic = exports.event = void 0;
 const event_1 = require("./event");
 Object.defineProperty(exports, "event", { enumerable: true, get: function () { return event_1.event; } });
 const event_registration_1 = require("./event-registration");
@@ -19,4 +19,8 @@ const aws_lambda_event_handler_1 = require("./redis-implementation/aws-lambda-ev
 Object.defineProperty(exports, "AwsLambdaEventHandler", { enumerable: true, get: function () { return aws_lambda_event_handler_1.AwsLambdaEventHandler; } });
 const rpc_event_handler_1 = require("./redis-implementation/rpc-event-handler");
 Object.defineProperty(exports, "RpcEventHandler", { enumerable: true, get: function () { return rpc_event_handler_1.RpcEventHandler; } });
+const grpc_event_handler_1 = require("./redis-implementation/grpc-event-handler");
+Object.defineProperty(exports, "GrpcEventHandler", { enumerable: true, get: function () { return grpc_event_handler_1.GrpcEventHandler; } });
+const grpc_server_1 = require("./redis-implementation/grpc-server");
+Object.defineProperty(exports, "GrpcServer", { enumerable: true, get: function () { return grpc_server_1.GrpcServer; } });
 //# sourceMappingURL=index.js.map

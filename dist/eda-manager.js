@@ -9,6 +9,7 @@ const event_registration_1 = require("./event-registration");
 const MurmurHash = require("murmurhash3js");
 const aws_lambda_event_handler_1 = require("./redis-implementation/aws-lambda-event-handler");
 const rpc_event_handler_1 = require("./redis-implementation/rpc-event-handler");
+const grpc_event_handler_1 = require("./redis-implementation/grpc-event-handler");
 // public
 class EdaManager {
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
@@ -27,6 +28,9 @@ class EdaManager {
         this._rpcDetails = null;
         this._isRpcConsumer = false;
         this._rpcEventHandler = null;
+        this._grpcDetails = null;
+        this._isGrpcConsumer = false;
+        this._grpcEventHandler = null;
         this._isDisposed = false;
         this._isBootstrapped = false;
         (0, n_defensive_1.given)(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
@@ -58,6 +62,9 @@ class EdaManager {
     get rpcDetails() { return this._rpcDetails; }
     get rpcProxyEnabled() { return this._rpcDetails != null; }
     get isRpcConsumer() { return this._isRpcConsumer; }
+    get grpcDetails() { return this._grpcDetails; }
+    get grpcProxyEnabled() { return this._grpcDetails != null; }
+    get isGrpcConsumer() { return this._isGrpcConsumer; }
     get partitionKeyMapper() { return this._partitionKeyMapper; }
     useInstaller(installer) {
         (0, n_defensive_1.given)(installer, "installer").ensureHasValue().ensureIsObject();
@@ -109,7 +116,7 @@ class EdaManager {
         return this;
     }
     registerEventBus(eventBus) {
-        (0, n_defensive_1.given)(eventBus, "eventBus").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+        (0, n_defensive_1.given)(eventBus, "eventBus").ensureHasValue();
         (0, n_defensive_1.given)(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
             .ensure(t => !t._eventBusRegistered, "event bus already registered");
@@ -121,7 +128,7 @@ class EdaManager {
         return this;
     }
     registerEventSubscriptionManager(eventSubMgr, consumerGroupId) {
-        (0, n_defensive_1.given)(eventSubMgr, "eventSubMgr").ensureHasValue().ensure(t => typeof t === "function" || typeof t === "object");
+        (0, n_defensive_1.given)(eventSubMgr, "eventSubMgr").ensureHasValue();
         (0, n_defensive_1.given)(consumerGroupId, "consumerGroupId").ensureHasValue().ensureIsString();
         (0, n_defensive_1.given)(this, "this")
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
@@ -170,6 +177,21 @@ class EdaManager {
         this._isRpcConsumer = true;
         return this;
     }
+    proxyToGrpc(grpcDetails) {
+        (0, n_defensive_1.given)(grpcDetails, "grpcDetails").ensureHasValue().ensureIsObject();
+        (0, n_defensive_1.given)(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._grpcDetails = grpcDetails;
+        return this;
+    }
+    actAsGrpcConsumer(handler) {
+        (0, n_defensive_1.given)(handler, "handler").ensureHasValue().ensureIsObject().ensureIsInstanceOf(grpc_event_handler_1.GrpcEventHandler);
+        (0, n_defensive_1.given)(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._grpcEventHandler = handler;
+        this._isGrpcConsumer = true;
+        return this;
+    }
     bootstrap() {
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException(this);
@@ -191,6 +213,8 @@ class EdaManager {
             this._awsLambdaEventHandler.initialize(this);
         if (this._isRpcConsumer)
             this._rpcEventHandler.initialize(this);
+        if (this._isGrpcConsumer)
+            this._grpcEventHandler.initialize(this);
         this._isBootstrapped = true;
     }
     beginConsumption() {

@@ -13,6 +13,7 @@ const broker_1 = require("./broker");
 const default_processor_1 = require("./default-processor");
 const aws_lambda_proxy_processor_1 = require("./aws-lambda-proxy-processor");
 const rpc_proxy_processor_1 = require("./rpc-proxy-processor");
+const grpc_proxy_processor_1 = require("./grpc-proxy-processor");
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 // public
@@ -59,7 +60,9 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                         ? consumers.map(_ => new aws_lambda_proxy_processor_1.AwsLambdaProxyProcessor(this._manager))
                         : this._manager.rpcProxyEnabled
                             ? consumers.map(_ => new rpc_proxy_processor_1.RpcProxyProcessor(this._manager))
-                            : consumers.map(_ => new default_processor_1.DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
+                            : this._manager.grpcProxyEnabled
+                                ? consumers.map(_ => new grpc_proxy_processor_1.GrpcProxyProcessor(this._manager))
+                                : consumers.map(_ => new default_processor_1.DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                     const broker = new broker_1.Broker(consumers, processors);
                     this._brokers.push(broker);
                 });
