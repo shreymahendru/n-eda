@@ -146,8 +146,8 @@ class GrpcServer {
             defaults: true,
             oneofs: true
         };
-        const basePath = __dirname.endsWith("dist")
-            ? Path.resolve(__dirname, "..", "src", "redis-implementation")
+        const basePath = __dirname.endsWith(`dist${Path.sep}redis-implementation`)
+            ? Path.resolve(__dirname, "..", "..", "src", "redis-implementation")
             : __dirname;
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
