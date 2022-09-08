@@ -160,7 +160,7 @@ class GrpcServer {
                     callback(null, response);
                 })
                     .catch(error => {
-                    callback(error.message);
+                    callback(error);
                 });
             }
         });
