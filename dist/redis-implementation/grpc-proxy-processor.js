@@ -19,7 +19,10 @@ class GrpcProxyProcessor extends processor_1.Processor {
             defaults: true,
             oneofs: true
         };
-        const packageDef = ProtoLoader.loadSync(Path.join(__dirname, "grpc-processor.proto"), options);
+        const basePath = __dirname.endsWith("dist")
+            ? Path.join(__dirname, `..${Path.sep}src${Path.sep}redis-implementation`)
+            : __dirname;
+        const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, Grpc.credentials.createInsecure());
