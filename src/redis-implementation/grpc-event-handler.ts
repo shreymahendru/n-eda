@@ -51,7 +51,7 @@ export class GrpcEventHandler
         }
         catch (error)
         {
-            await this._logger?.logError(error as any);
+            await this._logger!.logError(error as any);
             
             throw new Error(this._getErrorMessage(error));
         }
