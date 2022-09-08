@@ -20,7 +20,7 @@ class GrpcProxyProcessor extends processor_1.Processor {
             oneofs: true
         };
         const basePath = __dirname.endsWith("dist")
-            ? Path.join(__dirname, `..${Path.sep}src${Path.sep}redis-implementation`)
+            ? Path.resolve(__dirname, "..", "src", "redis-implementation")
             : __dirname;
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
