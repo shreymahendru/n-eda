@@ -245,9 +245,9 @@ export class GrpcServer
         });
         
         const healthPackageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-health-check.proto"), options);
-        const healthServiceDef = Grpc.loadPackageDefinition(healthPackageDef)["grpc.health.v1"];
+        const healthServiceDef = Grpc.loadPackageDefinition(healthPackageDef).grpchealthv1;
 
-        server.addService((healthServiceDef as any).Health.service, {
+        server.addService((healthServiceDef as any)["Health"].service, {
             check: (call: any, callback: Function) =>
             {
                 const { service } = call.request;
