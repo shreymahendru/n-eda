@@ -11,36 +11,6 @@ const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_config_1 = require("@nivinjoseph/n-config");
 const grpc_event_handler_1 = require("./grpc-event-handler");
-// const options = {
-//     keepCase: true
-// };
-// const packageDef = ProtoLoader.loadSync(Path.join(__dirname, "grpc-processor.proto"), options);
-// const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
-// const port = "5000";
-// const server = new Grpc.Server();
-// server.addService((serviceDef as any).EdaService.service, {
-//     process: (call: any, callback: Function) =>
-//     {
-//         const request = call.request;
-//         console.log(request);
-//         const response = {};
-//         callback(null, response);
-//     }
-// });
-// server.bindAsync(
-//     `127.0.0.1:${port}`,
-//     Grpc.ServerCredentials.createInsecure(),
-//     (error, port) =>
-//     {
-//         if (error != null)
-//         {
-//             console.error(error);
-//             return;
-//         }
-//         console.log(`Server running at http://127.0.0.1:${port}`);
-//         server.start();
-//     }
-// );
 class GrpcServer {
     constructor(port, host, container, logger) {
         this._startupScriptKey = "$startupScript";
@@ -168,14 +138,19 @@ class GrpcServer {
         const healthServiceDef = Grpc.loadPackageDefinition(healthPackageDef).grpchealthv1;
         server.addService(healthServiceDef["Health"].service, {
             check: (call, callback) => {
-                const { service } = call.request;
+                var _a;
+                const service = (_a = call.request) !== null && _a !== void 0 ? _a : "";
                 const status = this._statusMap[service];
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (status == null) {
                     callback({ code: Grpc.status.NOT_FOUND });
                 }
+                else if (status === ServingStatus.SERVING) {
+                    callback({ code: Grpc.status.OK });
+                    // callback(null, { status });
+                }
                 else {
-                    callback(null, { status });
+                    callback({ code: Grpc.status.UNAVAILABLE });
                 }
             }
         });

@@ -18,7 +18,6 @@ class GrpcEventHandler {
         this._logger = this._manager.serviceLocator.resolve("Logger");
     }
     process(model) {
-        var _a;
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             try {
                 (0, n_defensive_1.given)(model, "model").ensureHasValue().ensureIsObject();
@@ -37,7 +36,7 @@ class GrpcEventHandler {
                 };
             }
             catch (error) {
-                yield ((_a = this._logger) === null || _a === void 0 ? void 0 : _a.logError(error));
+                yield this._logger.logError(error);
                 throw new Error(this._getErrorMessage(error));
             }
         });
