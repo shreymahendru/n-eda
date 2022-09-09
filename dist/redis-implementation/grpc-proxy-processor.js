@@ -6,7 +6,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const processor_1 = require("./processor");
 const Path = require("path");
-const Grpc = require("@grpc/grpc-js");
+const Grpc = require("grpc");
 const ProtoLoader = require("@grpc/proto-loader");
 class GrpcProxyProcessor extends processor_1.Processor {
     constructor(manager) {
