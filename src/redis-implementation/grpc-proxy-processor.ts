@@ -37,7 +37,7 @@ export class GrpcProxyProcessor extends Processor
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         this._grpcClient = new (serviceDef as any).EdaService(
             `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
-            manager.grpcDetails!.host.startsWith("https://")
+            manager.grpcDetails!.host.startsWith("dns:")
                 ? Grpc.credentials.createSsl()
                 : Grpc.credentials.createInsecure()
         );
