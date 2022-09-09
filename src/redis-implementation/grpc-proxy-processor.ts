@@ -4,7 +4,7 @@ import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import * as Path from "path";
-import * as Grpc from "@grpc/grpc-js";
+import * as Grpc from "grpc";
 import * as ProtoLoader from "@grpc/proto-loader";
 
 
