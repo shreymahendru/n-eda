@@ -137,21 +137,28 @@ class GrpcServer {
         const healthPackageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-health-check.proto"), options);
         const healthServiceDef = Grpc.loadPackageDefinition(healthPackageDef).grpchealthv1;
         server.addService(healthServiceDef["Health"].service, {
-            check: (call, callback) => {
-                var _a;
-                const service = (_a = call.request) !== null && _a !== void 0 ? _a : "";
-                const status = this._statusMap[service];
-                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                if (status == null) {
-                    callback({ code: Grpc.status.NOT_FOUND });
-                }
-                else if (status === ServingStatus.SERVING) {
-                    callback({ code: Grpc.status.OK });
-                    // callback(null, { status });
-                }
-                else {
+            check: (_call, callback) => {
+                // const service = call.request ?? "";
+                // const status = this._statusMap[service];
+                // // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                // if (status == null)
+                // {
+                //     callback({ code: Grpc.status.NOT_FOUND });
+                // }
+                // else if (status === ServingStatus.SERVING)
+                // {
+                //     callback({ code: Grpc.status.OK });
+                //     // callback(null, { status });
+                // }
+                // else
+                // {
+                //     callback({ code: Grpc.status.UNAVAILABLE });
+                // }
+                const status = this._statusMap[this._serviceName];
+                if (status === ServingStatus.SERVING)
+                    callback(null, { status });
+                else
                     callback({ code: Grpc.status.UNAVAILABLE });
-                }
             }
         });
         return new Promise((resolve, reject) => {
