@@ -208,25 +208,31 @@ export class GrpcServer
         const healthServiceDef = Grpc.loadPackageDefinition(healthPackageDef).grpchealthv1;
 
         server.addService((healthServiceDef as any)["Health"].service, {
-            check: (call: any, callback: Function) =>
+            check: (_call: any, callback: Function) =>
             {
-                const service = call.request ?? "";
-                const status = this._statusMap[service];
-                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                if (status == null)
-                {
-                    callback({ code: Grpc.status.NOT_FOUND });
-                }
-                else if (status === ServingStatus.SERVING)
-                {
-                    callback({ code: Grpc.status.OK });
+                // const service = call.request ?? "";
+                // const status = this._statusMap[service];
+                // // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                // if (status == null)
+                // {
+                //     callback({ code: Grpc.status.NOT_FOUND });
+                // }
+                // else if (status === ServingStatus.SERVING)
+                // {
+                //     callback({ code: Grpc.status.OK });
                     
-                    // callback(null, { status });
-                }
+                //     // callback(null, { status });
+                // }
+                // else
+                // {
+                //     callback({ code: Grpc.status.UNAVAILABLE });
+                // }
+                
+                const status = this._statusMap[this._serviceName];
+                if (status === ServingStatus.SERVING)
+                    callback(null, { status });
                 else
-                {
                     callback({ code: Grpc.status.UNAVAILABLE });
-                }
             }
         });
         
