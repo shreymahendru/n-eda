@@ -25,7 +25,7 @@ class GrpcProxyProcessor extends processor_1.Processor {
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, manager.grpcDetails.host.startsWith("https://")
+        this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, manager.grpcDetails.host.startsWith("dns:")
             ? Grpc.credentials.createSsl()
             : Grpc.credentials.createInsecure());
     }
