@@ -9,6 +9,7 @@ const Path = require("path");
 // import * as Grpc from "grpc";
 const Grpc = require("@grpc/grpc-js");
 const ProtoLoader = require("@grpc/proto-loader");
+const n_config_1 = require("@nivinjoseph/n-config");
 class GrpcProxyProcessor extends processor_1.Processor {
     constructor(manager) {
         super(manager);
@@ -25,15 +26,26 @@ class GrpcProxyProcessor extends processor_1.Processor {
             : __dirname;
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
-        // const isSecure = manager.grpcDetails!.host.startsWith("dns:");
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        // this._grpcClient = new (serviceDef as any).EdaService(
-        //     `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
-        //     isSecure ? Grpc.credentials.createSsl() : Grpc.credentials.createInsecure(),
-        //     isSecure ? { 'grpc.ssl_target_name_override': 'stage.api.internal' } : undefined
-        // );
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, Grpc.credentials.createInsecure());
+        const isSecure = manager.grpcDetails.host.startsWith("dns:");
+        if (isSecure) {
+            let grpcCert = n_config_1.ConfigurationManager.getConfig("grpcCert");
+            (0, n_defensive_1.given)(grpcCert, "grpcCert").ensureHasValue().ensureIsString();
+            grpcCert = grpcCert.hexDecode();
+            let grpcCertDomain = n_config_1.ConfigurationManager.getConfig("grpcCertDomain");
+            (0, n_defensive_1.given)(grpcCertDomain, "grpcCertDomain").ensureHasValue().ensureIsString();
+            grpcCertDomain = grpcCertDomain.hexDecode();
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, Grpc.credentials.createSsl(Buffer.from(grpcCert), null, null, {
+                checkServerIdentity: () => undefined
+            }), {
+                "grpc.ssl_target_name_override": grpcCertDomain,
+                "grpc.default_authority": grpcCertDomain
+            });
+        }
+        else {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, Grpc.credentials.createInsecure());
+        }
     }
     processEvent(workItem, numAttempt) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
