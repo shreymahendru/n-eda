@@ -4,7 +4,8 @@ import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import * as Path from "path";
-import * as Grpc from "grpc";
+// import * as Grpc from "grpc";
+import * as Grpc from "@grpc/grpc-js";
 import * as ProtoLoader from "@grpc/proto-loader";
 
 
@@ -34,13 +35,18 @@ export class GrpcProxyProcessor extends Processor
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
         
-        const isSecure = manager.grpcDetails!.host.startsWith("dns:");
+        // const isSecure = manager.grpcDetails!.host.startsWith("dns:");
+        
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        // this._grpcClient = new (serviceDef as any).EdaService(
+        //     `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
+        //     isSecure ? Grpc.credentials.createSsl() : Grpc.credentials.createInsecure(),
+        //     isSecure ? { 'grpc.ssl_target_name_override': 'stage.api.internal' } : undefined
+        // );
         
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         this._grpcClient = new (serviceDef as any).EdaService(
-            `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
-            isSecure ? Grpc.credentials.createSsl() : Grpc.credentials.createInsecure(), 
-            isSecure ? { 'grpc.ssl_target_name_override': 'stage.api.internal' } : undefined
+            `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`, Grpc.credentials.createInsecure()
         );
     }
 
