@@ -6,7 +6,8 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const processor_1 = require("./processor");
 const Path = require("path");
-const Grpc = require("grpc");
+// import * as Grpc from "grpc";
+const Grpc = require("@grpc/grpc-js");
 const ProtoLoader = require("@grpc/proto-loader");
 class GrpcProxyProcessor extends processor_1.Processor {
     constructor(manager) {
@@ -24,9 +25,15 @@ class GrpcProxyProcessor extends processor_1.Processor {
             : __dirname;
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
-        const isSecure = manager.grpcDetails.host.startsWith("dns:");
+        // const isSecure = manager.grpcDetails!.host.startsWith("dns:");
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, isSecure ? Grpc.credentials.createSsl() : Grpc.credentials.createInsecure(), isSecure ? { 'grpc.ssl_target_name_override': 'stage.api.internal' } : undefined);
+        // this._grpcClient = new (serviceDef as any).EdaService(
+        //     `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
+        //     isSecure ? Grpc.credentials.createSsl() : Grpc.credentials.createInsecure(),
+        //     isSecure ? { 'grpc.ssl_target_name_override': 'stage.api.internal' } : undefined
+        // );
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, Grpc.credentials.createInsecure());
     }
     processEvent(workItem, numAttempt) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
