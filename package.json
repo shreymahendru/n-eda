@@ -48,7 +48,7 @@
         "typescript": "^4.6.4"
     },
     "dependencies": {
-        "@grpc/grpc-js": "^1.6.12",
+        "@grpc/grpc-js": "^1.7.0",
         "@grpc/proto-loader": "^0.7.2",
         "@nivinjoseph/n-config": "^1.0.35",
         "@nivinjoseph/n-defensive": "^1.0.41",

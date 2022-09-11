@@ -4,8 +4,8 @@ import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import * as Path from "path";
-import * as Grpc from "grpc";
-// import * as Grpc from "@grpc/grpc-js";
+// import * as Grpc from "grpc";
+import * as Grpc from "@grpc/grpc-js";
 import * as ProtoLoader from "@grpc/proto-loader";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 
@@ -36,16 +36,15 @@ export class GrpcProxyProcessor extends Processor
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
         
-        const isSecure = manager.grpcDetails!.host.startsWith("dns:");
+        const isSecure = manager.grpcDetails!.host.startsWith("https:");
         if (isSecure)
         {
             // let grpcCert = ConfigurationManager.getConfig<string>("grpcCert");
             // given(grpcCert, "grpcCert").ensureHasValue().ensureIsString();
             // grpcCert = grpcCert.hexDecode();
             
-            let grpcCertDomain = ConfigurationManager.getConfig<string>("grpcCertDomain");
+            const grpcCertDomain = ConfigurationManager.getConfig<string>("grpcCertDomain");
             given(grpcCertDomain, "grpcCertDomain").ensureHasValue().ensureIsString();
-            grpcCertDomain = grpcCertDomain.hexDecode();
             
             // // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             // this._grpcClient = new (serviceDef as any).EdaService(
@@ -63,12 +62,17 @@ export class GrpcProxyProcessor extends Processor
             this._grpcClient = new (serviceDef as any).EdaService(
                 `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
                 Grpc.credentials.createSsl(undefined, undefined, undefined, {
-                    checkServerIdentity: () => undefined
-                }),
-                {
-                    "grpc.ssl_target_name_override": grpcCertDomain,
-                    "grpc.default_authority": grpcCertDomain
-                }
+                    checkServerIdentity: (hostname, _cert) =>
+                    {
+                        console.log(`GRPC Proxy Processor checking hostname ${hostname}`);
+                        
+                        return undefined;
+                    }
+                })
+                // {
+                //     "grpc.ssl_target_name_override": grpcCertDomain,
+                //     "grpc.default_authority": grpcCertDomain
+                // }
             );
         }
         else
