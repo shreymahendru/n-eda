@@ -4,8 +4,8 @@ import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import * as Path from "path";
-// import * as Grpc from "grpc";
-import * as Grpc from "@grpc/grpc-js";
+import * as Grpc from "grpc";
+// import * as Grpc from "@grpc/grpc-js";
 import * as ProtoLoader from "@grpc/proto-loader";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 
@@ -39,18 +39,30 @@ export class GrpcProxyProcessor extends Processor
         const isSecure = manager.grpcDetails!.host.startsWith("dns:");
         if (isSecure)
         {
-            let grpcCert = ConfigurationManager.getConfig<string>("grpcCert");
-            given(grpcCert, "grpcCert").ensureHasValue().ensureIsString();
-            grpcCert = grpcCert.hexDecode();
+            // let grpcCert = ConfigurationManager.getConfig<string>("grpcCert");
+            // given(grpcCert, "grpcCert").ensureHasValue().ensureIsString();
+            // grpcCert = grpcCert.hexDecode();
             
             let grpcCertDomain = ConfigurationManager.getConfig<string>("grpcCertDomain");
             given(grpcCertDomain, "grpcCertDomain").ensureHasValue().ensureIsString();
             grpcCertDomain = grpcCertDomain.hexDecode();
             
+            // // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            // this._grpcClient = new (serviceDef as any).EdaService(
+            //     `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
+            //     Grpc.credentials.createSsl(Buffer.from(grpcCert), null, null, {
+            //         checkServerIdentity: () => undefined
+            //     }),
+            //     {
+            //         "grpc.ssl_target_name_override": grpcCertDomain,
+            //         "grpc.default_authority": grpcCertDomain
+            //     }
+            // );
+            
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             this._grpcClient = new (serviceDef as any).EdaService(
                 `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
-                Grpc.credentials.createSsl(Buffer.from(grpcCert), null, null, {
+                Grpc.credentials.createSsl(undefined, undefined, undefined, {
                     checkServerIdentity: () => undefined
                 }),
                 {
