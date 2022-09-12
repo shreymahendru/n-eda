@@ -4,8 +4,8 @@ import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import * as Path from "path";
-// import * as Grpc from "grpc";
-import * as Grpc from "@grpc/grpc-js";
+import * as Grpc from "grpc";
+// import * as Grpc from "@grpc/grpc-js";
 import * as ProtoLoader from "@grpc/proto-loader";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 
@@ -62,14 +62,15 @@ export class GrpcProxyProcessor extends Processor
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             this._grpcClient = new (serviceDef as any).EdaService(
                 `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
-                Grpc.credentials.createSsl(undefined, undefined, undefined, {
-                    checkServerIdentity: (hostname, _cert) =>
-                    {
-                        console.log(`GRPC Proxy Processor checking hostname ${hostname}`);
+                // Grpc.credentials.createSsl(undefined, undefined, undefined, {
+                //     checkServerIdentity: (hostname, _cert) =>
+                //     {
+                //         console.log(`GRPC Proxy Processor checking hostname ${hostname}`);
                         
-                        return undefined;
-                    }
-                })
+                //         return undefined;
+                //     }
+                // })
+                Grpc.credentials.createSsl()
                 // {
                 //     "grpc.ssl_target_name_override": grpcCertDomain,
                 //     "grpc.default_authority": grpcCertDomain
