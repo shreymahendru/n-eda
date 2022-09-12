@@ -4,8 +4,8 @@ import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import * as Path from "path";
-import * as Grpc from "grpc";
-// import * as Grpc from "@grpc/grpc-js";
+// import * as Grpc from "grpc";
+import * as Grpc from "@grpc/grpc-js";
 import * as ProtoLoader from "@grpc/proto-loader";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { ConnectionOptions } from "tls";
@@ -61,16 +61,11 @@ export class GrpcProxyProcessor extends Processor
             // );
             
             const creds = Grpc.credentials.createSsl();
-            // @ts-expect-error: i know
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             const origConnectionOptions = creds._getConnectionOptions.bind(creds);
-            // @ts-expect-error: i know
             creds._getConnectionOptions = function (): ConnectionOptions
             {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 const connOptions = origConnectionOptions()!;
                 connOptions.rejectUnauthorized = false;
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
                 return connOptions;
             };
             

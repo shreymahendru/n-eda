@@ -2,6 +2,8 @@ import * as Assert from "assert";
 import * as Zlib from "zlib";
 import { given } from "@nivinjoseph/n-defensive";
 import { Make, Profiler, Uuid } from "@nivinjoseph/n-util";
+import * as Grpc from "@grpc/grpc-js";
+import { ConnectionOptions } from "tls";
 // import * as MessagePack from "msgpack-lite";
 // import * as Snappy from "snappy";
 // import { pack, unpack } from "msgpackr";
@@ -14,7 +16,7 @@ import { Make, Profiler, Uuid } from "@nivinjoseph/n-util";
  */
 
 
-suite("compression tests", () => 
+suite.only("compression tests", () => 
 {
     const brotliOptions = { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } };
 
@@ -251,6 +253,22 @@ suite("compression tests", () =>
 
     //     Assert.ok(true);
     // });
+    
+    test.only("grpc", () =>
+    {
+        const creds = Grpc.credentials.createSsl();
+        const origConnectionOptions = creds._getConnectionOptions.bind(creds);
+        creds._getConnectionOptions = function (): ConnectionOptions
+        {
+            const connOptions = origConnectionOptions()!;
+            connOptions.rejectUnauthorized = false;
+            return connOptions;
+        }; 
+        
+        const options = creds._getConnectionOptions();
+        console.log(options);
+        Assert.strictEqual(options!.rejectUnauthorized, false);
+    });
     
     test("JSON with Deflate", async () =>
     {
