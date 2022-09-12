@@ -4,10 +4,8 @@ import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 import * as Path from "path";
-// import * as Grpc from "grpc";
 import * as Grpc from "@grpc/grpc-js";
 import * as ProtoLoader from "@grpc/proto-loader";
-import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { ConnectionOptions } from "tls";
 
 
@@ -41,12 +39,8 @@ export class GrpcProxyProcessor extends Processor
         const isSecure = manager.grpcDetails!.host !== "localhost";
         if (isSecure)
         {
-            // let grpcCert = ConfigurationManager.getConfig<string>("grpcCert");
-            // given(grpcCert, "grpcCert").ensureHasValue().ensureIsString();
-            // grpcCert = grpcCert.hexDecode();
-            
-            const grpcCertDomain = ConfigurationManager.getConfig<string>("grpcCertDomain");
-            given(grpcCertDomain, "grpcCertDomain").ensureHasValue().ensureIsString();
+            // const grpcCertDomain = ConfigurationManager.getConfig<string>("grpcCertDomain");
+            // given(grpcCertDomain, "grpcCertDomain").ensureHasValue().ensureIsString();
             
             // // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             // this._grpcClient = new (serviceDef as any).EdaService(
@@ -72,21 +66,7 @@ export class GrpcProxyProcessor extends Processor
             
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             this._grpcClient = new (serviceDef as any).EdaService(
-                `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
-                // Grpc.credentials.createSsl(undefined, undefined, undefined, {
-                //     checkServerIdentity: (hostname, _cert) =>
-                //     {
-                //         console.log(`GRPC Proxy Processor checking hostname ${hostname}`);
-                        
-                //         return undefined;
-                //     }
-                // })
-                creds
-                // {
-                //     "grpc.ssl_target_name_override": grpcCertDomain,
-                //     "grpc.default_authority": grpcCertDomain
-                // }
-            );
+                `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`, creds);
         }
         else
         {
