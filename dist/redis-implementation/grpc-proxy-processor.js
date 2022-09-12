@@ -6,10 +6,8 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const processor_1 = require("./processor");
 const Path = require("path");
-// import * as Grpc from "grpc";
 const Grpc = require("@grpc/grpc-js");
 const ProtoLoader = require("@grpc/proto-loader");
-const n_config_1 = require("@nivinjoseph/n-config");
 class GrpcProxyProcessor extends processor_1.Processor {
     constructor(manager) {
         super(manager);
@@ -29,11 +27,8 @@ class GrpcProxyProcessor extends processor_1.Processor {
         // const isSecure = manager.grpcDetails!.host.startsWith("https:");
         const isSecure = manager.grpcDetails.host !== "localhost";
         if (isSecure) {
-            // let grpcCert = ConfigurationManager.getConfig<string>("grpcCert");
-            // given(grpcCert, "grpcCert").ensureHasValue().ensureIsString();
-            // grpcCert = grpcCert.hexDecode();
-            const grpcCertDomain = n_config_1.ConfigurationManager.getConfig("grpcCertDomain");
-            (0, n_defensive_1.given)(grpcCertDomain, "grpcCertDomain").ensureHasValue().ensureIsString();
+            // const grpcCertDomain = ConfigurationManager.getConfig<string>("grpcCertDomain");
+            // given(grpcCertDomain, "grpcCertDomain").ensureHasValue().ensureIsString();
             // // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             // this._grpcClient = new (serviceDef as any).EdaService(
             //     `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
@@ -53,20 +48,7 @@ class GrpcProxyProcessor extends processor_1.Processor {
                 return connOptions;
             };
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, 
-            // Grpc.credentials.createSsl(undefined, undefined, undefined, {
-            //     checkServerIdentity: (hostname, _cert) =>
-            //     {
-            //         console.log(`GRPC Proxy Processor checking hostname ${hostname}`);
-            //         return undefined;
-            //     }
-            // })
-            creds
-            // {
-            //     "grpc.ssl_target_name_override": grpcCertDomain,
-            //     "grpc.default_authority": grpcCertDomain
-            // }
-            );
+            this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, creds);
         }
         else {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
