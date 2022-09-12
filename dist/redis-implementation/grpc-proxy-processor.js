@@ -6,8 +6,8 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const processor_1 = require("./processor");
 const Path = require("path");
-// import * as Grpc from "grpc";
-const Grpc = require("@grpc/grpc-js");
+const Grpc = require("grpc");
+// import * as Grpc from "@grpc/grpc-js";
 const ProtoLoader = require("@grpc/proto-loader");
 const n_config_1 = require("@nivinjoseph/n-config");
 class GrpcProxyProcessor extends processor_1.Processor {
@@ -46,12 +46,15 @@ class GrpcProxyProcessor extends processor_1.Processor {
             //     }
             // );
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, Grpc.credentials.createSsl(undefined, undefined, undefined, {
-                checkServerIdentity: (hostname, _cert) => {
-                    console.log(`GRPC Proxy Processor checking hostname ${hostname}`);
-                    return undefined;
-                }
-            })
+            this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, 
+            // Grpc.credentials.createSsl(undefined, undefined, undefined, {
+            //     checkServerIdentity: (hostname, _cert) =>
+            //     {
+            //         console.log(`GRPC Proxy Processor checking hostname ${hostname}`);
+            //         return undefined;
+            //     }
+            // })
+            Grpc.credentials.createSsl()
             // {
             //     "grpc.ssl_target_name_override": grpcCertDomain,
             //     "grpc.default_authority": grpcCertDomain
