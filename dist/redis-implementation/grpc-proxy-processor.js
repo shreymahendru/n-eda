@@ -6,8 +6,8 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const processor_1 = require("./processor");
 const Path = require("path");
-const Grpc = require("grpc");
-// import * as Grpc from "@grpc/grpc-js";
+// import * as Grpc from "grpc";
+const Grpc = require("@grpc/grpc-js");
 const ProtoLoader = require("@grpc/proto-loader");
 const n_config_1 = require("@nivinjoseph/n-config");
 class GrpcProxyProcessor extends processor_1.Processor {
@@ -46,15 +46,10 @@ class GrpcProxyProcessor extends processor_1.Processor {
             //     }
             // );
             const creds = Grpc.credentials.createSsl();
-            // @ts-expect-error: i know
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             const origConnectionOptions = creds._getConnectionOptions.bind(creds);
-            // @ts-expect-error: i know
             creds._getConnectionOptions = function () {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 const connOptions = origConnectionOptions();
                 connOptions.rejectUnauthorized = false;
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
                 return connOptions;
             };
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
