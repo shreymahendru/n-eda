@@ -45,6 +45,18 @@ class GrpcProxyProcessor extends processor_1.Processor {
             //         "grpc.default_authority": grpcCertDomain
             //     }
             // );
+            const creds = Grpc.credentials.createSsl();
+            // @ts-expect-error: i know
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            const origConnectionOptions = creds._getConnectionOptions.bind(creds);
+            // @ts-expect-error: i know
+            creds._getConnectionOptions = function () {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                const connOptions = origConnectionOptions();
+                connOptions.rejectUnauthorized = false;
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return connOptions;
+            };
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             this._grpcClient = new serviceDef.EdaService(`${manager.grpcDetails.host}:${manager.grpcDetails.port}`, 
             // Grpc.credentials.createSsl(undefined, undefined, undefined, {
@@ -54,7 +66,7 @@ class GrpcProxyProcessor extends processor_1.Processor {
             //         return undefined;
             //     }
             // })
-            Grpc.credentials.createSsl()
+            creds
             // {
             //     "grpc.ssl_target_name_override": grpcCertDomain,
             //     "grpc.default_authority": grpcCertDomain
