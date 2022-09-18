@@ -15,7 +15,7 @@ import { Broker } from "./broker";
 export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
-    private readonly _defaultDelayMS = 200;
+    private readonly _defaultDelayMS = 100;
     private readonly _client: Redis.RedisClient;
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
@@ -165,16 +165,19 @@ export class Consumer implements Disposable
                         continue;
                     }
 
-                    const event = await this._decompressEvent(eventData);
-                    const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
-                    const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
-                    const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
-                    // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
-                    const deserializedEvent = Deserializer.deserialize<EdaEvent>(event);
+                    const events = await this._decompressEvents(eventData);
+                    for (const event of events)
+                    {
+                        const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
+                        const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
+                        const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
+                        // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
+                        const deserializedEvent = Deserializer.deserialize<EdaEvent>(event);
 
-                    routed.push(
-                        this._attemptRoute(
-                            eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
+                        routed.push(
+                            this._attemptRoute(
+                                eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));    
+                    }
                 }
                 
                 await Promise.all(routed);
@@ -392,21 +395,24 @@ export class Consumer implements Disposable
     
     private async _saveTrackedKeys(): Promise<void>
     {
-        await new Promise<void>((resolve, reject) =>
+        if (this._keysToTrack.isNotEmpty)
         {
-            this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) =>
+            await new Promise<void>((resolve, reject) =>
             {
-                if (err)
+                this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) =>
                 {
-                    reject(err);
-                    return;
-                }
+                    if (err)
+                    {
+                        reject(err);
+                        return;
+                    }
 
-                resolve();
+                    resolve();
+                });
             });
-        });
         
-        this._keysToTrack = new Array<string>();
+            this._keysToTrack = new Array<string>();
+        }
         
         if (this._isDisposed)
             return;
@@ -521,11 +527,11 @@ export class Consumer implements Disposable
     //     return MessagePack.unpack(decompressed);
     // }
     
-    private async _decompressEvent(eventData: Buffer): Promise<object>
+    private async _decompressEvents(eventData: Buffer): Promise<Array<object>>
     {
         const decompressed = await Make.callbackToPromise<Buffer>(Zlib.inflateRaw)(eventData);
 
-        return JSON.parse(decompressed.toString("utf8")) as object;
+        return JSON.parse(decompressed.toString("utf8")) as Array<object>;
     }
     
     private async _removeKeys(keys: ReadonlyArray<string>): Promise<void>
