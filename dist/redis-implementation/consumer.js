@@ -13,7 +13,7 @@ const broker_1 = require("./broker");
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
         this._edaPrefix = "n-eda";
-        this._defaultDelayMS = 200;
+        this._defaultDelayMS = 100;
         this._isDisposed = false;
         this._trackedKeysArray = new Array();
         this._trackedKeysSet = new Set();
@@ -106,13 +106,15 @@ class Consumer {
                             yield this._incrementConsumerPartitionReadIndex();
                             continue;
                         }
-                        const event = yield this._decompressEvent(eventData);
-                        const eventId = event.$id || event.id; // for compatibility with n-domain DomainEvent
-                        const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
-                        const eventRegistration = this._manager.eventMap.get(eventName);
-                        // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
-                        const deserializedEvent = n_util_1.Deserializer.deserialize(event);
-                        routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
+                        const events = yield this._decompressEvents(eventData);
+                        for (const event of events) {
+                            const eventId = event.$id || event.id; // for compatibility with n-domain DomainEvent
+                            const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
+                            const eventRegistration = this._manager.eventMap.get(eventName);
+                            // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
+                            const deserializedEvent = n_util_1.Deserializer.deserialize(event);
+                            routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
+                        }
                     }
                     yield Promise.all(routed);
                     yield this._saveTrackedKeys();
@@ -272,16 +274,18 @@ class Consumer {
     }
     _saveTrackedKeys() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            yield new Promise((resolve, reject) => {
-                this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    resolve();
+            if (this._keysToTrack.isNotEmpty) {
+                yield new Promise((resolve, reject) => {
+                    this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        resolve();
+                    });
                 });
-            });
-            this._keysToTrack = new Array();
+                this._keysToTrack = new Array();
+            }
             if (this._isDisposed)
                 return;
             if (this._trackedKeysSet.size >= 300) {
@@ -362,7 +366,7 @@ class Consumer {
     //     const decompressed = await Snappy.uncompress(eventData, { asBuffer: true }) as Buffer;
     //     return MessagePack.unpack(decompressed);
     // }
-    _decompressEvent(eventData) {
+    _decompressEvents(eventData) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             const decompressed = yield n_util_1.Make.callbackToPromise(Zlib.inflateRaw)(eventData);
             return JSON.parse(decompressed.toString("utf8"));

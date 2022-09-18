@@ -10,7 +10,7 @@ export declare class Producer {
     private readonly _partition;
     constructor(client: Redis.RedisClient, logger: Logger, topic: string, ttlMinutes: number, partition: number);
     produce(...events: ReadonlyArray<EdaEvent>): Promise<void>;
-    private _compressEvent;
+    private _compressEvents;
     private _incrementPartitionWriteIndex;
     private _storeEvents;
 }

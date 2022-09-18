@@ -26,30 +26,25 @@ class Producer {
             (0, n_defensive_1.given)(events, "events").ensureHasValue().ensureIsArray();
             if (events.isEmpty)
                 return;
-            const indexed = yield events.mapAsync((t) => tslib_1.__awaiter(this, void 0, void 0, function* () {
-                return ({
-                    event: t,
-                    compressed: yield this._compressEvent(t.serialize())
-                });
-            }));
+            const compressed = yield this._compressEvents(events.map(t => t.serialize()));
             try {
-                const writeIndexUpper = yield n_util_1.Make.retryWithExponentialBackoff(() => this._incrementPartitionWriteIndex(indexed.length), 5)();
-                yield n_util_1.Make.retryWithExponentialBackoff(() => this._storeEvents(writeIndexUpper, indexed.map(t => t.compressed)), 5)();
+                const writeIndex = yield n_util_1.Make.retryWithExponentialBackoff(() => this._incrementPartitionWriteIndex(), 5)();
+                yield n_util_1.Make.retryWithExponentialBackoff(() => this._storeEvents(writeIndex, compressed), 5)();
             }
             catch (error) {
-                yield this._logger.logWarning(`Error while storing ${indexed.length} events => Topic: ${this._topic}; Partition: ${this._partition};`);
+                yield this._logger.logWarning(`Error while storing ${events.length} events => Topic: ${this._topic}; Partition: ${this._partition};`);
                 yield this._logger.logError(error);
                 throw error;
             }
         });
     }
-    _compressEvent(event) {
-        return n_util_1.Make.callbackToPromise(Zlib.deflateRaw)(Buffer.from(JSON.stringify(event), "utf8"));
+    _compressEvents(events) {
+        return n_util_1.Make.callbackToPromise(Zlib.deflateRaw)(Buffer.from(JSON.stringify(events), "utf8"));
     }
-    _incrementPartitionWriteIndex(by) {
+    _incrementPartitionWriteIndex() {
         return new Promise((resolve, reject) => {
             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
-            this._client.incrby(key, by, (err, val) => {
+            this._client.incr(key, (err, val) => {
                 if (err) {
                     reject(err);
                     return;
@@ -58,16 +53,14 @@ class Producer {
             });
         });
     }
-    _storeEvents(writeIndexUpper, events) {
+    _storeEvents(writeIndex, eventData) {
         return new Promise((resolve, reject) => {
+            (0, n_defensive_1.given)(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
+            (0, n_defensive_1.given)(eventData, "eventData").ensureHasValue();
+            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
+            // const expirySeconds = 60 * 60 * 4;
             const expirySeconds = this._ttlMinutes * 60;
-            let multi = this._client.multi();
-            events.forEach((t, index) => {
-                const writeIndex = writeIndexUpper - events.length + 1 + index;
-                const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
-                multi = multi.setex(key, expirySeconds, t);
-            });
-            multi.exec((err) => {
+            this._client.setex(key, expirySeconds, eventData, (err) => {
                 if (err) {
                     reject(err);
                     return;
@@ -78,6 +71,93 @@ class Producer {
     }
 }
 exports.Producer = Producer;
+// export class Producer
+// {
+//     private readonly _edaPrefix = "n-eda";
+//     private readonly _client: Redis.RedisClient;
+//     private readonly _logger: Logger;
+//     private readonly _topic: string;
+//     private readonly _ttlMinutes: number;
+//     private readonly _partition: number;
+//     public constructor(client: Redis.RedisClient, logger: Logger, topic: string, ttlMinutes: number,
+//         partition: number)
+//     {
+//         given(client, "client").ensureHasValue().ensureIsObject();
+//         this._client = client;
+//         given(logger, "logger").ensureHasValue().ensureIsObject();
+//         this._logger = logger;
+//         given(topic, "topic").ensureHasValue().ensureIsString();
+//         this._topic = topic;
+//         given(ttlMinutes, "ttlMinutes").ensureHasValue().ensureIsNumber();
+//         this._ttlMinutes = ttlMinutes;
+//         given(partition, "partition").ensureHasValue().ensureIsNumber();
+//         this._partition = partition;
+//     }
+//     public async produce(...events: ReadonlyArray<EdaEvent>): Promise<void>
+//     {
+//         given(events, "events").ensureHasValue().ensureIsArray();
+//         if (events.isEmpty)
+//             return;
+//         const indexed = await events.mapAsync(async (t) => ({
+//             event: t,
+//             compressed: await this._compressEvent(t.serialize())
+//         }));
+//         try 
+//         {
+//             const writeIndexUpper = await Make.retryWithExponentialBackoff(() => this._incrementPartitionWriteIndex(indexed.length), 5)();
+//             await Make.retryWithExponentialBackoff(() => this._storeEvents(writeIndexUpper, indexed.map(t => t.compressed)), 5)();
+//         }
+//         catch (error)
+//         {
+//             await this._logger.logWarning(`Error while storing ${indexed.length} events => Topic: ${this._topic}; Partition: ${this._partition};`);
+//             await this._logger.logError(error as Exception);
+//             throw error;
+//         }
+//     }
+//     private _compressEvent(event: object): Promise<Buffer>
+//     {
+//         return Make.callbackToPromise<Buffer>(Zlib.deflateRaw)(Buffer.from(JSON.stringify(event), "utf8"));
+//     }
+//     private _incrementPartitionWriteIndex(by: number): Promise<number>
+//     {
+//         return new Promise((resolve, reject) =>
+//         {
+//             const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+//             this._client.incrby(key, by, (err, val) =>
+//             {
+//                 if (err)
+//                 {
+//                     reject(err);
+//                     return;
+//                 }
+//                 resolve(val);
+//             });
+//         });
+//     }
+//     private _storeEvents(writeIndexUpper: number, events: Array<any>): Promise<void>
+//     {
+//         return new Promise((resolve, reject) =>
+//         {
+//             const expirySeconds = this._ttlMinutes * 60;
+//             let multi = this._client.multi();
+//             events.forEach((t, index) =>
+//             {
+//                 const writeIndex = writeIndexUpper - events.length + 1 + index;
+//                 const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
+//                 multi = multi.setex(key, expirySeconds, t);
+//             });
+//             multi.exec((err) =>
+//             {
+//                 if (err)
+//                 {
+//                     reject(err);
+//                     return;
+//                 }
+//                 resolve();
+//             });
+//         });
+//     }
+// }
 // export class Producer
 // {
 //     private readonly _edaPrefix = "n-eda";
