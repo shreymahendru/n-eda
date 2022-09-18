@@ -536,6 +536,9 @@ export class Consumer implements Disposable
     
     private async _removeKeys(keys: ReadonlyArray<string>): Promise<void>
     {
+        if (keys.isEmpty)
+            return;
+        
         return new Promise((resolve, reject) =>
         {
             this._client.unlink(...keys, (err) =>
