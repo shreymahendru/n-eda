@@ -374,6 +374,8 @@ class Consumer {
     }
     _removeKeys(keys) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            if (keys.isEmpty)
+                return;
             return new Promise((resolve, reject) => {
                 this._client.unlink(...keys, (err) => {
                     if (err) {
