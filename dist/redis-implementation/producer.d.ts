@@ -12,5 +12,5 @@ export declare class Producer {
     produce(...events: ReadonlyArray<EdaEvent>): Promise<void>;
     private _compressEvent;
     private _incrementPartitionWriteIndex;
-    private _storeEvent;
+    private _storeEvents;
 }

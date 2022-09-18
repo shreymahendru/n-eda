@@ -13,9 +13,11 @@ const broker_1 = require("./broker");
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
         this._edaPrefix = "n-eda";
-        this._defaultDelayMS = 150;
+        this._defaultDelayMS = 200;
         this._isDisposed = false;
+        this._trackedKeysArray = new Array();
         this._trackedKeysSet = new Set();
+        this._keysToTrack = new Array();
         this._consumePromise = null;
         this._broker = null;
         (0, n_defensive_1.given)(client, "client").ensureHasValue().ensureIsObject();
@@ -61,8 +63,9 @@ class Consumer {
                 if (this._isDisposed)
                     return;
                 try {
-                    const writeIndex = yield this._fetchPartitionWriteIndex();
-                    const readIndex = yield this._fetchConsumerPartitionReadIndex();
+                    // const writeIndex = await this._fetchPartitionWriteIndex();
+                    // const readIndex = await this._fetchConsumerPartitionReadIndex();
+                    const [writeIndex, readIndex] = yield this._fetchPartitionWriteAndConsumerPartitionReadIndexes();
                     if (readIndex >= writeIndex) {
                         yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
                         continue;
@@ -112,6 +115,7 @@ class Consumer {
                         routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
                     }
                     yield Promise.all(routed);
+                    yield this._saveTrackedKeys();
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (this._isDisposed)
                         return;
@@ -154,33 +158,55 @@ class Consumer {
                 if (failed && this._isDisposed) // cuz it could have failed because things were disposed
                     // eslint-disable-next-line no-unsafe-finally
                     return;
-                yield this._track(eventKey);
+                this._track(eventKey);
             }
         });
     }
-    _fetchPartitionWriteIndex() {
-        const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+    // private _fetchPartitionWriteIndex(): Promise<number>
+    // {
+    //     const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.get(key, (err, value) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+    //             // console.log("fetchPartitionWriteIndex", JSON.parse(value!));
+    //             resolve(value != null ? JSON.parse(value) : 0);
+    //         });
+    //     });
+    // }
+    // private _fetchConsumerPartitionReadIndex(): Promise<number>
+    // {
+    //     const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.get(key, (err, value) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+    //             // console.log("fetchConsumerPartitionReadIndex", JSON.parse(value!));
+    //             resolve(value != null ? JSON.parse(value) : 0);
+    //         });
+    //     });
+    // }
+    _fetchPartitionWriteAndConsumerPartitionReadIndexes() {
+        const partitionWriteIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+        const consumerPartitionReadIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         return new Promise((resolve, reject) => {
-            this._client.get(key, (err, value) => {
+            this._client.mget(partitionWriteIndexKey, consumerPartitionReadIndexKey, (err, results) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-                // console.log("fetchPartitionWriteIndex", JSON.parse(value!));
-                resolve(value != null ? JSON.parse(value) : 0);
-            });
-        });
-    }
-    _fetchConsumerPartitionReadIndex() {
-        const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
-        return new Promise((resolve, reject) => {
-            this._client.get(key, (err, value) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                // console.log("fetchConsumerPartitionReadIndex", JSON.parse(value!));
-                resolve(value != null ? JSON.parse(value) : 0);
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                resolve(results.map(value => value != null ? JSON.parse(value) : 0));
             });
         });
     }
@@ -240,34 +266,69 @@ class Consumer {
         });
     }
     _track(eventKey) {
+        this._trackedKeysSet.add(eventKey);
+        this._trackedKeysArray.push(eventKey);
+        this._keysToTrack.push(eventKey);
+    }
+    _saveTrackedKeys() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            this._trackedKeysSet.add(eventKey);
-            yield this._saveTrackedKey(eventKey);
+            yield new Promise((resolve, reject) => {
+                this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                });
+            });
+            this._keysToTrack = new Array();
+            if (this._isDisposed)
+                return;
             if (this._trackedKeysSet.size >= 300) {
-                const trackedKeysArray = [...this._trackedKeysSet.values()];
-                this._trackedKeysSet = new Set(trackedKeysArray.skip(200));
+                this._trackedKeysSet = new Set(this._trackedKeysArray.skip(200));
                 if (this._cleanKeys) {
-                    const erasedKeys = trackedKeysArray.take(200);
+                    const erasedKeys = this._trackedKeysArray.take(200);
                     yield this._removeKeys(erasedKeys);
                 }
+                this._trackedKeysArray = this._trackedKeysArray.skip(200);
                 yield this._purgeTrackedKeys();
             }
         });
     }
-    _saveTrackedKey(key) {
-        return new Promise((resolve, reject) => {
-            this._client.lpush(this._trackedKeysKey, key, (err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            });
-        });
-    }
+    // private async _track(eventKey: string): Promise<void>
+    // {
+    //     this._trackedKeysSet.add(eventKey);
+    //     await this._saveTrackedKey(eventKey);
+    //     if (this._trackedKeysSet.size >= 300)
+    //     {
+    //         const trackedKeysArray = [...this._trackedKeysSet.values()];
+    //         this._trackedKeysSet = new Set<string>(trackedKeysArray.skip(200));
+    //         if (this._cleanKeys)
+    //         {
+    //             const erasedKeys = trackedKeysArray.take(200);
+    //             await this._removeKeys(erasedKeys);
+    //         }
+    //         await this._purgeTrackedKeys();
+    //     }
+    // }
+    // private _saveTrackedKey(key: string): Promise<void>
+    // {
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.lpush(this._trackedKeysKey, key, (err) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+    //             resolve();
+    //         });
+    //     });
+    // }
     _purgeTrackedKeys() {
         return new Promise((resolve, reject) => {
-            this._client.ltrim(this._trackedKeysKey, 0, 300, (err) => {
+            this._client.ltrim(this._trackedKeysKey, 0, 200, (err) => {
                 if (err) {
                     reject(err);
                     return;

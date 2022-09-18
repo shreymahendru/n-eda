@@ -15,7 +15,9 @@ export declare class Consumer implements Disposable {
     private readonly _trackedKeysKey;
     private readonly _flush;
     private _isDisposed;
+    private _trackedKeysArray;
     private _trackedKeysSet;
+    private _keysToTrack;
     private _consumePromise;
     private _broker;
     get id(): string;
@@ -25,13 +27,12 @@ export declare class Consumer implements Disposable {
     dispose(): Promise<void>;
     private _beginConsume;
     private _attemptRoute;
-    private _fetchPartitionWriteIndex;
-    private _fetchConsumerPartitionReadIndex;
+    private _fetchPartitionWriteAndConsumerPartitionReadIndexes;
     private _incrementConsumerPartitionReadIndex;
     private _retrieveEvent;
     private _batchRetrieveEvents;
     private _track;
-    private _saveTrackedKey;
+    private _saveTrackedKeys;
     private _purgeTrackedKeys;
     private _loadTrackedKeys;
     private _decompressEvent;
