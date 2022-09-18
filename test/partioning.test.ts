@@ -3,7 +3,7 @@ import * as Assert from "assert";
 import * as MurmurHash from "murmurhash3js";
 
 
-suite("Partitioning tests", () =>
+suite.skip("Partitioning tests", () =>
 {
     const numPartitions = 1000;
     

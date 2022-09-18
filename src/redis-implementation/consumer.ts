@@ -15,7 +15,7 @@ import { Broker } from "./broker";
 export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
-    private readonly _defaultDelayMS = 150;
+    private readonly _defaultDelayMS = 200;
     private readonly _client: Redis.RedisClient;
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
@@ -27,7 +27,9 @@ export class Consumer implements Disposable
     private readonly _flush: boolean;
     
     private _isDisposed = false;
+    private _trackedKeysArray = new Array<string>();
     private _trackedKeysSet = new Set<string>();
+    private _keysToTrack = new Array<string>();
     private _consumePromise: Promise<void> | null = null;
     private _broker: Broker = null as any;
     
@@ -101,8 +103,10 @@ export class Consumer implements Disposable
 
             try 
             {
-                const writeIndex = await this._fetchPartitionWriteIndex();
-                const readIndex = await this._fetchConsumerPartitionReadIndex();
+                // const writeIndex = await this._fetchPartitionWriteIndex();
+                // const readIndex = await this._fetchConsumerPartitionReadIndex();
+                
+                const [writeIndex, readIndex] = await this._fetchPartitionWriteAndConsumerPartitionReadIndexes();
                 
                 if (readIndex >= writeIndex)
                 {
@@ -175,6 +179,8 @@ export class Consumer implements Disposable
                 
                 await Promise.all(routed);
                 
+                await this._saveTrackedKeys();
+                
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (this._isDisposed)
                     return;
@@ -224,38 +230,60 @@ export class Consumer implements Disposable
                 // eslint-disable-next-line no-unsafe-finally
                 return;
 
-            await this._track(eventKey);
+            this._track(eventKey);
         }
     }
     
-    private _fetchPartitionWriteIndex(): Promise<number>
-    {
-        const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+    // private _fetchPartitionWriteIndex(): Promise<number>
+    // {
+    //     const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
         
-        return new Promise((resolve, reject) =>
-        {
-            this._client.get(key, (err, value) =>
-            {
-                if (err)
-                {
-                    reject(err);
-                    return;
-                }
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.get(key, (err, value) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
                 
-                // console.log("fetchPartitionWriteIndex", JSON.parse(value!));
+    //             // console.log("fetchPartitionWriteIndex", JSON.parse(value!));
 
-                resolve(value != null ? JSON.parse(value) : 0);
-            });
-        });
-    }
+    //             resolve(value != null ? JSON.parse(value) : 0);
+    //         });
+    //     });
+    // }
     
-    private _fetchConsumerPartitionReadIndex(): Promise<number>
+    // private _fetchConsumerPartitionReadIndex(): Promise<number>
+    // {
+    //     const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+        
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.get(key, (err, value) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+                
+    //             // console.log("fetchConsumerPartitionReadIndex", JSON.parse(value!));
+
+    //             resolve(value != null ? JSON.parse(value) : 0);
+    //         });
+    //     });
+    // }
+    
+    private _fetchPartitionWriteAndConsumerPartitionReadIndexes(): Promise<Array<number>>
     {
-        const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+        const partitionWriteIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+        const consumerPartitionReadIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
         
         return new Promise((resolve, reject) =>
         {
-            this._client.get(key, (err, value) =>
+            this._client.mget(partitionWriteIndexKey, consumerPartitionReadIndexKey, (err, results) =>
             {
                 if (err)
                 {
@@ -263,11 +291,12 @@ export class Consumer implements Disposable
                     return;
                 }
                 
-                // console.log("fetchConsumerPartitionReadIndex", JSON.parse(value!));
-
-                resolve(value != null ? JSON.parse(value) : 0);
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                resolve(results.map(value => value != null ? JSON.parse(value) as number : 0));
             });
         });
+        
+        
     }
     
     private _incrementConsumerPartitionReadIndex(index?: number): Promise<void>
@@ -354,48 +383,94 @@ export class Consumer implements Disposable
         });
     }
     
-    private async _track(eventKey: string): Promise<void>
+    private _track(eventKey: string): void
     {
         this._trackedKeysSet.add(eventKey);
-        await this._saveTrackedKey(eventKey);
-        
-        if (this._trackedKeysSet.size >= 300)
-        {
-            const trackedKeysArray = [...this._trackedKeysSet.values()];
-            this._trackedKeysSet = new Set<string>(trackedKeysArray.skip(200));
-
-            if (this._cleanKeys)
-            {
-                const erasedKeys = trackedKeysArray.take(200);
-                await this._removeKeys(erasedKeys);
-            }
-            
-            await this._purgeTrackedKeys();
-        }
+        this._trackedKeysArray.push(eventKey);
+        this._keysToTrack.push(eventKey);        
     }
     
-    private _saveTrackedKey(key: string): Promise<void>
+    private async _saveTrackedKeys(): Promise<void>
     {
-        return new Promise((resolve, reject) =>
+        await new Promise<void>((resolve, reject) =>
         {
-            this._client.lpush(this._trackedKeysKey, key, (err) =>
+            this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) =>
             {
                 if (err)
                 {
                     reject(err);
                     return;
                 }
-                
+
                 resolve();
             });
         });
+        
+        this._keysToTrack = new Array<string>();
+        
+        if (this._isDisposed)
+            return;
+        
+        if (this._trackedKeysSet.size >= 300)
+        {
+            this._trackedKeysSet = new Set<string>(this._trackedKeysArray.skip(200));
+
+            if (this._cleanKeys)
+            {
+                const erasedKeys = this._trackedKeysArray.take(200);
+                await this._removeKeys(erasedKeys);
+            }
+            
+            this._trackedKeysArray = this._trackedKeysArray.skip(200);
+
+            await this._purgeTrackedKeys();
+        }
     }
+    
+    
+    
+    // private async _track(eventKey: string): Promise<void>
+    // {
+    //     this._trackedKeysSet.add(eventKey);
+    //     await this._saveTrackedKey(eventKey);
+        
+    //     if (this._trackedKeysSet.size >= 300)
+    //     {
+    //         const trackedKeysArray = [...this._trackedKeysSet.values()];
+    //         this._trackedKeysSet = new Set<string>(trackedKeysArray.skip(200));
+
+    //         if (this._cleanKeys)
+    //         {
+    //             const erasedKeys = trackedKeysArray.take(200);
+    //             await this._removeKeys(erasedKeys);
+    //         }
+            
+    //         await this._purgeTrackedKeys();
+    //     }
+    // }
+    
+    // private _saveTrackedKey(key: string): Promise<void>
+    // {
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.lpush(this._trackedKeysKey, key, (err) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+                
+    //             resolve();
+    //         });
+    //     });
+    // }
     
     private _purgeTrackedKeys(): Promise<void>
     {
         return new Promise((resolve, reject) =>
         {
-            this._client.ltrim(this._trackedKeysKey, 0, 300, (err) =>
+            this._client.ltrim(this._trackedKeysKey, 0, 200, (err) =>
             {
                 if (err)
                 {

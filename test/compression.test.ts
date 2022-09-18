@@ -16,7 +16,7 @@ import { ConnectionOptions } from "tls";
  */
 
 
-suite.only("compression tests", () => 
+suite.skip("compression tests", () => 
 {
     const brotliOptions = { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } };
 
@@ -254,7 +254,7 @@ suite.only("compression tests", () =>
     //     Assert.ok(true);
     // });
     
-    test.only("grpc", () =>
+    test("grpc", () =>
     {
         const creds = Grpc.credentials.createSsl();
         const origConnectionOptions = creds._getConnectionOptions.bind(creds);
