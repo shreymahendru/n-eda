@@ -76,7 +76,7 @@ export abstract class Processor implements Disposable
     {
         const workItem = this._currentWorkItem!;
 
-        const maxProcessAttempts = 5;
+        const maxProcessAttempts = 10;
         let numProcessAttempts = 0;
         let successful = false;
         try 
@@ -104,7 +104,7 @@ export abstract class Processor implements Disposable
                     if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
                         throw error;
                     else
-                        await Delay.milliseconds(100 * numProcessAttempts);
+                        await Delay.seconds(2 * numProcessAttempts);
                 }
             }
         }
