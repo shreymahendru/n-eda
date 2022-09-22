@@ -12,7 +12,7 @@ import { Exception } from "@nivinjoseph/n-exception";
 
 export class Producer
 {
-    private readonly _edaPrefix = "{n-eda}";
+    private readonly _edaPrefix = "n-eda";
     private readonly _client: Redis;
     private readonly _logger: Logger;
     private readonly _topic: string;
@@ -70,7 +70,7 @@ export class Producer
     {
         return new Promise((resolve, reject) =>
         {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+            const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`;
 
             this._client.incr(key, (err, val) =>
             {
@@ -87,26 +87,26 @@ export class Producer
     
     private _storeEvents(writeIndex: number, eventData: Buffer): Promise<void>
     {
-            return new Promise((resolve, reject) =>
+        return new Promise((resolve, reject) =>
+        {
+            given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
+            given(eventData, "eventData").ensureHasValue();
+
+            const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
+            // const expirySeconds = 60 * 60 * 4;
+            const expirySeconds = this._ttlMinutes * 60;
+
+            this._client.setex(key, expirySeconds, eventData, (err) =>
             {
-                given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-                given(eventData, "eventData").ensureHasValue();
-
-                const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
-                // const expirySeconds = 60 * 60 * 4;
-                const expirySeconds = this._ttlMinutes * 60;
-
-                this._client.setex(key, expirySeconds, eventData, (err) =>
+                if (err)
                 {
-                    if (err)
-                    {
-                        reject(err);
-                        return;
-                    }
+                    reject(err);
+                    return;
+                }
 
-                    resolve();
-                }).catch(e => reject(e));
-            });
+                resolve();
+            }).catch(e => reject(e));
+        });
     }
 
     // private _storeEvents(writeIndexUpper: number, events: Array<any>): Promise<void>

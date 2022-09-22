@@ -15,7 +15,7 @@ import { Broker } from "./broker";
 
 export class Consumer implements Disposable
 {
-    private readonly _edaPrefix = "{n-eda}";
+    private readonly _edaPrefix = "n-eda";
     private readonly _defaultDelayMS = 100;
     private readonly _client: Redis;
     private readonly _manager: EdaManager;
@@ -58,7 +58,7 @@ export class Consumer implements Disposable
         
         this._cleanKeys = this._manager.cleanKeys;
         
-        this._trackedKeysKey = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+        this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         
         given(flush, "flush").ensureHasValue().ensureIsBoolean();
         this._flush = flush;
@@ -282,8 +282,8 @@ export class Consumer implements Disposable
     
     private _fetchPartitionWriteAndConsumerPartitionReadIndexes(): Promise<Array<number>>
     {
-        const partitionWriteIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
-        const consumerPartitionReadIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+        const partitionWriteIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`;
+        const consumerPartitionReadIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
         
         return new Promise((resolve, reject) =>
         {
@@ -305,7 +305,7 @@ export class Consumer implements Disposable
     
     private _incrementConsumerPartitionReadIndex(index?: number): Promise<void>
     {
-        const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+        const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
         
         if (index != null)
         {
@@ -364,7 +364,7 @@ export class Consumer implements Disposable
             const keys = new Array<{ index: number; key: string; }>();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++)
             {
-                const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${i}`;
+                const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${i}`;
                 keys.push({index: i, key});
             }
             
