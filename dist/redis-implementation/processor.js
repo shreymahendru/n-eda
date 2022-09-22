@@ -49,7 +49,7 @@ class Processor {
     _process() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             const workItem = this._currentWorkItem;
-            const maxProcessAttempts = 5;
+            const maxProcessAttempts = 10;
             let numProcessAttempts = 0;
             let successful = false;
             try {
@@ -70,7 +70,7 @@ class Processor {
                         if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
                             throw error;
                         else
-                            yield n_util_1.Delay.milliseconds(100 * numProcessAttempts);
+                            yield n_util_1.Delay.seconds(2 * numProcessAttempts);
                     }
                 }
             }
