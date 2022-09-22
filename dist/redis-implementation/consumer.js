@@ -12,7 +12,7 @@ const broker_1 = require("./broker");
 // import * as Snappy from "snappy";
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
-        this._edaPrefix = "{n-eda}";
+        this._edaPrefix = "n-eda";
         this._defaultDelayMS = 100;
         this._isDisposed = false;
         this._trackedKeysArray = new Array();
@@ -31,7 +31,7 @@ class Consumer {
         this._partition = partition;
         this._id = `${this._topic}-${this._partition}`;
         this._cleanKeys = this._manager.cleanKeys;
-        this._trackedKeysKey = `${this._edaPrefix}-${this._topic}-${this._partition}-tracked_keys`;
+        this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         (0, n_defensive_1.given)(flush, "flush").ensureHasValue().ensureIsBoolean();
         this._flush = flush;
     }
@@ -199,8 +199,8 @@ class Consumer {
     //     });
     // }
     _fetchPartitionWriteAndConsumerPartitionReadIndexes() {
-        const partitionWriteIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
-        const consumerPartitionReadIndexKey = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+        const partitionWriteIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`;
+        const consumerPartitionReadIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
         return new Promise((resolve, reject) => {
             this._client.mget(partitionWriteIndexKey, consumerPartitionReadIndexKey, (err, results) => {
                 if (err) {
@@ -213,7 +213,7 @@ class Consumer {
         });
     }
     _incrementConsumerPartitionReadIndex(index) {
-        const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${this._manager.consumerGroupId}-read-index`;
+        const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
         if (index != null) {
             return new Promise((resolve, reject) => {
                 this._client.set(key, index.toString(), (err) => {
@@ -250,7 +250,7 @@ class Consumer {
         return new Promise((resolve, reject) => {
             const keys = new Array();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++) {
-                const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${i}`;
+                const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${i}`;
                 keys.push({ index: i, key });
             }
             this._client.mgetBuffer(...keys.map(t => t.key), (err, values) => {

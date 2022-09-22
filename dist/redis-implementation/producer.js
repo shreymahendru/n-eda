@@ -9,7 +9,7 @@ const Zlib = require("zlib");
 // import * as Snappy from "snappy";
 class Producer {
     constructor(client, logger, topic, ttlMinutes, partition) {
-        this._edaPrefix = "{n-eda}";
+        this._edaPrefix = "n-eda";
         (0, n_defensive_1.given)(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
         (0, n_defensive_1.given)(logger, "logger").ensureHasValue().ensureIsObject();
@@ -43,7 +43,7 @@ class Producer {
     }
     _incrementPartitionWriteIndex() {
         return new Promise((resolve, reject) => {
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-write-index`;
+            const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`;
             this._client.incr(key, (err, val) => {
                 if (err) {
                     reject(err);
@@ -57,7 +57,7 @@ class Producer {
         return new Promise((resolve, reject) => {
             (0, n_defensive_1.given)(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
             (0, n_defensive_1.given)(eventData, "eventData").ensureHasValue();
-            const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${writeIndex}`;
+            const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
             // const expirySeconds = 60 * 60 * 4;
             const expirySeconds = this._ttlMinutes * 60;
             this._client.setex(key, expirySeconds, eventData, (err) => {
