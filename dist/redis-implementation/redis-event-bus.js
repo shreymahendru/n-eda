@@ -5,7 +5,8 @@ const tslib_1 = require("tslib");
 const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
-const Redis = require("redis");
+// import * as Redis from "redis";
+const ioredis_1 = require("ioredis");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const producer_1 = require("./producer");
 const n_util_1 = require("@nivinjoseph/n-util");
@@ -76,7 +77,7 @@ let RedisEventBus = class RedisEventBus {
 };
 RedisEventBus = tslib_1.__decorate([
     (0, n_ject_1.inject)("EdaRedisClient"),
-    tslib_1.__metadata("design:paramtypes", [Redis.RedisClient])
+    tslib_1.__metadata("design:paramtypes", [ioredis_1.default])
 ], RedisEventBus);
 exports.RedisEventBus = RedisEventBus;
 //# sourceMappingURL=redis-event-bus.js.map

@@ -1,6 +1,6 @@
 import { EventSubMgr } from "../event-sub-mgr";
 import { EdaManager } from "../eda-manager";
-import * as Redis from "redis";
+import Redis from "ioredis";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
@@ -12,7 +12,7 @@ export declare class RedisEventSubMgr implements EventSubMgr {
     private _disposePromise;
     private _manager;
     private _isConsuming;
-    constructor(redisClient: Redis.RedisClient, logger: Logger);
+    constructor(redisClient: Redis, logger: Logger);
     initialize(manager: EdaManager): void;
     consume(): Promise<void>;
     dispose(): Promise<void>;

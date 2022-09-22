@@ -3,7 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RedisEventSubMgr = void 0;
 const tslib_1 = require("tslib");
 const eda_manager_1 = require("../eda-manager");
-const Redis = require("redis");
+// import * as Redis from "redis";
+const ioredis_1 = require("ioredis");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const consumer_1 = require("./consumer");
 const n_util_1 = require("@nivinjoseph/n-util");
@@ -95,7 +96,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
 };
 RedisEventSubMgr = tslib_1.__decorate([
     (0, n_ject_1.inject)("EdaRedisClient", "Logger"),
-    tslib_1.__metadata("design:paramtypes", [Redis.RedisClient, Object])
+    tslib_1.__metadata("design:paramtypes", [ioredis_1.default, Object])
 ], RedisEventSubMgr);
 exports.RedisEventSubMgr = RedisEventSubMgr;
 //# sourceMappingURL=redis-event-sub-mgr.js.map

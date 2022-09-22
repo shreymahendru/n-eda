@@ -50,7 +50,7 @@ class Producer {
                     return;
                 }
                 resolve(val);
-            });
+            }).catch(e => reject(e));
         });
     }
     _storeEvents(writeIndex, eventData) {
@@ -66,7 +66,7 @@ class Producer {
                     return;
                 }
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
 }

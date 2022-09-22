@@ -209,7 +209,7 @@ class Consumer {
                 }
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 resolve(results.map(value => value != null ? JSON.parse(value) : 0));
-            });
+            }).catch(e => reject(e));
         });
     }
     _incrementConsumerPartitionReadIndex(index) {
@@ -222,7 +222,7 @@ class Consumer {
                         return;
                     }
                     resolve();
-                });
+                }).catch(e => reject(e));
             });
         }
         return new Promise((resolve, reject) => {
@@ -232,18 +232,18 @@ class Consumer {
                     return;
                 }
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
     _retrieveEvent(key) {
         return new Promise((resolve, reject) => {
-            this._client.get(key, (err, value) => {
+            this._client.getBuffer(key, (err, value) => {
                 if (err) {
                     reject(err);
                     return;
                 }
                 resolve(value);
-            });
+            }).catch(e => reject(e));
         });
     }
     _batchRetrieveEvents(lowerBoundIndex, upperBoundIndex) {
@@ -253,7 +253,7 @@ class Consumer {
                 const key = `${this._edaPrefix}-${this._topic}-${this._partition}-${i}`;
                 keys.push({ index: i, key });
             }
-            this._client.mget(...keys.map(t => t.key), (err, values) => {
+            this._client.mgetBuffer(...keys.map(t => t.key), (err, values) => {
                 if (err) {
                     reject(err);
                     return;
@@ -264,7 +264,7 @@ class Consumer {
                     value: t
                 }));
                 resolve(result);
-            });
+            }).catch(e => reject(e));
         });
     }
     _track(eventKey) {
@@ -276,13 +276,13 @@ class Consumer {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             if (this._keysToTrack.isNotEmpty) {
                 yield new Promise((resolve, reject) => {
-                    this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) => {
+                    this._client.lpush(this._trackedKeysKey, ...this._keysToTrack, (err) => {
                         if (err) {
                             reject(err);
                             return;
                         }
                         resolve();
-                    });
+                    }).catch(e => reject(e));
                 });
                 this._keysToTrack = new Array();
             }
@@ -338,7 +338,7 @@ class Consumer {
                     return;
                 }
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
     _loadTrackedKeys() {
@@ -352,7 +352,7 @@ class Consumer {
                 // console.log(keys);
                 this._trackedKeysSet = new Set(keys);
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
     // private async _decompressEvent(eventData: Buffer): Promise<object>
@@ -383,7 +383,7 @@ class Consumer {
                         return;
                     }
                     resolve();
-                });
+                }).catch(e => reject(e));
             });
         });
     }
