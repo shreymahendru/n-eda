@@ -3,7 +3,8 @@ import { EdaManager } from "../eda-manager";
 import { EdaEvent } from "../eda-event";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { given } from "@nivinjoseph/n-defensive";
-import * as Redis from "redis";
+// import * as Redis from "redis";
+import Redis from "ioredis";
 import { Logger } from "@nivinjoseph/n-log";
 import { inject } from "@nivinjoseph/n-ject";
 import { Producer } from "./producer";
@@ -14,7 +15,7 @@ import { ConfigurationManager } from "@nivinjoseph/n-config";
 @inject("EdaRedisClient")
 export class RedisEventBus implements EventBus
 {
-    private readonly _client: Redis.RedisClient;
+    private readonly _client: Redis;
     private readonly _producers = new Map<string, Producer>();
     
     
@@ -24,7 +25,7 @@ export class RedisEventBus implements EventBus
     private _logger: Logger = null as any;
     
     
-    public constructor(redisClient: Redis.RedisClient)
+    public constructor(redisClient: Redis)
     {
         given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
         this._client = redisClient;

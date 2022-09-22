@@ -1,6 +1,7 @@
 import { EventSubMgr } from "../event-sub-mgr";
 import { EdaManager } from "../eda-manager";
-import * as Redis from "redis";
+// import * as Redis from "redis";
+import Redis from "ioredis";
 import { given } from "@nivinjoseph/n-defensive";
 import { Consumer } from "./consumer";
 import { Delay } from "@nivinjoseph/n-util";
@@ -21,7 +22,7 @@ import { GrpcProxyProcessor } from "./grpc-proxy-processor";
 @inject("EdaRedisClient", "Logger")
 export class RedisEventSubMgr implements EventSubMgr
 {
-    private readonly _client: Redis.RedisClient;
+    private readonly _client: Redis;
     // @ts-expect-error: not used atm
     private readonly _logger: Logger;
     private readonly _brokers = new Array<Broker>();
@@ -32,7 +33,7 @@ export class RedisEventSubMgr implements EventSubMgr
     private _isConsuming = false;
     
     
-    public constructor(redisClient: Redis.RedisClient, logger: Logger)
+    public constructor(redisClient: Redis, logger: Logger)
     {
         given(redisClient, "redisClient").ensureHasValue().ensureIsObject();
         this._client = redisClient;

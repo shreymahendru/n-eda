@@ -1,6 +1,7 @@
 import { Disposable, Delay, Deserializer, Make } from "@nivinjoseph/n-util";
 import { given } from "@nivinjoseph/n-defensive";
-import * as Redis from "redis";
+// import * as Redis from "redis";
+import Redis from "ioredis";
 import { EdaManager } from "../eda-manager";
 import { EventRegistration } from "../event-registration";
 import { EdaEvent } from "../eda-event";
@@ -16,7 +17,7 @@ export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
     private readonly _defaultDelayMS = 100;
-    private readonly _client: Redis.RedisClient;
+    private readonly _client: Redis;
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
     private readonly _topic: string;
@@ -37,7 +38,7 @@ export class Consumer implements Disposable
     public get id(): string { return this._id; }
     
     
-    public constructor(client: Redis.RedisClient, manager: EdaManager, topic: string, partition: number, flush = false)
+    public constructor(client: Redis, manager: EdaManager, topic: string, partition: number, flush = false)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
@@ -295,8 +296,8 @@ export class Consumer implements Disposable
                 }
                 
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                resolve(results.map(value => value != null ? JSON.parse(value) as number : 0));
-            });
+                resolve(results!.map(value => value != null ? JSON.parse(value) as number : 0));
+            }).catch(e => reject(e));
         });
         
         
@@ -319,7 +320,7 @@ export class Consumer implements Disposable
                     }
 
                     resolve();
-                });
+                }).catch(e => reject(e));
             });
         }        
         
@@ -334,7 +335,7 @@ export class Consumer implements Disposable
                 }
 
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
     
@@ -342,7 +343,7 @@ export class Consumer implements Disposable
     {
         return new Promise((resolve, reject) =>
         {
-            this._client.get(key, (err, value) =>
+            this._client.getBuffer(key, (err, value) =>
             {
                 if (err)
                 {
@@ -350,8 +351,8 @@ export class Consumer implements Disposable
                     return;
                 }
 
-                resolve(value as unknown as Buffer);
-            });
+                resolve(value!);
+            }).catch(e => reject(e));
         });
     }
     
@@ -367,7 +368,7 @@ export class Consumer implements Disposable
                 keys.push({index: i, key});
             }
             
-            this._client.mget(...keys.map(t => t.key), (err, values) =>
+            this._client.mgetBuffer(...keys.map(t => t.key), (err, values) =>
             {
                 if (err)
                 {
@@ -375,14 +376,14 @@ export class Consumer implements Disposable
                     return;
                 }
                 
-                const result = values.map((t, index) => ({
+                const result = values!.map((t, index) => ({
                     index: keys[index].index,
                     key: keys[index].key,
-                    value: t as unknown as Buffer
+                    value: t!
                 }));
                 
                 resolve(result);
-            });
+            }).catch(e => reject(e));
         });
     }
     
@@ -399,7 +400,7 @@ export class Consumer implements Disposable
         {
             await new Promise<void>((resolve, reject) =>
             {
-                this._client.lpush(this._trackedKeysKey, this._keysToTrack, (err) =>
+                this._client.lpush(this._trackedKeysKey, ...this._keysToTrack, (err) =>
                 {
                     if (err)
                     {
@@ -408,7 +409,7 @@ export class Consumer implements Disposable
                     }
 
                     resolve();
-                });
+                }).catch(e => reject(e));
             });
         
             this._keysToTrack = new Array<string>();
@@ -485,7 +486,7 @@ export class Consumer implements Disposable
                 }
 
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
     
@@ -501,14 +502,14 @@ export class Consumer implements Disposable
                     return;
                 }    
                 
-                keys = keys.reverse().map(t => (t as unknown as Buffer).toString("utf8"));
+                keys = keys!.reverse().map(t => (t as unknown as Buffer).toString("utf8"));
                 
                 // console.log(keys);
                 
                 this._trackedKeysSet = new Set<string>(keys);
 
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
     
@@ -550,7 +551,7 @@ export class Consumer implements Disposable
                 }
 
                 resolve();
-            });
+            }).catch(e => reject(e));
         });
     }
 }

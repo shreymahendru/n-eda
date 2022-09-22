@@ -1,6 +1,7 @@
 import { Make } from "@nivinjoseph/n-util";
 import { given } from "@nivinjoseph/n-defensive";
-import * as Redis from "redis";
+// import * as Redis from "redis";
+import Redis from "ioredis";
 import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
 import * as Zlib from "zlib";
@@ -12,14 +13,14 @@ import { Exception } from "@nivinjoseph/n-exception";
 export class Producer
 {
     private readonly _edaPrefix = "n-eda";
-    private readonly _client: Redis.RedisClient;
+    private readonly _client: Redis;
     private readonly _logger: Logger;
     private readonly _topic: string;
     private readonly _ttlMinutes: number;
     private readonly _partition: number;
 
 
-    public constructor(client: Redis.RedisClient, logger: Logger, topic: string, ttlMinutes: number,
+    public constructor(client: Redis, logger: Logger, topic: string, ttlMinutes: number,
         partition: number)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
@@ -79,8 +80,8 @@ export class Producer
                     return;
                 }
 
-                resolve(val);
-            });
+                resolve(val!);
+            }).catch(e => reject(e));
         });
     }
     
@@ -95,7 +96,7 @@ export class Producer
                 // const expirySeconds = 60 * 60 * 4;
                 const expirySeconds = this._ttlMinutes * 60;
 
-                this._client.setex(key, expirySeconds, eventData as any, (err) =>
+                this._client.setex(key, expirySeconds, eventData, (err) =>
                 {
                     if (err)
                     {
@@ -104,7 +105,7 @@ export class Producer
                     }
 
                     resolve();
-                });
+                }).catch(e => reject(e));
             });
     }
 

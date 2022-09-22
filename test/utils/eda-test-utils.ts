@@ -2,7 +2,8 @@ import { given } from "@nivinjoseph/n-defensive";
 import { ComponentInstaller, Container, inject, Registry } from "@nivinjoseph/n-ject";
 import { ConsoleLogger, LogDateTimeZone, Logger } from "@nivinjoseph/n-log";
 import { Delay, DisposableWrapper, Duration, Serializable, serialize } from "@nivinjoseph/n-util";
-import * as Redis from "redis";
+// import * as Redis from "redis";
+import Redis from "ioredis";
 import { EdaEventHandler } from "../../src";
 import { EdaEvent } from "../../src/eda-event";
 import { EdaManager } from "../../src/eda-manager";
@@ -36,11 +37,16 @@ class CommonComponentInstaller implements ComponentInstaller
     {
         given(registry, "registry").ensureHasValue().ensureIsObject();
         
-        const edaRedisClient = Redis.createClient({ return_buffers: true });
+        // const edaRedisClient = Redis.createClient({ return_buffers: true });
+        const edaRedisClient = new Redis();
+        
         const edaRedisClientDisposable = new DisposableWrapper(async () =>
         {
             await Delay.seconds(5);
-            await new Promise<void>((resolve, _) => edaRedisClient.quit(() => resolve()));
+            await new Promise<void>((resolve, _) =>
+            {
+                edaRedisClient.quit(() => resolve()).catch(e => console.error(e));
+            });
         });
         
         registry

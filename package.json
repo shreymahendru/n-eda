@@ -38,8 +38,7 @@
     "devDependencies": {
         "@types/mocha": "^9.1.1",
         "@types/murmurhash3js": "^3.0.2",
-        "@types/node": "^14.14.43",
-        "@types/redis": "^2.8.30",
+        "@types/node": "^16.11.59",
         "@typescript-eslint/eslint-plugin": "^5.25.0",
         "@typescript-eslint/parser": "^5.25.0",
         "eslint": "^8.15.0",
@@ -59,8 +58,8 @@
         "@nivinjoseph/n-util": "^1.0.79",
         "aws-sdk": "^2.1139.0",
         "axios": "^0.27.2",
+        "ioredis": "^5.2.3",
         "murmurhash3js": "^3.0.1",
-        "redis": "^3.1.2",
         "reflect-metadata": "^0.1.13"
     }
 }
