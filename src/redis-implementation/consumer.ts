@@ -15,7 +15,7 @@ import { Broker } from "./broker";
 
 export class Consumer implements Disposable
 {
-    private readonly _edaPrefix = "n-eda";
+    private readonly _edaPrefix = "{n-eda}";
     private readonly _defaultDelayMS = 100;
     private readonly _client: Redis;
     private readonly _manager: EdaManager;

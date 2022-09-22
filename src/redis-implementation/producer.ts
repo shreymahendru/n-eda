@@ -12,7 +12,7 @@ import { Exception } from "@nivinjoseph/n-exception";
 
 export class Producer
 {
-    private readonly _edaPrefix = "n-eda";
+    private readonly _edaPrefix = "{n-eda}";
     private readonly _client: Redis;
     private readonly _logger: Logger;
     private readonly _topic: string;
