@@ -12,7 +12,7 @@ const broker_1 = require("./broker");
 // import * as Snappy from "snappy";
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
-        this._edaPrefix = "n-eda";
+        this._edaPrefix = "{n-eda}";
         this._defaultDelayMS = 100;
         this._isDisposed = false;
         this._trackedKeysArray = new Array();

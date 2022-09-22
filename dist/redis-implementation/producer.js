@@ -9,7 +9,7 @@ const Zlib = require("zlib");
 // import * as Snappy from "snappy";
 class Producer {
     constructor(client, logger, topic, ttlMinutes, partition) {
-        this._edaPrefix = "n-eda";
+        this._edaPrefix = "{n-eda}";
         (0, n_defensive_1.given)(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
         (0, n_defensive_1.given)(logger, "logger").ensureHasValue().ensureIsObject();
