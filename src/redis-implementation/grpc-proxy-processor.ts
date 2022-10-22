@@ -7,6 +7,7 @@ import * as Path from "path";
 import * as Grpc from "@grpc/grpc-js";
 import * as ProtoLoader from "@grpc/proto-loader";
 import { ConnectionOptions } from "tls";
+import { Duration } from "@nivinjoseph/n-util";
 
 
 export class GrpcProxyProcessor extends Processor
@@ -113,13 +114,16 @@ export class GrpcProxyProcessor extends Processor
                 partition: workItem.partition,
                 eventName: workItem.eventName,
                 payload: JSON.stringify(workItem.event.serialize())
-            }, (err: any, response: any) =>
-            {
-                if (err)
-                    reject(err);
-                else
-                    resolve(response);
-            });
+            }, {
+                deadline: Date.now() + Duration.fromSeconds(90).toMilliSeconds()
+            },
+                (err: any, response: any) =>
+                {
+                    if (err)
+                        reject(err);
+                    else
+                        resolve(response);
+                });
         });
     }
 }
