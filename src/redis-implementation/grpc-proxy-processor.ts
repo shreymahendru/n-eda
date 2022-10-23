@@ -104,7 +104,7 @@ export class GrpcProxyProcessor extends Processor
     }
 
     private _invokeGRPC(workItem: WorkItem): Promise<any>
-    {
+    {     
         return new Promise((resolve, reject) =>
         {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -114,9 +114,10 @@ export class GrpcProxyProcessor extends Processor
                 partition: workItem.partition,
                 eventName: workItem.eventName,
                 payload: JSON.stringify(workItem.event.serialize())
-            }, {
-                deadline: Date.now() + Duration.fromSeconds(120).toMilliSeconds()
             },
+                // {
+                //     deadline: Date.now() + Duration.fromSeconds(120).toMilliSeconds()
+                // },
                 (err: any, response: any) =>
                 {
                     if (err)
