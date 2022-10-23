@@ -8,7 +8,6 @@ const processor_1 = require("./processor");
 const Path = require("path");
 const Grpc = require("@grpc/grpc-js");
 const ProtoLoader = require("@grpc/proto-loader");
-const n_util_1 = require("@nivinjoseph/n-util");
 class GrpcProxyProcessor extends processor_1.Processor {
     constructor(manager) {
         super(manager);
@@ -82,9 +81,11 @@ class GrpcProxyProcessor extends processor_1.Processor {
                 partition: workItem.partition,
                 eventName: workItem.eventName,
                 payload: JSON.stringify(workItem.event.serialize())
-            }, {
-                deadline: Date.now() + n_util_1.Duration.fromSeconds(120).toMilliSeconds()
-            }, (err, response) => {
+            }, 
+            // {
+            //     deadline: Date.now() + Duration.fromSeconds(120).toMilliSeconds()
+            // },
+            (err, response) => {
                 if (err)
                     reject(err);
                 else
