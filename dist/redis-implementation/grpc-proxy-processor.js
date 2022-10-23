@@ -83,7 +83,7 @@ class GrpcProxyProcessor extends processor_1.Processor {
                 eventName: workItem.eventName,
                 payload: JSON.stringify(workItem.event.serialize())
             }, {
-                deadline: Date.now() + n_util_1.Duration.fromSeconds(90).toMilliSeconds()
+                deadline: Date.now() + n_util_1.Duration.fromSeconds(120).toMilliSeconds()
             }, (err, response) => {
                 if (err)
                     reject(err);
