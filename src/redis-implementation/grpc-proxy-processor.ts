@@ -115,7 +115,7 @@ export class GrpcProxyProcessor extends Processor
                 eventName: workItem.eventName,
                 payload: JSON.stringify(workItem.event.serialize())
             }, {
-                deadline: Date.now() + Duration.fromSeconds(90).toMilliSeconds()
+                deadline: Date.now() + Duration.fromSeconds(120).toMilliSeconds()
             },
                 (err: any, response: any) =>
                 {
