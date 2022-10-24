@@ -69,6 +69,8 @@ export class TestEvent extends Serializable implements EdaEvent
     @serialize // has to be serialized for eda purposes
     public get name(): string { return (<Object>TestEvent).getTypeName(); }
     
+    public get partitionKey(): string { return this.id; }
+    
     
     public constructor(data: { id: string; })
     {
