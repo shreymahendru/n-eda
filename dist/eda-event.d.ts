@@ -1,5 +1,6 @@
 import { Serializable } from "@nivinjoseph/n-util";
 export interface EdaEvent extends Serializable {
-    id: string;
-    name: string;
+    get id(): string;
+    get name(): string;
+    get partitionKey(): string;
 }
