@@ -69,7 +69,7 @@ export class TestEvent extends Serializable implements EdaEvent
     @serialize // has to be serialized for eda purposes
     public get name(): string { return (<Object>TestEvent).getTypeName(); }
     
-    public get partitionKey(): string { return this.id; }
+    public get partitionKey(): string { return this.id.split("-")[0]; }
     
     
     public constructor(data: { id: string; })
@@ -126,11 +126,11 @@ export function createEdaManager(): EdaManager
         // .proxyToAwsLambda("testFunc")
         .useConsumerName("test")
         .registerTopics(basicTopic)
-        .usePartitionKeyMapper((event) =>
-        {
-            const id = event.id;
-            return id.contains("-") ? id.split("-")[0] : id;
-        })
+        // .usePartitionKeyMapper((event) =>
+        // {
+        //     const id = event.id;
+        //     return id.contains("-") ? id.split("-")[0] : id;
+        // })
         .registerEventHandlers(TestEventHandler)
         .registerEventBus(RedisEventBus);
     

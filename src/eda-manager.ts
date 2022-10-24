@@ -304,7 +304,7 @@ export class EdaManager implements Disposable
         given(this, "this")
             .ensure(t => !t._isBootstrapped, "bootstrapping more than once")
             .ensure(t => t._topics.length > 0, "no topics registered")
-            .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
+            // .ensure(t => !!t._partitionKeyMapper, "no partition key mapper set")
             .ensure(t => t._eventBusRegistered, "no event bus registered")
             .ensure(t => !(t._eventSubMgrRegistered && t._isAwsLambdaConsumer),
                 "cannot be both event subscriber and lambda consumer")
@@ -312,6 +312,10 @@ export class EdaManager implements Disposable
                 "cannot be both event subscriber and rpc consumer")
             .ensure(t => !(t._isAwsLambdaConsumer && t._isRpcConsumer),
                 "cannot be both lambda consumer and rpc consumer");
+                
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (this._partitionKeyMapper == null)
+            this._partitionKeyMapper = (edaEvent): string => edaEvent.partitionKey;
 
         this._topics.map(t => this._topicMap.set(t.name, t));
 
