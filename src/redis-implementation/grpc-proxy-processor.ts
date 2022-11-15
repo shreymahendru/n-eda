@@ -36,7 +36,9 @@ export class GrpcProxyProcessor extends Processor
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
         
         // const isSecure = manager.grpcDetails!.host.startsWith("https:");
-        const isSecure = manager.grpcDetails!.host !== "localhost";
+        let isSecure = manager.grpcDetails!.host !== "localhost";
+        if (manager.grpcDetails!.isSecure != null)
+            isSecure = manager.grpcDetails!.isSecure!;
         if (isSecure)
         {
             // const grpcCertDomain = ConfigurationManager.getConfig<string>("grpcCertDomain");
