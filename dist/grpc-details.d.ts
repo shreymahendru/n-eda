@@ -1,6 +1,7 @@
 export interface GrpcDetails {
     readonly host: string;
     readonly port: number;
+    readonly isSecure?: boolean;
 }
 export interface GrpcModel {
     consumerId: string;
