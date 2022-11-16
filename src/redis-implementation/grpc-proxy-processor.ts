@@ -69,6 +69,8 @@ export class GrpcProxyProcessor extends Processor
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             this._grpcClient = new (serviceDef as any).EdaService(
                 `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`, creds);
+                
+            console.log("SECURE GRPC CLIENT CREATED");
         }
         else
         {
@@ -77,6 +79,8 @@ export class GrpcProxyProcessor extends Processor
                 `${manager.grpcDetails!.host}:${manager.grpcDetails!.port}`,
                 Grpc.credentials.createInsecure()
             );
+            
+            console.log("INSECURE GRPC CLIENT CREATED");
         }
     }
 
