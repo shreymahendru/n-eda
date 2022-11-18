@@ -4,6 +4,8 @@ import { EdaManager } from "../eda-manager";
 import { WorkItem } from "./scheduler";
 export declare abstract class Processor implements Disposable {
     private readonly _manager;
+    private readonly _eventHandlerTracer;
+    private readonly _hasEventHandlerTracer;
     private readonly _logger;
     private readonly _availabilityObserver;
     private readonly _doneProcessingObserver;

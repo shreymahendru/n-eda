@@ -22,6 +22,7 @@ class EdaManager {
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
         this._cleanKeys = false;
+        this._eventHandlerTracer = null;
         this._awsLambdaDetails = null;
         this._isAwsLambdaConsumer = false;
         this._awsLambdaEventHandler = null;
@@ -56,6 +57,7 @@ class EdaManager {
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
     get cleanKeys() { return this._cleanKeys; }
+    get eventHandlerTracer() { return this._eventHandlerTracer; }
     get awsLambdaDetails() { return this._awsLambdaDetails; }
     get awsLambdaProxyEnabled() { return this._awsLambdaDetails != null; }
     get isAwsLambdaConsumer() { return this._isAwsLambdaConsumer; }
@@ -113,6 +115,14 @@ class EdaManager {
             this._eventMap.set(eventRegistration.eventTypeName, eventRegistration);
             this._container.registerScoped(eventRegistration.eventHandlerTypeName, eventRegistration.eventHandlerType);
         }
+        return this;
+    }
+    registerEventHandlerTracer(tracer) {
+        (0, n_defensive_1.given)(tracer, "tracer").ensureHasValue().ensureIsFunction();
+        (0, n_defensive_1.given)(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
+            .ensure(t => !t._eventHandlerTracer, "event handler tracer already set");
+        this._eventHandlerTracer = tracer;
         return this;
     }
     registerEventBus(eventBus) {

@@ -15,6 +15,8 @@ class Processor {
         this._isDisposed = false;
         (0, n_defensive_1.given)(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
         this._manager = manager;
+        this._eventHandlerTracer = this._manager.eventHandlerTracer;
+        this._hasEventHandlerTracer = this._eventHandlerTracer != null;
         this._logger = this._manager.serviceLocator.resolve("Logger");
     }
     get _isInitialized() {
@@ -60,7 +62,16 @@ class Processor {
                     }
                     numProcessAttempts++;
                     try {
-                        yield this.processEvent(workItem, numProcessAttempts);
+                        if (this._hasEventHandlerTracer)
+                            yield this._eventHandlerTracer({
+                                topic: workItem.topic,
+                                partition: workItem.partition,
+                                partitionKey: workItem.partitionKey,
+                                eventName: workItem.eventName,
+                                eventId: workItem.eventId
+                            }, ((npa) => () => this.processEvent(workItem, npa))(numProcessAttempts));
+                        else
+                            yield this.processEvent(workItem, numProcessAttempts);
                         successful = true;
                         workItem.deferred.resolve();
                         break;

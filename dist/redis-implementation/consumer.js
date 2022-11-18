@@ -71,8 +71,13 @@ class Consumer {
                         continue;
                     }
                     const maxRead = 50;
+                    const depth = writeIndex - readIndex;
                     const lowerBoundReadIndex = readIndex + 1;
-                    const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead - 1 : writeIndex;
+                    let upperBoundReadIndex = writeIndex;
+                    if (depth > maxRead) {
+                        upperBoundReadIndex = readIndex + maxRead - 1;
+                        yield this._logger.logWarning(`Event queue depth for ${this.id} is ${depth}.`);
+                    }
                     const eventsData = yield this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                     const routed = new Array();
                     for (const item of eventsData) {
