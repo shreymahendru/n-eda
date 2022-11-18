@@ -3,12 +3,15 @@ import { Exception, ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
 import { Delay, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
 import { EdaManager } from "../eda-manager";
+import { EventHandlerTracer } from "../event-handler-tracer";
 import { WorkItem } from "./scheduler";
 
 
 export abstract class Processor implements Disposable
 {
     private readonly _manager: EdaManager;
+    private readonly _eventHandlerTracer: EventHandlerTracer | null;
+    private readonly _hasEventHandlerTracer: boolean;
     private readonly _logger: Logger;
     private readonly _availabilityObserver = new Observer<this>("available");
     private readonly _doneProcessingObserver = new Observer<WorkItem>("done-processing");
@@ -35,6 +38,9 @@ export abstract class Processor implements Disposable
     {
         given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
         this._manager = manager;
+        
+        this._eventHandlerTracer = this._manager.eventHandlerTracer;
+        this._hasEventHandlerTracer = this._eventHandlerTracer != null;
 
         this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
     }
@@ -93,7 +99,17 @@ export abstract class Processor implements Disposable
 
                 try 
                 {
-                    await this.processEvent(workItem, numProcessAttempts);
+                    if (this._hasEventHandlerTracer)
+                        await this._eventHandlerTracer!({
+                            topic: workItem.topic,
+                            partition: workItem.partition,
+                            partitionKey: workItem.partitionKey,
+                            eventName: workItem.eventName,
+                            eventId: workItem.eventId
+                        }, ((npa: number) => () => this.processEvent(workItem, npa))(numProcessAttempts));
+                    
+                    else
+                        await this.processEvent(workItem, numProcessAttempts);
                     successful = true;
                     workItem.deferred.resolve();
                     break;

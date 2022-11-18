@@ -116,8 +116,15 @@ export class Consumer implements Disposable
                 }
 
                 const maxRead = 50;
+                const depth = writeIndex - readIndex;
                 const lowerBoundReadIndex = readIndex + 1;
-                const upperBoundReadIndex = (writeIndex - readIndex) > maxRead ? readIndex + maxRead - 1 : writeIndex;
+                let upperBoundReadIndex = writeIndex;
+                if (depth > maxRead)
+                {
+                    upperBoundReadIndex = readIndex + maxRead - 1;
+                    await this._logger.logWarning(`Event queue depth for ${this.id} is ${depth}.`);
+                }
+                
                 const eventsData = await this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                 
                 const routed = new Array<Promise<void>>();

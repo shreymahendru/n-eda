@@ -132,6 +132,14 @@ export function createEdaManager(): EdaManager
         //     return id.contains("-") ? id.split("-")[0] : id;
         // })
         .registerEventHandlers(TestEventHandler)
+        .registerEventHandlerTracer(async (eventInfo, exec) =>
+        {
+            console.log(`Starting tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
+            
+            await exec();
+            
+            console.log(`Finished tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
+        })
         .registerEventBus(RedisEventBus);
     
     container.bootstrap();

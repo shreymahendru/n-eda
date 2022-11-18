@@ -15,6 +15,7 @@ import { RpcDetails } from "./rpc-details";
 import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
 import { GrpcDetails } from "./grpc-details";
+import { EventHandlerTracer } from "./event-handler-tracer";
 
 // public
 export class EdaManager implements Disposable
@@ -33,6 +34,8 @@ export class EdaManager implements Disposable
     private _consumerName = "UNNAMED";
     private _consumerGroupId: string | null = null;
     private _cleanKeys = false;
+    
+    private _eventHandlerTracer: EventHandlerTracer | null = null;
 
     private _awsLambdaDetails: LambdaDetails | null = null;
     private _isAwsLambdaConsumer = false;
@@ -61,6 +64,8 @@ export class EdaManager implements Disposable
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     public get cleanKeys(): boolean { return this._cleanKeys; }
+    
+    public get eventHandlerTracer(): EventHandlerTracer | null { return this._eventHandlerTracer; }
 
     public get awsLambdaDetails(): LambdaDetails | null { return this._awsLambdaDetails; }
     public get awsLambdaProxyEnabled(): boolean { return this._awsLambdaDetails != null; }
@@ -171,6 +176,18 @@ export class EdaManager implements Disposable
             this._container.registerScoped(eventRegistration.eventHandlerTypeName, eventRegistration.eventHandlerType);
         }
 
+        return this;
+    }
+    
+    public registerEventHandlerTracer(tracer: EventHandlerTracer): this
+    {
+        given(tracer, "tracer").ensureHasValue().ensureIsFunction();
+        given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
+            .ensure(t => !t._eventHandlerTracer, "event handler tracer already set");
+            
+        this._eventHandlerTracer = tracer;
+        
         return this;
     }
 
