@@ -133,9 +133,9 @@ class GrpcClientInternal implements GrpcClient, Disposable
     
     
     public get id(): string { return this._id; }
-    public get isStale(): boolean { return (this._createdAt + Duration.fromHours(1).toMilliSeconds()) < Date.now(); }
-    public get isOverused(): boolean { return this._numInvocations > 10000; }
-    public get isActive(): boolean { return this._activeInvocations !== 0; }
+    public get isStale(): boolean { return (this._createdAt + Duration.fromMinutes(10).toMilliSeconds()) < Date.now(); }
+    public get isOverused(): boolean { return this._numInvocations > 1000; }
+    public get isActive(): boolean { return this._activeInvocations > 0; }
     public get isDisposed(): boolean { return this._isDisposed; }
     
     
