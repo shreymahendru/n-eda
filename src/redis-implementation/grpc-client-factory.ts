@@ -18,7 +18,7 @@ export class GrpcClientFactory
     private readonly _serviceDef: Grpc.GrpcObject | Grpc.ServiceClientConstructor | Grpc.ProtobufTypeDefinition;
     private readonly _creds: Grpc.ChannelCredentials;
     private readonly _clients = new Array<GrpcClientFacade>();
-    private readonly _disposableClients = new Array<GrpcClientInternal>();
+    // private readonly _disposableClients = new Array<GrpcClientInternal>();
     private _roundRobin = 0;
     
     
@@ -77,30 +77,30 @@ export class GrpcClientFactory
             new GrpcClientFacade(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger))),
             10);
             
-        setInterval(() =>
-        {
-            this._clients.forEach(client =>
-            {
-                if (client.internal.isOverused || client.internal.isStale)
-                {
-                    const disposable = client.internal;
-                    client.swap(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger));
-                    this._disposableClients.push(disposable);
-                }
-            });
+        // setInterval(() =>
+        // {
+        //     this._clients.forEach(client =>
+        //     {
+        //         if (client.internal.isOverused || client.internal.isStale)
+        //         {
+        //             const disposable = client.internal;
+        //             client.swap(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger));
+        //             this._disposableClients.push(disposable);
+        //         }
+        //     });
             
-        }, Duration.fromMinutes(7).toMilliSeconds()).unref();
+        // }, Duration.fromMinutes(7).toMilliSeconds()).unref();
         
-        setInterval(() =>
-        {
-            this._disposableClients.forEach(client =>
-            {
-                if (!client.isActive)
-                    client.dispose().catch(e => console.error(e));
-            });
+        // setInterval(() =>
+        // {
+        //     this._disposableClients.forEach(client =>
+        //     {
+        //         if (!client.isActive)
+        //             client.dispose().catch(e => console.error(e));
+        //     });
             
-            this._disposableClients.where(t => t.isDisposed).forEach(t => this._disposableClients.remove(t));
-        }, Duration.fromMinutes(13).toMilliSeconds()).unref();
+        //     this._disposableClients.where(t => t.isDisposed).forEach(t => this._disposableClients.remove(t));
+        // }, Duration.fromMinutes(13).toMilliSeconds()).unref();
     }
     
     
