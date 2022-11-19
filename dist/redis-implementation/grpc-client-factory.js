@@ -89,9 +89,9 @@ class GrpcClientInternal {
         this._logger = logger;
     }
     get id() { return this._id; }
-    get isStale() { return (this._createdAt + n_util_1.Duration.fromHours(1).toMilliSeconds()) < Date.now(); }
-    get isOverused() { return this._numInvocations > 10000; }
-    get isActive() { return this._activeInvocations !== 0; }
+    get isStale() { return (this._createdAt + n_util_1.Duration.fromMinutes(10).toMilliSeconds()) < Date.now(); }
+    get isOverused() { return this._numInvocations > 1000; }
+    get isActive() { return this._activeInvocations > 0; }
     get isDisposed() { return this._isDisposed; }
     process(workItem) {
         if (this._isDisposing)
