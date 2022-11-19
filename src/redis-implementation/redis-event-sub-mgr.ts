@@ -15,6 +15,7 @@ import { DefaultProcessor } from "./default-processor";
 import { AwsLambdaProxyProcessor } from "./aws-lambda-proxy-processor";
 import { RpcProxyProcessor } from "./rpc-proxy-processor";
 import { GrpcProxyProcessor } from "./grpc-proxy-processor";
+import { GrpcClientFactory } from "./grpc-client-factory";
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 
@@ -84,13 +85,18 @@ export class RedisEventSubMgr implements EventSubMgr
                 const consumers = partitions
                     .map(partition => new Consumer(this._client, this._manager, topic.name, partition, topic.flush));
                 
-                const processors: Array<Processor> = this._manager.awsLambdaProxyEnabled
-                    ? consumers.map(_ => new AwsLambdaProxyProcessor(this._manager))
-                    : this._manager.rpcProxyEnabled
-                        ? consumers.map(_ => new RpcProxyProcessor(this._manager))
-                        : this._manager.grpcProxyEnabled
-                            ? consumers.map(_ => new GrpcProxyProcessor(this._manager))
-                            : consumers.map(_ => new DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
+                let processors: Array<Processor>;
+                if (this._manager.awsLambdaProxyEnabled)
+                    processors = consumers.map(_ => new AwsLambdaProxyProcessor(this._manager));
+                else if (this._manager.rpcProxyEnabled)
+                    processors = consumers.map(_ => new RpcProxyProcessor(this._manager));
+                else if (this._manager.grpcProxyEnabled)
+                {
+                    const grpcClientFactory = new GrpcClientFactory(this._manager);
+                    processors = consumers.map(_ => new GrpcProxyProcessor(this._manager, grpcClientFactory));
+                }
+                else
+                    processors = consumers.map(_ => new DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                 
                 const broker = new Broker(consumers, processors);
                 this._brokers.push(broker);
@@ -101,7 +107,7 @@ export class RedisEventSubMgr implements EventSubMgr
         
         while (!this._isDisposed)
         {
-            await Delay.seconds(2);
+            await Delay.seconds(5);
         }
     }
     
