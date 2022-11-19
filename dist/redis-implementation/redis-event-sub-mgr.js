@@ -15,6 +15,7 @@ const default_processor_1 = require("./default-processor");
 const aws_lambda_proxy_processor_1 = require("./aws-lambda-proxy-processor");
 const rpc_proxy_processor_1 = require("./rpc-proxy-processor");
 const grpc_proxy_processor_1 = require("./grpc-proxy-processor");
+const grpc_client_factory_1 = require("./grpc-client-factory");
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 // public
@@ -57,20 +58,24 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                     }
                     const consumers = partitions
                         .map(partition => new consumer_1.Consumer(this._client, this._manager, topic.name, partition, topic.flush));
-                    const processors = this._manager.awsLambdaProxyEnabled
-                        ? consumers.map(_ => new aws_lambda_proxy_processor_1.AwsLambdaProxyProcessor(this._manager))
-                        : this._manager.rpcProxyEnabled
-                            ? consumers.map(_ => new rpc_proxy_processor_1.RpcProxyProcessor(this._manager))
-                            : this._manager.grpcProxyEnabled
-                                ? consumers.map(_ => new grpc_proxy_processor_1.GrpcProxyProcessor(this._manager))
-                                : consumers.map(_ => new default_processor_1.DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
+                    let processors;
+                    if (this._manager.awsLambdaProxyEnabled)
+                        processors = consumers.map(_ => new aws_lambda_proxy_processor_1.AwsLambdaProxyProcessor(this._manager));
+                    else if (this._manager.rpcProxyEnabled)
+                        processors = consumers.map(_ => new rpc_proxy_processor_1.RpcProxyProcessor(this._manager));
+                    else if (this._manager.grpcProxyEnabled) {
+                        const grpcClientFactory = new grpc_client_factory_1.GrpcClientFactory(this._manager);
+                        processors = consumers.map(_ => new grpc_proxy_processor_1.GrpcProxyProcessor(this._manager, grpcClientFactory));
+                    }
+                    else
+                        processors = consumers.map(_ => new default_processor_1.DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                     const broker = new broker_1.Broker(consumers, processors);
                     this._brokers.push(broker);
                 });
                 this._brokers.forEach(t => t.initialize());
             }
             while (!this._isDisposed) {
-                yield n_util_1.Delay.seconds(2);
+                yield n_util_1.Delay.seconds(5);
             }
         });
     }
