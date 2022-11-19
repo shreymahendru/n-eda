@@ -7,7 +7,6 @@ export declare class GrpcClientFactory {
     private readonly _serviceDef;
     private readonly _creds;
     private readonly _clients;
-    private readonly _disposableClients;
     private _roundRobin;
     constructor(manager: EdaManager);
     create(): GrpcClient;

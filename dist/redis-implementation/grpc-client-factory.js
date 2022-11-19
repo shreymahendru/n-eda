@@ -12,7 +12,7 @@ const n_exception_1 = require("@nivinjoseph/n-exception");
 class GrpcClientFactory {
     constructor(manager) {
         this._clients = new Array();
-        this._disposableClients = new Array();
+        // private readonly _disposableClients = new Array<GrpcClientInternal>();
         this._roundRobin = 0;
         (0, n_defensive_1.given)(manager, "manager").ensureHasValue().ensureIsInstanceOf(eda_manager_1.EdaManager)
             .ensure(t => t.grpcProxyEnabled, "GRPC proxy not enabled");
@@ -50,22 +50,27 @@ class GrpcClientFactory {
             console.log("INSECURE GRPC CREDENTIALS CREATED");
         }
         n_util_1.Make.loop(() => this._clients.push(new GrpcClientFacade(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger))), 10);
-        setInterval(() => {
-            this._clients.forEach(client => {
-                if (client.internal.isOverused || client.internal.isStale) {
-                    const disposable = client.internal;
-                    client.swap(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger));
-                    this._disposableClients.push(disposable);
-                }
-            });
-        }, n_util_1.Duration.fromMinutes(7).toMilliSeconds()).unref();
-        setInterval(() => {
-            this._disposableClients.forEach(client => {
-                if (!client.isActive)
-                    client.dispose().catch(e => console.error(e));
-            });
-            this._disposableClients.where(t => t.isDisposed).forEach(t => this._disposableClients.remove(t));
-        }, n_util_1.Duration.fromMinutes(13).toMilliSeconds()).unref();
+        // setInterval(() =>
+        // {
+        //     this._clients.forEach(client =>
+        //     {
+        //         if (client.internal.isOverused || client.internal.isStale)
+        //         {
+        //             const disposable = client.internal;
+        //             client.swap(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger));
+        //             this._disposableClients.push(disposable);
+        //         }
+        //     });
+        // }, Duration.fromMinutes(7).toMilliSeconds()).unref();
+        // setInterval(() =>
+        // {
+        //     this._disposableClients.forEach(client =>
+        //     {
+        //         if (!client.isActive)
+        //             client.dispose().catch(e => console.error(e));
+        //     });
+        //     this._disposableClients.where(t => t.isDisposed).forEach(t => this._disposableClients.remove(t));
+        // }, Duration.fromMinutes(13).toMilliSeconds()).unref();
     }
     create() {
         if (this._roundRobin >= this._clients.length)
