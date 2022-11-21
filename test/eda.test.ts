@@ -6,7 +6,7 @@ import { EventBus } from "../src/event-bus";
 import { createEdaManager, EventHistory, TestEvent } from "./utils/eda-test-utils";
 
 
-suite.only("eda tests", () =>
+suite("eda tests", () =>
 {
     let edaManager: EdaManager;
     

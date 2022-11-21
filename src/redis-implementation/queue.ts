@@ -9,6 +9,7 @@ export class Queue<T>
     public get peek(): T | null { return this._first?.item ?? null; }
     public get length(): number { return this._length; }
 
+    
     public constructor(items?: ReadonlyArray<T>)
     {
         items?.forEach(t => this.enqueue(t));
@@ -19,7 +20,6 @@ export class Queue<T>
     {
         const node: QueueNode<T> = {
             item,
-            previous: this._last,
             next: null
         };
 
@@ -57,6 +57,5 @@ export class Queue<T>
 interface QueueNode<T>
 {
     item: T;
-    previous: QueueNode<T> | null;
     next: QueueNode<T> | null;
 }
