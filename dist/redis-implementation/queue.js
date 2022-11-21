@@ -14,7 +14,6 @@ class Queue {
     enqueue(item) {
         const node = {
             item,
-            previous: this._last,
             next: null
         };
         if (this._last !== null)
