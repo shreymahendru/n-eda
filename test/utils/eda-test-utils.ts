@@ -17,6 +17,8 @@ export class EventHistory
 {
     private readonly _historicalRecords = new Array<string>();
     
+    private _startedAt = Date.now();
+    private _lastEventAt = Date.now();
     
     public get records(): ReadonlyArray<string> { return this._historicalRecords; }
     
@@ -25,9 +27,20 @@ export class EventHistory
     {
         given(event, "event").ensureHasValue().ensureIsObject();
         
-        await Delay.milliseconds(300);
+        await Delay.milliseconds(10);
         
         this._historicalRecords.push(event.id);
+        this._lastEventAt = Date.now();
+    }
+    
+    public startProfiling(): void
+    {
+        this._startedAt = Date.now();
+    }
+    
+    public endProfiling(): number
+    {
+        return this._lastEventAt - this._startedAt;
     }
 }
 

@@ -6,7 +6,7 @@ import { EventBus } from "../src/event-bus";
 import { createEdaManager, EventHistory, TestEvent } from "./utils/eda-test-utils";
 
 
-suite("eda tests", () =>
+suite.only("eda tests", () =>
 {
     let edaManager: EdaManager;
     
@@ -48,9 +48,9 @@ suite("eda tests", () =>
         const history = edaManager.serviceLocator.resolve<EventHistory>("EventHistory");
         const testEvents = new Array<EdaEvent>();
         
-        for (let i = 0; i < 10; i++)
+        for (let i = 0; i < 100; i++)
         {
-            for (let j = 0; j < 10; j++)
+            for (let j = 0; j < 100; j++)
             {
                 const event = new TestEvent({ id: `test_${i}-evt_${j}` });
                 testEvents.push(event);
@@ -59,10 +59,12 @@ suite("eda tests", () =>
         
         const numbers = testEvents.map(t => Number.parseInt(t.id.split("-")[1].split("_")[1]));
             
-
+        history.startProfiling();
         await eventBus.publish("basic", ...testEvents);
 
-        await Delay.minutes(1);
+        await Delay.seconds(15);
+        
+        console.log(`EDA time => ${history.endProfiling()}ms`);
 
         // Assert.ok(history.records.length === 1 && history.records[0] === testEvent.id);
 

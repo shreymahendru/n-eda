@@ -4,6 +4,8 @@ import { Disposable } from "@nivinjoseph/n-util";
 import { EdaEvent } from "../eda-event";
 import { EventRegistration } from "../event-registration";
 import { Consumer } from "./consumer";
+// import { DefaultScheduler } from "./default-scheduler";
+import { OptimizedScheduler } from "./optimized-scheduler";
 import { Processor } from "./processor";
 import { Scheduler } from "./scheduler";
 
@@ -23,7 +25,7 @@ export class Broker implements Disposable
         
         given(processors, "processors").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty)
             .ensure(t => t.length === consumers.length, "length has to match consumers length");
-        this._scheduler = new Scheduler(processors);
+        this._scheduler = new OptimizedScheduler(processors);
     }
     
     

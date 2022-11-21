@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Exception, ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { Exception, InvalidOperationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
 import { Delay, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
 import { EdaManager } from "../eda-manager";
@@ -48,9 +48,8 @@ export abstract class Processor implements Disposable
 
     public process(workItem: WorkItem): void
     {
-        given(this, "this")
-            .ensure(t => t._isInitialized, "processor not initialized")
-            .ensure(t => !t.isBusy, "processor is busy");
+        if (!this._isInitialized || this.isBusy)
+            throw new InvalidOperationException("processor not initialized or processor is busy");
 
         if (this._isDisposed)
             throw new ObjectDisposedException("Processor");
@@ -63,7 +62,8 @@ export abstract class Processor implements Disposable
                 const doneWorkItem = this._currentWorkItem!;
                 this._doneProcessingObserver.notify(doneWorkItem);
                 this._currentWorkItem = null;
-                this._availabilityObserver.notify(this);
+                if (!this._isDisposed)
+                    this._availabilityObserver.notify(this);
             })
             .catch((e) => this._logger.logError(e));
     }
