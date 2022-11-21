@@ -28,9 +28,8 @@ class Processor {
     get doneProcessing() { return this._doneProcessingObserver; }
     get isBusy() { return this._currentWorkItem != null; }
     process(workItem) {
-        (0, n_defensive_1.given)(this, "this")
-            .ensure(t => t._isInitialized, "processor not initialized")
-            .ensure(t => !t.isBusy, "processor is busy");
+        if (!this._isInitialized || this.isBusy)
+            throw new n_exception_1.InvalidOperationException("processor not initialized or processor is busy");
         if (this._isDisposed)
             throw new n_exception_1.ObjectDisposedException("Processor");
         this._currentWorkItem = workItem;
@@ -39,7 +38,8 @@ class Processor {
             const doneWorkItem = this._currentWorkItem;
             this._doneProcessingObserver.notify(doneWorkItem);
             this._currentWorkItem = null;
-            this._availabilityObserver.notify(this);
+            if (!this._isDisposed)
+                this._availabilityObserver.notify(this);
         })
             .catch((e) => this._logger.logError(e));
     }
