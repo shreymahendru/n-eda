@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Deferred } from "@nivinjoseph/n-util";
+import { Deferred, Duration } from "@nivinjoseph/n-util";
 import { RoutedEvent } from "./broker";
 import { Processor } from "./processor";
 import { Queue } from "./queue";
@@ -8,10 +8,13 @@ import { WorkItem } from "./scheduler";
 
 export class OptimizedScheduler
 {
-    private readonly _queues = new Map<string, SchedulerQueue>();
+    private readonly _queues = new Map<string, Queue<WorkItem>>();
     private readonly _processing = new Set<string>();
     private readonly _processors = new Queue<Processor>();
     private readonly _partitionQueue = new Queue<string>();
+    
+    private readonly _cleanupDuration = Duration.fromHours(1).toMilliSeconds();
+    private _cleanupTime = Date.now() + this._cleanupDuration;
 
 
     public constructor(processors: ReadonlyArray<Processor>)
@@ -41,14 +44,11 @@ export class OptimizedScheduler
             deferred
         };
 
-        if (this._queues.has(workItem.partitionKey))
-            this._queues.get(workItem.partitionKey)!.queue.enqueue(workItem);
+        const queue = this._queues.get(workItem.partitionKey);
+        if(queue)
+            queue.enqueue(workItem);
         else
-            this._queues.set(workItem.partitionKey, {
-                partitionKey: workItem.partitionKey,
-                // lastAccessed: Date.now(),
-                queue: new Queue<WorkItem>([workItem])
-            });
+            this._queues.set(workItem.partitionKey, new Queue<WorkItem>([workItem]));
 
         this._partitionQueue.enqueue(workItem.partitionKey);
 
@@ -73,102 +73,42 @@ export class OptimizedScheduler
         this._processing.add(workItem.partitionKey);
     }
 
-    // private _findWork(): WorkItem | null
-    // {
-    //     // FIXME: this is a shitty priority queue
-    //     const entries = [...this._queues.values()].orderBy(t => t.lastAccessed);
-
-    //     for (const entry of entries)
-    //     {
-    //         if (entry.queue.isEmpty)
-    //         {
-    //             this._queues.delete(entry.partitionKey);
-    //             continue;
-    //         }
-
-    //         if (this._processing.has(entry.partitionKey))
-    //             continue;
-
-    //         const workItem = entry.queue.pop()!;
-    //         if (entry.queue.isEmpty)
-    //             this._queues.delete(entry.partitionKey);
-    //         else
-    //             entry.lastAccessed = Date.now();
-
-    //         return workItem;
-    //     }
-
-    //     return null;
-    // }
-
-    // private _findWork(): WorkItem | null
-    // {
-    //     // Because we know that Map.Values() returns entries in insertion order
-    //     for (const entry of this._queues.values())
-    //     {
-    //         if (entry.queue.isEmpty)
-    //         {
-    //             this._queues.delete(entry.partitionKey);
-    //             continue;
-    //         }
-
-    //         if (this._processing.has(entry.partitionKey))
-    //             continue;
-
-    //         const workItem = entry.queue.dequeue();
-    //         this._queues.delete(entry.partitionKey);
-    //         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    //         if (!entry.queue.isEmpty)
-    //         {
-    //             // entry.lastAccessed = Date.now();
-    //             this._queues.set(entry.partitionKey, entry);
-    //         }
-
-    //         return workItem;
-    //     }
-
-    //     return null;
-    // }
-
     private _findWork(): WorkItem | null
     {
+        if (this._cleanupTime < Date.now())
+        {
+            for (const entry of this._queues.entries())
+            {
+                if (entry[1].isEmpty)
+                    this._queues.delete(entry[0]);
+            }
+            
+            this._cleanupTime = Date.now() + this._cleanupDuration;
+        }
+        
         if (this._partitionQueue.isEmpty)
             return null;
-
+        
         let cycle = 0;
         while (cycle < this._partitionQueue.length)
         {
-            const partitionKey = this._partitionQueue.dequeue();
-            if (partitionKey === null)
-                return null;
-
-            const queue = this._queues.get(partitionKey)!.queue;
-            if (queue.isEmpty)
-            {
-                this._queues.delete(partitionKey);
-                continue;
-            }
-
+            const partitionKey = this._partitionQueue.dequeue()!;            
+            
             if (this._processing.has(partitionKey))
             {
                 this._partitionQueue.enqueue(partitionKey);
                 cycle++;
                 continue;
             }
-
+            
+            const queue = this._queues.get(partitionKey)!;
+            
+            if (queue.isEmpty)
+                continue;
+            
             return queue.dequeue();
         }
-
+        
         return null;
     }
 }
-
-
-interface SchedulerQueue
-{
-    partitionKey: string;
-    // lastAccessed: number;
-    queue: Queue<WorkItem>;
-}
-
-

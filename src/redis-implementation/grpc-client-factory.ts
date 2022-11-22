@@ -75,7 +75,7 @@ export class GrpcClientFactory
         
         Make.loop(() => this._clients.push(
             new GrpcClientFacade(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger))),
-            10);
+            25);
             
         // setInterval(() =>
         // {
