@@ -49,7 +49,7 @@ class GrpcClientFactory {
             this._creds = Grpc.credentials.createInsecure();
             console.log("INSECURE GRPC CREDENTIALS CREATED");
         }
-        n_util_1.Make.loop(() => this._clients.push(new GrpcClientFacade(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger))), 25);
+        n_util_1.Make.loop(() => this._clients.push(new GrpcClientFacade(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger))), 50);
         // setInterval(() =>
         // {
         //     this._clients.forEach(client =>
