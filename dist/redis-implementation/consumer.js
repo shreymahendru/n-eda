@@ -293,14 +293,17 @@ class Consumer {
             }
             if (this._isDisposed)
                 return;
-            if (this._trackedKeysSet.size >= 300) {
-                this._trackedKeysSet = new Set(this._trackedKeysArray.skip(200));
-                if (this._cleanKeys) {
-                    const erasedKeys = this._trackedKeysArray.take(200);
-                    yield this._removeKeys(erasedKeys);
-                }
-                this._trackedKeysArray = this._trackedKeysArray.skip(200);
-                yield this._purgeTrackedKeys();
+            if (this._trackedKeysSet.size >= 3000) {
+                const newTracked = this._trackedKeysArray.skip(2900);
+                const erasedKeys = this._cleanKeys ? this._trackedKeysArray.take(2900) : [];
+                this._trackedKeysSet = new Set(newTracked);
+                this._trackedKeysArray = newTracked;
+                this._removeKeys(erasedKeys);
+                this._purgeTrackedKeys();
+                // await Promise.all([
+                //     erasedKeys.isNotEmpty ? this._removeKeys(erasedKeys) : Promise.resolve(),
+                //     this._purgeTrackedKeys()
+                // ]);
             }
         });
     }
@@ -335,16 +338,23 @@ class Consumer {
     //         });
     //     });
     // }
+    // private _purgeTrackedKeys(): Promise<void>
+    // {
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.ltrim(this._trackedKeysKey, 0, 2900, (err) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+    //             resolve();
+    //         }).catch(e => reject(e));
+    //     });
+    // }
     _purgeTrackedKeys() {
-        return new Promise((resolve, reject) => {
-            this._client.ltrim(this._trackedKeysKey, 0, 200, (err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            }).catch(e => reject(e));
-        });
+        this._client.ltrim(this._trackedKeysKey, 0, 2900).catch(e => this._logger.logError(e));
     }
     _loadTrackedKeys() {
         return new Promise((resolve, reject) => {
@@ -377,20 +387,27 @@ class Consumer {
             return JSON.parse(decompressed.toString("utf8"));
         });
     }
+    // private async _removeKeys(keys: ReadonlyArray<string>): Promise<void>
+    // {
+    //     if (keys.isEmpty)
+    //         return;
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         this._client.unlink(...keys, (err) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+    //             resolve();
+    //         }).catch(e => reject(e));
+    //     });
+    // }
     _removeKeys(keys) {
-        return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            if (keys.isEmpty)
-                return;
-            return new Promise((resolve, reject) => {
-                this._client.unlink(...keys, (err) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    resolve();
-                }).catch(e => reject(e));
-            });
-        });
+        if (keys.isEmpty)
+            return;
+        this._client.unlink(...keys).catch(e => this._logger.logError(e));
     }
 }
 exports.Consumer = Consumer;

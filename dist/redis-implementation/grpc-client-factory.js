@@ -11,6 +11,7 @@ const n_util_1 = require("@nivinjoseph/n-util");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 class GrpcClientFactory {
     constructor(manager) {
+        var _a;
         this._clients = new Array();
         // private readonly _disposableClients = new Array<GrpcClientInternal>();
         this._roundRobin = 0;
@@ -49,7 +50,10 @@ class GrpcClientFactory {
             this._creds = Grpc.credentials.createInsecure();
             console.log("INSECURE GRPC CREDENTIALS CREATED");
         }
-        n_util_1.Make.loop(() => this._clients.push(new GrpcClientFacade(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger))), 50);
+        let connectionPoolSize = (_a = this._manager.grpcDetails.connectionPoolSize) !== null && _a !== void 0 ? _a : 50;
+        if (connectionPoolSize <= 0)
+            connectionPoolSize = 50;
+        n_util_1.Make.loop(() => this._clients.push(new GrpcClientFacade(new GrpcClientInternal(this._endpoint, this._serviceDef, this._creds, this._logger))), connectionPoolSize);
         // setInterval(() =>
         // {
         //     this._clients.forEach(client =>
