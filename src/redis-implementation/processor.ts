@@ -99,6 +99,8 @@ export abstract class Processor implements Disposable
 
                 try 
                 {
+                    await this._logger.logInfo(`Processing event ${workItem.eventName} with id ${workItem.eventId}`);
+                    
                     if (this._hasEventHandlerTracer)
                         await this._eventHandlerTracer!({
                             topic: workItem.topic,
