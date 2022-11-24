@@ -185,13 +185,13 @@ export class RpcServer
                                 {
                                     // if ((<any>result).statusCode != null)
                                     // {
-                                    //     res.writeHead(500);
                                     //     res.setHeader("Content-Type", "application/json");
-                                    //     res.end(JSON.stringify(result));    
+                                    //     res.writeHead(500);
+                                    //     res.end(JSON.stringify(result));
                                     // }
                                     
-                                    res.writeHead(200);
                                     res.setHeader("Content-Type", "application/json");
+                                    res.writeHead(200);
                                     res.end(JSON.stringify(result));
                                 })
                                 .catch(error =>
