@@ -53,42 +53,67 @@ class Processor {
             const workItem = this._currentWorkItem;
             const maxProcessAttempts = 10;
             let numProcessAttempts = 0;
-            let successful = false;
+            const status = {
+                successful: false
+            };
             try {
-                while (successful === false && numProcessAttempts < maxProcessAttempts) {
+                while (status.successful === false && numProcessAttempts < maxProcessAttempts) {
                     if (this._isDisposed) {
                         workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
                         return;
                     }
                     numProcessAttempts++;
-                    try {
-                        if (this._hasEventHandlerTracer)
-                            yield this._eventHandlerTracer({
-                                topic: workItem.topic,
-                                partition: workItem.partition,
-                                partitionKey: workItem.partitionKey,
-                                eventName: workItem.eventName,
-                                eventId: workItem.eventId
-                            }, ((npa) => () => this.processEvent(workItem, npa))(numProcessAttempts));
-                        else
-                            yield this.processEvent(workItem, numProcessAttempts);
-                        successful = true;
-                        workItem.deferred.resolve();
-                        break;
-                    }
-                    catch (error) {
-                        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                        if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
-                            throw error;
-                        else
-                            yield n_util_1.Delay.seconds(2 * numProcessAttempts);
-                    }
+                    if (this._hasEventHandlerTracer)
+                        yield this._eventHandlerTracer({
+                            topic: workItem.topic,
+                            partition: workItem.partition,
+                            partitionKey: workItem.partitionKey,
+                            eventName: workItem.eventName,
+                            eventId: workItem.eventId
+                        }, ((wi, npa, mpa, sts) => () => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                            sts.successful = yield this._executeProcessing(wi, npa, mpa);
+                        }))(workItem, numProcessAttempts, maxProcessAttempts, status));
+                    else
+                        status.successful = yield this._executeProcessing(workItem, numProcessAttempts, maxProcessAttempts);
                 }
             }
             catch (error) {
                 yield this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
                 yield this._logger.logError(error);
                 workItem.deferred.reject(error);
+            }
+        });
+    }
+    _executeProcessing(workItem, numProcessAttempts, maxProcessAttempts) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            try {
+                yield this._logger.logInfo(`Processing event ${workItem.eventName} with id ${workItem.eventId}`);
+                if (this._hasEventHandlerTracer)
+                    yield this._eventHandlerTracer({
+                        topic: workItem.topic,
+                        partition: workItem.partition,
+                        partitionKey: workItem.partitionKey,
+                        eventName: workItem.eventName,
+                        eventId: workItem.eventId
+                    }, ((npa) => () => this.processEvent(workItem, npa))(numProcessAttempts));
+                else
+                    yield this.processEvent(workItem, numProcessAttempts);
+                yield this._logger.logInfo(`Processing successful for event ${workItem.eventName} with id ${workItem.eventId}`);
+                workItem.deferred.resolve();
+                return true;
+            }
+            catch (error) {
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                if (numProcessAttempts >= maxProcessAttempts || this._isDisposed) {
+                    yield this._logger.logWarning(`Processing failed for event ${workItem.eventName} with id ${workItem.eventId}`);
+                    throw error;
+                }
+                else {
+                    yield this._logger.logWarning(`Processing unsuccessful (will retry) for event ${workItem.eventName} with id ${workItem.eventId}`);
+                    yield this._logger.logWarning(error);
+                    yield n_util_1.Delay.seconds(2 * numProcessAttempts);
+                    return false;
+                }
             }
         });
     }
