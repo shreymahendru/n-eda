@@ -19,7 +19,7 @@ export class RpcProxyProcessor extends Processor
 
         this._rpcClient = Axios.default.create({
             timeout: 60000,
-            baseURL: manager.rpcDetails!.host
+            baseURL: `http://${manager.rpcDetails!.host}:${manager.rpcDetails!.port}`
         });
     }
 
