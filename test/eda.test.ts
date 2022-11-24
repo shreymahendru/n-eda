@@ -62,7 +62,7 @@ suite("eda tests", () =>
         history.startProfiling();
         await eventBus.publish("basic", ...testEvents);
 
-        await Delay.seconds(15);
+        await Delay.seconds(30);
         
         console.log(`EDA time => ${history.endProfiling()}ms`);
 

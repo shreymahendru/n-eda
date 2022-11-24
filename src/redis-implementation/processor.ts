@@ -84,10 +84,12 @@ export abstract class Processor implements Disposable
 
         const maxProcessAttempts = 10;
         let numProcessAttempts = 0;
-        let successful = false;
+        const status = {
+            successful: false
+        };
         try 
         {
-            while (successful === false && numProcessAttempts < maxProcessAttempts)
+            while (status.successful === false && numProcessAttempts < maxProcessAttempts)
             {
                 if (this._isDisposed)
                 {
@@ -97,33 +99,20 @@ export abstract class Processor implements Disposable
 
                 numProcessAttempts++;
 
-                try 
-                {
-                    await this._logger.logInfo(`Processing event ${workItem.eventName} with id ${workItem.eventId}`);
-                    
-                    if (this._hasEventHandlerTracer)
-                        await this._eventHandlerTracer!({
-                            topic: workItem.topic,
-                            partition: workItem.partition,
-                            partitionKey: workItem.partitionKey,
-                            eventName: workItem.eventName,
-                            eventId: workItem.eventId
-                        }, ((npa: number) => () => this.processEvent(workItem, npa))(numProcessAttempts));
-                    
-                    else
-                        await this.processEvent(workItem, numProcessAttempts);
-                    successful = true;
-                    workItem.deferred.resolve();
-                    break;
-                }
-                catch (error)
-                {
-                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
-                        throw error;
-                    else
-                        await Delay.seconds(2 * numProcessAttempts);
-                }
+                
+                if (this._hasEventHandlerTracer)
+                    await this._eventHandlerTracer!({
+                        topic: workItem.topic,
+                        partition: workItem.partition,
+                        partitionKey: workItem.partitionKey,
+                        eventName: workItem.eventName,
+                        eventId: workItem.eventId
+                    }, ((wi: WorkItem, npa: number, mpa: number, sts: any) => async (): Promise<void> =>
+                    {
+                        sts.successful = await this._executeProcessing(wi, npa, mpa);
+                    })(workItem, numProcessAttempts, maxProcessAttempts, status));
+                else
+                    status.successful = await this._executeProcessing(workItem, numProcessAttempts, maxProcessAttempts);
             }
         }
         catch (error)
@@ -131,6 +120,45 @@ export abstract class Processor implements Disposable
             await this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
             await this._logger.logError(error as Exception);
             workItem.deferred.reject(error);
+        }
+    }
+    
+    private async _executeProcessing(workItem: WorkItem, numProcessAttempts: number, maxProcessAttempts: number): Promise<boolean>
+    {
+        try 
+        {
+            await this._logger.logInfo(`Processing event ${workItem.eventName} with id ${workItem.eventId}`);
+
+            if (this._hasEventHandlerTracer)
+                await this._eventHandlerTracer!({
+                    topic: workItem.topic,
+                    partition: workItem.partition,
+                    partitionKey: workItem.partitionKey,
+                    eventName: workItem.eventName,
+                    eventId: workItem.eventId
+                }, ((npa: number) => () => this.processEvent(workItem, npa))(numProcessAttempts));
+
+            else
+                await this.processEvent(workItem, numProcessAttempts);
+            await this._logger.logInfo(`Processing successful for event ${workItem.eventName} with id ${workItem.eventId}`);
+            workItem.deferred.resolve();
+            return true;
+        }
+        catch (error)
+        {
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
+            {
+                await this._logger.logWarning(`Processing failed for event ${workItem.eventName} with id ${workItem.eventId}`);
+                throw error;
+            }
+            else
+            {
+                await this._logger.logWarning(`Processing unsuccessful (will retry) for event ${workItem.eventName} with id ${workItem.eventId}`);
+                await this._logger.logWarning(error as any);
+                await Delay.seconds(2 * numProcessAttempts);
+                return false;
+            }
         }
     }
 }
