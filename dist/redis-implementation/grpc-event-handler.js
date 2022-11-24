@@ -48,14 +48,14 @@ class GrpcEventHandler {
     }
     _process(data) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            (0, n_defensive_1.given)(data, "data").ensureHasValue().ensureIsObject()
-                .ensureHasStructure({
-                consumerId: "string",
-                topic: "string",
-                partition: "number",
-                eventName: "string",
-                event: "object"
-            });
+            // given(data, "data").ensureHasValue().ensureIsObject()
+            //     .ensureHasStructure({
+            //         consumerId: "string",
+            //         topic: "string",
+            //         partition: "number",
+            //         eventName: "string",
+            //         event: "object"
+            //     });
             const eventRegistration = this._manager.eventMap.get(data.eventName);
             const scope = this._manager.serviceLocator.createScope();
             data.event.$scope = scope;
@@ -66,7 +66,7 @@ class GrpcEventHandler {
             }
             catch (error) {
                 yield this._logger.logWarning(`Error in GRPC event handler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
-                yield this._logger.logWarning(error);
+                yield this._logger.logError(error);
                 throw error;
             }
             finally {

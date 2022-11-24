@@ -1,9 +1,9 @@
-import { Logger } from "@nivinjoseph/n-log";
 import { Container } from "@nivinjoseph/n-ject";
+import { Logger } from "@nivinjoseph/n-log";
 import { ClassHierarchy } from "@nivinjoseph/n-util";
-import { GrpcEventHandler } from "./grpc-event-handler";
 import { ApplicationScript } from "./application-script";
-export declare class GrpcServer {
+import { RpcEventHandler } from "./rpc-event-handler";
+export declare class RpcServer {
     private readonly _port;
     private readonly _host;
     private readonly _container;
@@ -14,13 +14,11 @@ export declare class GrpcServer {
     private _hasShutdownScript;
     private readonly _disposeActions;
     private _eventHandler;
-    private readonly _serviceName;
-    private readonly _statusMap;
     private _server;
     private _isBootstrapped;
     private _isShutDown;
     constructor(port: number, host: string | null, container: Container, logger?: Logger | null);
-    registerEventHandler(eventHandler: GrpcEventHandler): this;
+    registerEventHandler(eventHandler: RpcEventHandler): this;
     registerStartupScript(applicationScriptClass: ClassHierarchy<ApplicationScript>): this;
     registerShutdownScript(applicationScriptClass: ClassHierarchy<ApplicationScript>): this;
     registerDisposeAction(disposeAction: () => Promise<void>): this;
@@ -29,5 +27,4 @@ export declare class GrpcServer {
     private _configureStartup;
     private _configureServer;
     private _configureShutDown;
-    private _changeStatus;
 }

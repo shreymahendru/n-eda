@@ -19,17 +19,21 @@ class RpcEventHandler {
     }
     process(model) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            (0, n_defensive_1.given)(model, "model").ensureHasValue().ensureIsObject();
-            (0, n_defensive_1.given)(this, "this").ensure(t => t._manager != null, "not initialized");
-            const eventData = {
-                consumerId: model.consumerId,
-                topic: model.topic,
-                partition: model.partition,
-                eventName: model.eventName,
-                event: n_util_1.Deserializer.deserialize(model.payload)
-            };
             try {
+                (0, n_defensive_1.given)(model, "model").ensureHasValue().ensureIsObject();
+                (0, n_defensive_1.given)(this, "this").ensure(t => t._manager != null, "not initialized");
+                const eventData = {
+                    consumerId: model.consumerId,
+                    topic: model.topic,
+                    partition: model.partition,
+                    eventName: model.eventName,
+                    event: n_util_1.Deserializer.deserialize(model.payload)
+                };
                 yield this._process(eventData);
+                return {
+                    eventName: eventData.eventName,
+                    eventId: eventData.event.id
+                };
             }
             catch (error) {
                 return {
@@ -37,10 +41,6 @@ class RpcEventHandler {
                     error: this._getErrorMessage(error)
                 };
             }
-            return {
-                eventName: eventData.eventName,
-                eventId: eventData.event.id
-            };
         });
     }
     onEventReceived(scope, topic, event) {
@@ -50,14 +50,14 @@ class RpcEventHandler {
     }
     _process(data) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            (0, n_defensive_1.given)(data, "data").ensureHasValue().ensureIsObject()
-                .ensureHasStructure({
-                consumerId: "string",
-                topic: "string",
-                partition: "number",
-                eventName: "string",
-                event: "object"
-            });
+            // given(data, "data").ensureHasValue().ensureIsObject()
+            //     .ensureHasStructure({
+            //         consumerId: "string",
+            //         topic: "string",
+            //         partition: "number",
+            //         eventName: "string",
+            //         event: "object"
+            //     });
             const eventRegistration = this._manager.eventMap.get(data.eventName);
             const scope = this._manager.serviceLocator.createScope();
             data.event.$scope = scope;
@@ -67,8 +67,8 @@ class RpcEventHandler {
                 yield handler.handle(data.event);
             }
             catch (error) {
-                yield this._logger.logWarning(`Error in EventHandler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
-                yield this._logger.logWarning(error);
+                yield this._logger.logWarning(`Error in RPC event handler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
+                yield this._logger.logError(error);
                 throw error;
             }
             finally {
