@@ -1,5 +1,6 @@
 export interface RpcDetails {
     readonly host: string;
+    readonly port: number;
 }
 export interface RpcModel {
     consumerId: string;

@@ -12,7 +12,7 @@ class RpcProxyProcessor extends processor_1.Processor {
         (0, n_defensive_1.given)(manager, "manager").ensure(t => t.rpcProxyEnabled, "RPC proxy not enabled");
         this._rpcClient = Axios.default.create({
             timeout: 60000,
-            baseURL: manager.rpcDetails.host
+            baseURL: `http://${manager.rpcDetails.host}:${manager.rpcDetails.port}`
         });
     }
     processEvent(workItem, numAttempt) {
