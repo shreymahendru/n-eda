@@ -66,14 +66,14 @@ export class GrpcEventHandler
 
     private async _process(data: EventInfo): Promise<void>
     {
-        given(data, "data").ensureHasValue().ensureIsObject()
-            .ensureHasStructure({
-                consumerId: "string",
-                topic: "string",
-                partition: "number",
-                eventName: "string",
-                event: "object"
-            });
+        // given(data, "data").ensureHasValue().ensureIsObject()
+        //     .ensureHasStructure({
+        //         consumerId: "string",
+        //         topic: "string",
+        //         partition: "number",
+        //         eventName: "string",
+        //         event: "object"
+        //     });
         
         const eventRegistration = this._manager!.eventMap.get(data.eventName) as EventRegistration;
 
@@ -91,7 +91,7 @@ export class GrpcEventHandler
         catch (error)
         {
             await this._logger!.logWarning(`Error in GRPC event handler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
-            await this._logger!.logWarning(error as Exception);
+            await this._logger!.logError(error as Exception);
             throw error;
         }
         finally

@@ -1,77 +1,67 @@
-import * as Path from "path";
-import * as Grpc from "@grpc/grpc-js";
-import * as ProtoLoader from "@grpc/proto-loader";
-import { given } from "@nivinjoseph/n-defensive";
-import { ConsoleLogger, Logger } from "@nivinjoseph/n-log";
-import { Container } from "@nivinjoseph/n-ject";
-import { ClassHierarchy, Delay } from "@nivinjoseph/n-util";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
-import { GrpcEventHandler } from "./grpc-event-handler";
-import { GrpcModel } from "../grpc-details";
+import { given } from "@nivinjoseph/n-defensive";
+import { Container } from "@nivinjoseph/n-ject";
+import { ConsoleLogger, Logger } from "@nivinjoseph/n-log";
+import { ClassHierarchy, Delay } from "@nivinjoseph/n-util";
+import * as Http from "http";
+import * as Url from "url";
 import { ApplicationScript } from "./application-script";
+import { RpcEventHandler } from "./rpc-event-handler";
 
 
-export class GrpcServer
+export class RpcServer
 {
     private readonly _port: number;
-    private readonly _host: string;
+    private readonly _host: string | null;
     private readonly _container: Container;
-    // @ts-expect-error: not used atm
     private readonly _logger: Logger;
-    
+
     private readonly _startupScriptKey = "$startupScript";
     private _hasStartupScript = false;
 
     private readonly _shutdownScriptKey = "$shutdownScript";
     private _hasShutdownScript = false;
-    
+
     private readonly _disposeActions = new Array<() => Promise<void>>();
-    
-    private _eventHandler!: GrpcEventHandler;
-    
-    private readonly _serviceName = "EdaService";
-    
-    private readonly _statusMap: Record<string, ServingStatus> = {
-        "": ServingStatus.NOT_SERVING,
-        [this._serviceName]: ServingStatus.NOT_SERVING
-    };
-    
-    private _server!: Grpc.Server;
+
+    private _eventHandler!: RpcEventHandler;
+
+    private _server!: Http.Server;
     private _isBootstrapped = false;
 
     private _isShutDown = false;
-    
-    
+
+
     public constructor(port: number, host: string | null, container: Container, logger?: Logger | null)
     {
         given(port, "port").ensureHasValue().ensureIsNumber();
         this._port = port;
-        
+
         given(host as string, "host").ensureIsString();
-        this._host = host ? host.trim() : "0.0.0.0";
-        
+        this._host = host ? host.trim() : null;
+
         given(container, "container").ensureHasValue().ensureIsType(Container);
         this._container = container;
-        
+
         given(logger as Logger, "logger").ensureIsObject();
         this._logger = logger ?? new ConsoleLogger();
     }
-    
-    public registerEventHandler(eventHandler: GrpcEventHandler): this
+
+    public registerEventHandler(eventHandler: RpcEventHandler): this
     {
-        given(eventHandler, "eventHandler").ensureHasValue().ensureIsInstanceOf(GrpcEventHandler);
-        
+        given(eventHandler, "eventHandler").ensureHasValue().ensureIsInstanceOf(RpcEventHandler);
+
         given(this, "this").ensure(t => !t._isBootstrapped, "cannot invoke after bootstrap");
-        
+
         this._eventHandler = eventHandler;
-        
+
         return this;
     }
-    
+
     public registerStartupScript(applicationScriptClass: ClassHierarchy<ApplicationScript>): this
     {
         given(applicationScriptClass, "applicationScriptClass").ensureHasValue().ensureIsFunction();
-        
+
         given(this, "this").ensure(t => !t._isBootstrapped, "cannot invoke after bootstrap");
 
         this._container.registerSingleton(this._startupScriptKey, applicationScriptClass);
@@ -82,18 +72,18 @@ export class GrpcServer
     public registerShutdownScript(applicationScriptClass: ClassHierarchy<ApplicationScript>): this
     {
         given(applicationScriptClass, "applicationScriptClass").ensureHasValue().ensureIsFunction();
-        
+
         given(this, "this").ensure(t => !t._isBootstrapped, "cannot invoke after bootstrap");
 
         this._container.registerSingleton(this._shutdownScriptKey, applicationScriptClass);
         this._hasShutdownScript = true;
         return this;
     }
-    
+
     public registerDisposeAction(disposeAction: () => Promise<void>): this
     {
         given(disposeAction, "disposeAction").ensureHasValue().ensureIsFunction();
-        
+
         given(this, "this").ensure(t => !t._isBootstrapped, "cannot invoke after bootstrap");
 
         this._disposeActions.push(() =>
@@ -119,17 +109,17 @@ export class GrpcServer
         });
         return this;
     }
-    
+
     public bootstrap(): void
     {
         given(this, "this")
             .ensure(t => !t._isBootstrapped, "already bootstrapped")
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             .ensure(t => t._eventHandler != null, "No event handler registered");
-        
-        
+
+
         this._configureContainer();
-        
+
         this._configureStartup()
             .then(() => this._configureServer())
             .then(() =>
@@ -140,9 +130,9 @@ export class GrpcServer
                 const appDescription = ConfigurationManager.getConfig<string>("package.description");
 
                 console.log(`ENV: ${appEnv}; NAME: ${appName}; VERSION: ${appVersion}; DESCRIPTION: ${appDescription}.`);
-                
+
                 this._configureShutDown();
-                
+
                 this._isBootstrapped = true;
                 console.log("SERVER STARTED.");
             })
@@ -153,7 +143,7 @@ export class GrpcServer
                 throw e;
             });
     }
-    
+
     private _configureContainer(): void
     {
         this.registerDisposeAction(() => this._container.dispose());
@@ -168,113 +158,72 @@ export class GrpcServer
 
         return this._container.resolve<ApplicationScript>(this._startupScriptKey).run();
     }
-    
+
     private _configureServer(): Promise<void>
     {
-        const options = {
-            keepCase: false,
-            longs: String,
-            enums: String,
-            defaults: true,
-            oneofs: true
-        };
-
-        const basePath = __dirname.endsWith(`dist${Path.sep}redis-implementation`)
-            ? Path.resolve(__dirname, "..", "..", "src", "redis-implementation")
-            : __dirname;
-        
-        const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
-        const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;
-
-        const server = new Grpc.Server();
-
-        server.addService((serviceDef as any)[this._serviceName].service, {
-            process: (call: any, callback: Function) =>
-            {
-                const request = call.request as GrpcModel;
-                
-                this._eventHandler.process(request)
-                    .then((response) =>
-                    {
-                        callback(null, response);
-                    })
-                    .catch(error =>
-                    {
-                        callback(error);
-                    });
-            }
-        });
-        
-        const healthPackageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-health-check.proto"), options);
-        const healthServiceDef = Grpc.loadPackageDefinition(healthPackageDef).grpchealthv1;
-
-        server.addService((healthServiceDef as any)["Health"].service, {
-            check: (_call: any, callback: Function) =>
-            {
-                // const service = call.request ?? "";
-                // const status = this._statusMap[service];
-                // // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                // if (status == null)
-                // {
-                //     callback({ code: Grpc.status.NOT_FOUND });
-                // }
-                // else if (status === ServingStatus.SERVING)
-                // {
-                //     callback({ code: Grpc.status.OK });
-                    
-                //     // callback(null, { status });
-                // }
-                // else
-                // {
-                //     callback({ code: Grpc.status.UNAVAILABLE });
-                // }
-                
-                const status = this._statusMap[this._serviceName];
-                if (status === ServingStatus.SERVING)
-                    callback(null, { status });
-                else
-                    callback({ code: Grpc.status.UNAVAILABLE });
-            }
-        });
-        
-
-        return new Promise<void>((resolve, reject) =>
+        const server = Http.createServer((req, res) =>
         {
-            server.bindAsync(
-                `${this._host}:${this._port}`,
-                Grpc.ServerCredentials.createInsecure(),
-                (error, _port) =>
-                {
-                    if (error != null)
-                    {
-                        reject(error);
-                        return;
-                    }
+            const requestPath = Url.parse(req.url!, true).pathname;
 
-                    try 
+            switch (requestPath)
+            {
+                case "/health":
+                    res.writeHead(200);
+                    res.end();
+                    break;
+                case "/process":
                     {
-                        // console.log(`Server running at http://127.0.0.1:${port}`);
-                        server.start();
-                        this._server = server;
-                        this._changeStatus(ServingStatus.SERVING);
+                        let data = "";
+                        req.on('data', chunk =>
+                        {
+                            data += chunk;
+                        });
+                        req.on('end', () =>
+                        {
+                            this._eventHandler.process(JSON.parse(data))
+                                .then((result) =>
+                                {
+                                    // if ((<any>result).statusCode != null)
+                                    // {
+                                    //     res.writeHead(500);
+                                    //     res.setHeader("Content-Type", "application/json");
+                                    //     res.end(JSON.stringify(result));    
+                                    // }
+                                    
+                                    res.writeHead(200);
+                                    res.setHeader("Content-Type", "application/json");
+                                    res.end(JSON.stringify(result));
+                                })
+                                .catch(error =>
+                                {
+                                    this._logger.logError(error)
+                                        .finally(() =>
+                                        {
+                                            res.writeHead(500);
+                                            res.end();
+                                        });
+                                });
+                        });
+                        break;
                     }
-                    catch (error)
-                    {
-                        reject(error);
-                        return;
-                    }
+                default:
+                    res.writeHead(404);
+                    res.end();
+                    break;
+            }
+        });
 
-                    resolve();
-                }
-            );
+        return new Promise((resolve, _reject) =>
+        {
+            this._server = server.listen(this._port, this._host ?? undefined, () =>
+            {
+                resolve();
+            });
         });
     }
-    
+
     private _configureShutDown(): void
     {
-        // if (ConfigurationManager.getConfig<string>("env") === "dev")
-        //     return;
-
         this.registerDisposeAction(() =>
         {
             console.log("CLEANING UP. PLEASE WAIT...");
@@ -287,17 +236,16 @@ export class GrpcServer
                 return;
 
             this._isShutDown = true;
-            this._changeStatus(ServingStatus.NOT_SERVING);
-
+            
             // eslint-disable-next-line @typescript-eslint/no-misused-promises
-            this._server.tryShutdown(async (error) =>
+            this._server.close(async () =>
             {
                 console.warn(`SERVER STOPPING (${signal}).`);
 
                 if (this._hasShutdownScript)
                 {
                     console.log("Shutdown script executing.");
-                    try 
+                    try
                     {
                         await this._container.resolve<ApplicationScript>(this._shutdownScriptKey).run();
                         console.log("Shutdown script complete.");
@@ -320,22 +268,6 @@ export class GrpcServer
                     console.warn("Dispose actions error.");
                     console.error(error);
                 }
-                
-                if (error)
-                {
-                    console.warn("Error while trying to shutdown server");
-                    console.error(error);
-                    
-                    try 
-                    {
-                        this._server.forceShutdown();
-                    }
-                    catch (error)
-                    {
-                        console.warn("Error while forcing server shutdown");
-                        console.error(error);
-                    }
-                }
 
                 console.warn(`SERVER STOPPED (${signal}).`);
                 process.exit(0);
@@ -345,19 +277,4 @@ export class GrpcServer
         process.on("SIGTERM", () => shutDown("SIGTERM"));
         process.on("SIGINT", () => shutDown("SIGINT"));
     }
-    
-    private _changeStatus(status: ServingStatus): void
-    {
-        given(status, "status").ensureHasValue().ensureIsEnum(ServingStatus);
-        
-        this._statusMap[""] = this._statusMap[this._serviceName] = status;
-    }
-}
-
-enum ServingStatus
-{
-    UNKNOWN = "UNKNOWN",
-    SERVING = "SERVING",
-    NOT_SERVING = "NOT_SERVING",
-    SERVICE_UNKNOWN = "SERVICE_UNKNOWN" // Used only by the Watch method.
 }

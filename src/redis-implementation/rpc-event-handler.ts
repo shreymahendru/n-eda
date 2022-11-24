@@ -29,21 +29,26 @@ export class RpcEventHandler
     public async process(model: RpcModel)
         : Promise<{ eventName: string; eventId: string; } | { statusCode: number; error: string; }>
     {
-        given(model, "model").ensureHasValue().ensureIsObject();
-
-        given(this, "this").ensure(t => t._manager != null, "not initialized");
-
-        const eventData: EventInfo = {
-            consumerId: model.consumerId,
-            topic: model.topic,
-            partition: model.partition,
-            eventName: model.eventName,
-            event: Deserializer.deserialize<EdaEvent>(model.payload)
-        };
-
         try 
         {
+            given(model, "model").ensureHasValue().ensureIsObject();
+
+            given(this, "this").ensure(t => t._manager != null, "not initialized");
+
+            const eventData: EventInfo = {
+                consumerId: model.consumerId,
+                topic: model.topic,
+                partition: model.partition,
+                eventName: model.eventName,
+                event: Deserializer.deserialize<EdaEvent>(model.payload)
+            };
+            
             await this._process(eventData);
+            
+            return {
+                eventName: eventData.eventName,
+                eventId: eventData.event.id
+            };
         }
         catch (error)
         {
@@ -52,11 +57,6 @@ export class RpcEventHandler
                 error: this._getErrorMessage(error)
             };
         }
-
-        return {
-            eventName: eventData.eventName,
-            eventId: eventData.event.id
-        };
     }
     
     protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void
@@ -68,14 +68,14 @@ export class RpcEventHandler
 
     private async _process(data: EventInfo): Promise<void>
     {
-        given(data, "data").ensureHasValue().ensureIsObject()
-            .ensureHasStructure({
-                consumerId: "string",
-                topic: "string",
-                partition: "number",
-                eventName: "string",
-                event: "object"
-            });
+        // given(data, "data").ensureHasValue().ensureIsObject()
+        //     .ensureHasStructure({
+        //         consumerId: "string",
+        //         topic: "string",
+        //         partition: "number",
+        //         eventName: "string",
+        //         event: "object"
+        //     });
 
         const eventRegistration = this._manager!.eventMap.get(data.eventName) as EventRegistration;
 
@@ -92,8 +92,8 @@ export class RpcEventHandler
         }
         catch (error)
         {
-            await this._logger!.logWarning(`Error in EventHandler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
-            await this._logger!.logWarning(error as Exception);
+            await this._logger!.logWarning(`Error in RPC event handler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);
+            await this._logger!.logError(error as Exception);
             throw error;
         }
         finally

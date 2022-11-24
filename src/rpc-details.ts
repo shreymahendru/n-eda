@@ -1,7 +1,6 @@
 export interface RpcDetails
 {
     readonly host: string;
-    readonly endpoint: string;
 }
 
 export interface RpcModel

@@ -53,7 +53,7 @@ export class RpcProxyProcessor extends Processor
 
     private _invokeRPC(workItem: WorkItem): Promise<Axios.AxiosResponse<any>>
     {
-        return this._rpcClient.post(this.manager.rpcDetails!.endpoint + `?event=${workItem.eventName}`, {
+        return this._rpcClient.post("/process" + `?event=${workItem.eventName}`, {
             consumerId: workItem.consumerId,
             topic: workItem.topic,
             partition: workItem.partition,
