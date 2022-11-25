@@ -1,6 +1,7 @@
 import { RoutedEvent } from "./broker";
 import { Processor } from "./processor";
-export declare class OptimizedScheduler {
+import { Scheduler } from "./scheduler";
+export declare class OptimizedScheduler implements Scheduler {
     private readonly _queues;
     private readonly _processing;
     private readonly _processors;

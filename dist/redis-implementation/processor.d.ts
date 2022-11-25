@@ -23,5 +23,4 @@ export declare abstract class Processor implements Disposable {
     dispose(): Promise<void>;
     protected abstract processEvent(workItem: WorkItem, numAttempt: number): Promise<void>;
     private _process;
-    private _executeProcessing;
 }

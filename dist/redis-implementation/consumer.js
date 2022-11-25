@@ -141,7 +141,7 @@ class Consumer {
     }
     _attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            let failed = false;
+            let brokerDisposed = false;
             try {
                 yield this._broker.route({
                     consumerId: this._id,
@@ -157,15 +157,17 @@ class Consumer {
                 });
             }
             catch (error) {
-                failed = true;
-                yield this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
-                yield this._logger.logError(error);
+                if (error instanceof n_exception_1.ObjectDisposedException)
+                    brokerDisposed = true;
+                // await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
+                // await this._logger.logError(error as Exception);
             }
             finally {
-                if (failed && this._isDisposed) // cuz it could have failed because things were disposed
-                    // eslint-disable-next-line no-unsafe-finally
-                    return;
-                this._track(eventKey);
+                // if (failed && this._isDisposed) // cuz it could have failed because things were disposed
+                //     // eslint-disable-next-line no-unsafe-finally
+                //     return;
+                if (!brokerDisposed)
+                    this._track(eventKey);
             }
         });
     }

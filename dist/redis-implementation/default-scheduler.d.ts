@@ -1,6 +1,7 @@
 import { RoutedEvent } from "./broker";
 import { Processor } from "./processor";
-export declare class DefaultScheduler {
+import { Scheduler } from "./scheduler";
+export declare class DefaultScheduler implements Scheduler {
     private readonly _queues;
     private readonly _processing;
     private readonly _processors;

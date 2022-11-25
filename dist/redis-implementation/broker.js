@@ -20,9 +20,11 @@ class Broker {
         this._consumers.forEach(t => t.consume());
     }
     route(routedEvent) {
-        if (this._isDisposed)
-            throw new n_exception_1.ObjectDisposedException("Broker");
-        return this._scheduler.scheduleWork(routedEvent);
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            if (this._isDisposed)
+                throw new n_exception_1.ObjectDisposedException("Broker");
+            yield this._scheduler.scheduleWork(routedEvent);
+        });
     }
     dispose() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
