@@ -2,10 +2,10 @@ import { given } from "@nivinjoseph/n-defensive";
 import { Deferred } from "@nivinjoseph/n-util";
 import { RoutedEvent } from "./broker";
 import { Processor } from "./processor";
-import { WorkItem } from "./scheduler";
+import { Scheduler, WorkItem } from "./scheduler";
 
 
-export class DefaultScheduler
+export class DefaultScheduler implements Scheduler
 {
     private readonly _queues = new Map<string, SchedulerQueue>();
     private readonly _processing = new Set<string>();

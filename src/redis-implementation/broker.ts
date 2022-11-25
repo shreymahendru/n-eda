@@ -35,12 +35,12 @@ export class Broker implements Disposable
         this._consumers.forEach(t => t.consume());
     }
     
-    public route(routedEvent: RoutedEvent): Promise<void>
+    public async route(routedEvent: RoutedEvent): Promise<void>
     {
         if (this._isDisposed)
             throw new ObjectDisposedException("Broker");
         
-        return this._scheduler.scheduleWork(routedEvent);
+        await this._scheduler.scheduleWork(routedEvent);
     }
     
     public async dispose(): Promise<void>

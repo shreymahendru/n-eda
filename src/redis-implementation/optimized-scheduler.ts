@@ -3,10 +3,10 @@ import { Deferred, Duration } from "@nivinjoseph/n-util";
 import { RoutedEvent } from "./broker";
 import { Processor } from "./processor";
 import { Queue } from "./queue";
-import { WorkItem } from "./scheduler";
+import { Scheduler, WorkItem } from "./scheduler";
 
 
-export class OptimizedScheduler
+export class OptimizedScheduler implements Scheduler
 {
     private readonly _queues = new Map<string, Queue<WorkItem>>();
     private readonly _processing = new Set<string>();

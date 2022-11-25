@@ -213,7 +213,7 @@ export class Consumer implements Disposable
     private async _attemptRoute(eventName: string, eventRegistration: EventRegistration,
         eventIndex: number, eventKey: string, eventId: string, event: EdaEvent): Promise<void>
     {
-        let failed = false;
+        let brokerDisposed = false;
         try 
         {
             await this._broker.route({
@@ -231,17 +231,19 @@ export class Consumer implements Disposable
         }
         catch (error)
         {
-            failed = true;
-            await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
-            await this._logger.logError(error as Exception);
+            if (error instanceof ObjectDisposedException)
+                brokerDisposed = true;
+            // await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
+            // await this._logger.logError(error as Exception);
         }
         finally
         {
-            if (failed && this._isDisposed) // cuz it could have failed because things were disposed
-                // eslint-disable-next-line no-unsafe-finally
-                return;
+            // if (failed && this._isDisposed) // cuz it could have failed because things were disposed
+            //     // eslint-disable-next-line no-unsafe-finally
+            //     return;
 
-            this._track(eventKey);
+            if (!brokerDisposed)
+                this._track(eventKey);
         }
     }
     
