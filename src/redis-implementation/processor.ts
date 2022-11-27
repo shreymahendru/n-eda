@@ -87,7 +87,7 @@ export abstract class Processor implements Disposable
         let successful = false;
         try 
         {
-            while (successful === false && numProcessAttempts < maxProcessAttempts)
+            while (successful === false && numProcessAttempts <= maxProcessAttempts)
             {
                 if (this._isDisposed)
                 {
@@ -122,7 +122,7 @@ export abstract class Processor implements Disposable
                     if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
                         throw error;
                     else
-                        await Delay.seconds(2 * numProcessAttempts);
+                        await Delay.seconds((5 + numProcessAttempts) * numProcessAttempts); // [6, 14, 24, 36, 50, 66, 84, 104, 126]
                 }
             }
         }
