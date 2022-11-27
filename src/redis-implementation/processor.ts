@@ -87,7 +87,7 @@ export abstract class Processor implements Disposable
         let successful = false;
         try 
         {
-            while (successful === false && numProcessAttempts <= maxProcessAttempts)
+            while (successful === false && numProcessAttempts < maxProcessAttempts)
             {
                 if (this._isDisposed)
                 {
