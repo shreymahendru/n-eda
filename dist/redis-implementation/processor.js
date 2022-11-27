@@ -55,7 +55,7 @@ class Processor {
             let numProcessAttempts = 0;
             let successful = false;
             try {
-                while (successful === false && numProcessAttempts <= maxProcessAttempts) {
+                while (successful === false && numProcessAttempts < maxProcessAttempts) {
                     if (this._isDisposed) {
                         workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
                         return;
