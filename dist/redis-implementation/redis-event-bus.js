@@ -15,6 +15,7 @@ const n_config_1 = require("@nivinjoseph/n-config");
 let RedisEventBus = class RedisEventBus {
     constructor(redisClient) {
         this._producers = new Map();
+        this._isDisposing = false;
         this._isDisposed = false;
         this._disposePromise = null;
         this._manager = null;
@@ -38,8 +39,12 @@ let RedisEventBus = class RedisEventBus {
     }
     publish(topic, ...events) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            if (this._isDisposed)
+            if (this._isDisposed) {
+                yield this._logger.logError(`Publishing events to topic ${topic} after event bus disposed.`);
                 throw new n_exception_1.ObjectDisposedException(this);
+            }
+            if (this._isDisposing)
+                yield this._logger.logWarning(`Publishing events to topic ${topic} while event bus disposing.`);
             (0, n_defensive_1.given)(this, "this")
                 .ensure(t => !!t._manager, "not initialized");
             (0, n_defensive_1.given)(topic, "topic").ensureHasValue().ensureIsString()
@@ -63,10 +68,13 @@ let RedisEventBus = class RedisEventBus {
     }
     dispose() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            if (!this._isDisposed) {
-                this._isDisposed = true;
+            if (!this._isDisposing) {
+                this._isDisposing = true;
                 // this._disposePromise = new Promise((resolve, _) => this._client.quit(() => resolve()));
-                this._disposePromise = n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 10);
+                this._disposePromise = n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 10)
+                    .then(() => {
+                    this._isDisposed = true;
+                });
             }
             yield this._disposePromise;
         });
