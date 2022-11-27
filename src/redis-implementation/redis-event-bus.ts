@@ -19,6 +19,7 @@ export class RedisEventBus implements EventBus
     private readonly _producers = new Map<string, Producer>();
     
     
+    private _isDisposing = false;
     private _isDisposed = false;
     private _disposePromise: Promise<void> | null = null;
     private _manager: EdaManager = null as any;
@@ -57,7 +58,13 @@ export class RedisEventBus implements EventBus
     public async publish(topic: string, ...events: ReadonlyArray<EdaEvent>): Promise<void>
     {
         if (this._isDisposed)
+        {
+            await this._logger.logError(`Publishing events to topic ${topic} after event bus disposed.`);
             throw new ObjectDisposedException(this);
+        }
+        
+        if (this._isDisposing)
+            await this._logger.logWarning(`Publishing events to topic ${topic} while event bus disposing.`);
 
         given(this, "this")
             .ensure(t => !!t._manager, "not initialized");
@@ -90,11 +97,15 @@ export class RedisEventBus implements EventBus
     
     public async dispose(): Promise<void>
     {
-        if (!this._isDisposed)
+        if (!this._isDisposing)
         {
-            this._isDisposed = true;
+            this._isDisposing = true;
             // this._disposePromise = new Promise((resolve, _) => this._client.quit(() => resolve()));
-            this._disposePromise = Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 10);
+            this._disposePromise = Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 10)
+                .then(() =>
+                {
+                    this._isDisposed = true;
+                });
         }
 
         await this._disposePromise;
