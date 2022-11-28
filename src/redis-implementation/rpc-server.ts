@@ -163,6 +163,13 @@ export class RpcServer
     {
         const server = Http.createServer((req, res) =>
         {
+            if (this._isShutDown)
+            {
+                res.writeHead(503);
+                res.end("SERVER UNAVAILABLE");
+                return;
+            }
+            
             const requestPath = Url.parse(req.url!, true).pathname;
 
             switch (requestPath)

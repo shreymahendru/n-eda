@@ -1,5 +1,4 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Exception } from "@nivinjoseph/n-exception";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { EdaEventHandler } from "../eda-event-handler";
@@ -22,11 +21,8 @@ export class DefaultProcessor extends Processor
     }
     
     
-    protected async processEvent(workItem: WorkItem, numAttempt: number): Promise<void>
+    protected async processEvent(workItem: WorkItem): Promise<void>
     {
-        given(workItem, "workItem").ensureHasValue().ensureIsObject();
-        given(numAttempt, "numAttempt").ensureHasValue().ensureIsNumber();
-        
         const scope = this.manager.serviceLocator.createScope();
         (<any>workItem.event).$scope = scope;
 
@@ -39,12 +35,6 @@ export class DefaultProcessor extends Processor
             await handler.handle(workItem.event);
 
             // await this._logger.logInfo(`Executed EventHandler '${workItem.eventRegistration.eventHandlerTypeName}' for event '${workItem.eventName}' with id '${workItem.eventId}' => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${workItem.topic}; Partition: ${workItem.partition};`);
-        }
-        catch (error)
-        {
-            await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-            await this.logger.logWarning(error as Exception);
-            throw error;
         }
         finally
         {

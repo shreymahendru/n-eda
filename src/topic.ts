@@ -29,7 +29,7 @@ export class Topic
         given(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
         
-        given(ttlDuration, "ttlDuration").ensureHasValue().ensureIsInstanceOf(Duration);
+        given(ttlDuration, "ttlDuration").ensureHasValue();
         this._ttlMinutes = ttlDuration.toMinutes(true);
         
         given(numPartitions, "numPartitions").ensureHasValue().ensureIsNumber().ensure(t => t > 0);

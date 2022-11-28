@@ -2,7 +2,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import { EdaManager } from "../eda-manager";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
-import { ApplicationException, Exception } from "@nivinjoseph/n-exception";
+import { ApplicationException } from "@nivinjoseph/n-exception";
 import * as Axios from "axios";
 
 
@@ -24,31 +24,19 @@ export class RpcProxyProcessor extends Processor
     }
 
 
-    protected async processEvent(workItem: WorkItem, numAttempt: number): Promise<void>
+    protected async processEvent(workItem: WorkItem): Promise<void>
     {
-        given(workItem, "workItem").ensureHasValue().ensureIsObject();
-        given(numAttempt, "numAttempt").ensureHasValue().ensureIsNumber();
+        const response = await this._invokeRPC(workItem);
 
-        try 
-        {
-            const response = await this._invokeRPC(workItem);
+        if (response.status !== 200)
+            throw new ApplicationException(
+                `Error during invocation of RPC. Details => ${response.data ? JSON.stringify(response.data) : "Check logs for details."}`);
 
-            if (response.status !== 200)
-                throw new ApplicationException(
-                    `Error during invocation of RPC. Details => ${response.data ? JSON.stringify(response.data) : "Check logs for details."}`);
+        const result = response.data;
 
-            const result = response.data;
-            
-            if (result.eventName !== workItem.eventName || result.eventId !== workItem.eventId)
-                throw new ApplicationException(
-                    `Error during invocation of RPC. Details => ${result ? JSON.stringify(result) : "Check logs for details."}`);
-        }
-        catch (error)
-        {
-            await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-            await this.logger.logWarning(error as Exception);
-            throw error;
-        }
+        if (result.eventName !== workItem.eventName || result.eventId !== workItem.eventId)
+            throw new ApplicationException(
+                `Error during invocation of RPC. Details => ${result ? JSON.stringify(result) : "Check logs for details."}`);
     }
 
     private _invokeRPC(workItem: WorkItem): Promise<Axios.AxiosResponse<any>>

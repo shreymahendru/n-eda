@@ -1,7 +1,7 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { Exception, InvalidOperationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
-import { Delay, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
+import { Delay, DelayCanceller, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
 import { EdaManager } from "../eda-manager";
 import { EventHandlerTracer } from "../event-handler-tracer";
 import { WorkItem } from "./scheduler";
@@ -19,6 +19,7 @@ export abstract class Processor implements Disposable
     private _currentWorkItem: WorkItem | null = null;
     private _processPromise: Promise<void> | null = null;
     private _isDisposed = false;
+    private _delayCanceller: DelayCanceller | null = null;
 
 
     private get _isInitialized(): boolean
@@ -72,11 +73,14 @@ export abstract class Processor implements Disposable
     {
         if (!this._isDisposed)
             this._isDisposed = true;
+            
+        if (this._delayCanceller)
+            this._delayCanceller.cancel!();
 
         return this._processPromise || Promise.resolve();
     }
 
-    protected abstract processEvent(workItem: WorkItem, numAttempt: number): Promise<void>;
+    protected abstract processEvent(workItem: WorkItem): Promise<void>;
 
     private async _process(): Promise<void>
     {
@@ -108,10 +112,10 @@ export abstract class Processor implements Disposable
                             partitionKey: workItem.partitionKey,
                             eventName: workItem.eventName,
                             eventId: workItem.eventId
-                        }, ((npa: number) => () => this.processEvent(workItem, npa))(numProcessAttempts));
+                        }, () => this.processEvent(workItem));
 
                     else
-                        await this.processEvent(workItem, numProcessAttempts);
+                        await this.processEvent(workItem);
                     successful = true;
                     workItem.deferred.resolve();
                     break;
@@ -119,10 +123,26 @@ export abstract class Processor implements Disposable
                 catch (error)
                 {
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
+                    if (this._isDisposed)
+                    {
+                        workItem.deferred.reject(new ObjectDisposedException("Processor"));
+                        return;
+                    }
+                    
+                    if (numProcessAttempts >= maxProcessAttempts)
                         throw error;
                     else
-                        await Delay.seconds((5 + numProcessAttempts) * numProcessAttempts); // [6, 14, 24, 36, 50, 66, 84, 104, 126]
+                    {
+                        if (numProcessAttempts > 7)
+                        {
+                            await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
+                            await this.logger.logWarning(error as Exception);       
+                        }
+                        
+                        this._delayCanceller = {};
+                        await Delay.seconds((5 + numProcessAttempts) * numProcessAttempts, this._delayCanceller); // [6, 14, 24, 36, 50, 66, 84, 104, 126]
+                        this._delayCanceller = null;
+                    } 
                 }
             }
         }

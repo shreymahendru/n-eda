@@ -13,6 +13,7 @@ import { Scheduler } from "./scheduler";
 export class Broker implements Disposable
 {
     private readonly _consumers: ReadonlyArray<Consumer>;
+    private readonly _processors: ReadonlyArray<Processor>;
     private readonly _scheduler: Scheduler;
     
     private _isDisposed = false;
@@ -25,6 +26,8 @@ export class Broker implements Disposable
         
         given(processors, "processors").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty)
             .ensure(t => t.length === consumers.length, "length has to match consumers length");
+        this._processors = processors;
+        
         this._scheduler = new OptimizedScheduler(processors);
     }
     
@@ -35,18 +38,22 @@ export class Broker implements Disposable
         this._consumers.forEach(t => t.consume());
     }
     
-    public async route(routedEvent: RoutedEvent): Promise<void>
+    public route(routedEvent: RoutedEvent): Promise<void>
     {
         if (this._isDisposed)
-            throw new ObjectDisposedException("Broker");
+            return Promise.reject(new ObjectDisposedException("Broker"));
         
-        await this._scheduler.scheduleWork(routedEvent);
+        return this._scheduler.scheduleWork(routedEvent);
     }
     
     public async dispose(): Promise<void>
     {
         this._isDisposed = true;
-        await Promise.all(this._consumers.map(t => t.dispose()));
+        await Promise.all([
+            ...this._consumers.map(t => t.dispose()),
+            ...this._processors.map(t => t.dispose()),
+            this._scheduler.dispose()
+        ]);
     }
 }
 

@@ -1,4 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
+import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Deferred, Duration } from "@nivinjoseph/n-util";
 import { RoutedEvent } from "./broker";
 import { Processor } from "./processor";
@@ -15,6 +16,7 @@ export class OptimizedScheduler implements Scheduler
     
     private readonly _cleanupDuration = Duration.fromHours(1).toMilliSeconds();
     private _cleanupTime = Date.now() + this._cleanupDuration;
+    private _isDisposed = false;
 
 
     public constructor(processors: ReadonlyArray<Processor>)
@@ -37,6 +39,9 @@ export class OptimizedScheduler implements Scheduler
 
     public scheduleWork(routedEvent: RoutedEvent): Promise<void>
     {
+        if (this._isDisposed)
+            return Promise.reject(new ObjectDisposedException("Scheduler"));
+        
         const deferred = new Deferred<void>();
 
         const workItem: WorkItem = {
@@ -55,6 +60,22 @@ export class OptimizedScheduler implements Scheduler
         this._executeAvailableWork();
 
         return workItem.deferred.promise;
+    }
+    
+    public dispose(): Promise<void>
+    {
+        if (!this._isDisposed)
+        {
+            this._isDisposed = true;
+            let work = this._findWork();
+            while (work != null)
+            {
+                work.deferred.reject(new ObjectDisposedException("Scheduler"));
+                work = this._findWork();
+            }
+        }
+        
+        return Promise.resolve();
     }
 
     private _executeAvailableWork(): void
@@ -94,7 +115,7 @@ export class OptimizedScheduler implements Scheduler
         {
             const partitionKey = this._partitionQueue.dequeue()!;            
             
-            if (this._processing.has(partitionKey))
+            if (!this._isDisposed && this._processing.has(partitionKey))
             {
                 this._partitionQueue.enqueue(partitionKey);
                 cycle++;

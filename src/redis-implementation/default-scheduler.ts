@@ -4,7 +4,9 @@ import { RoutedEvent } from "./broker";
 import { Processor } from "./processor";
 import { Scheduler, WorkItem } from "./scheduler";
 
-
+/**
+ * @deprecated Only used for baselining
+ */
 export class DefaultScheduler implements Scheduler
 {
     private readonly _queues = new Map<string, SchedulerQueue>();
@@ -23,7 +25,7 @@ export class DefaultScheduler implements Scheduler
             t.doneProcessing.subscribe((workItem) => this._processing.delete(workItem.partitionKey));
         });
     }
-
+    
 
     public scheduleWork(routedEvent: RoutedEvent): Promise<void>
     {
@@ -46,6 +48,11 @@ export class DefaultScheduler implements Scheduler
         this._executeAvailableWork();
 
         return workItem.deferred.promise;
+    }
+    
+    public dispose(): Promise<void>
+    {
+        return Promise.resolve();
     }
 
     private _executeAvailableWork(processor?: Processor): void

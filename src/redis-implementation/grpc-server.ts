@@ -191,6 +191,12 @@ export class GrpcServer
         server.addService((serviceDef as any)[this._serviceName].service, {
             process: (call: any, callback: Function) =>
             {
+                if (this._isShutDown)
+                {
+                    callback({ code: Grpc.status.UNAVAILABLE });
+                    return;
+                }
+                
                 const request = call.request as GrpcModel;
                 
                 this._eventHandler.process(request)
