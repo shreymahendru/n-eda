@@ -3,6 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DefaultScheduler = void 0;
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_util_1 = require("@nivinjoseph/n-util");
+/**
+ * @deprecated Only used for baselining
+ */
 class DefaultScheduler {
     constructor(processors) {
         this._queues = new Map();
@@ -27,6 +30,9 @@ class DefaultScheduler {
             });
         this._executeAvailableWork();
         return workItem.deferred.promise;
+    }
+    dispose() {
+        return Promise.resolve();
     }
     _executeAvailableWork(processor) {
         const availableProcessor = processor !== null && processor !== void 0 ? processor : this._processors.find(t => !t.isBusy);

@@ -5,6 +5,7 @@ import { Consumer } from "./consumer";
 import { Processor } from "./processor";
 export declare class Broker implements Disposable {
     private readonly _consumers;
+    private readonly _processors;
     private readonly _scheduler;
     private _isDisposed;
     constructor(consumers: ReadonlyArray<Consumer>, processors: ReadonlyArray<Processor>);

@@ -12,7 +12,7 @@ class Topic {
         this._isDisabled = false;
         (0, n_defensive_1.given)(name, "name").ensureHasValue().ensureIsString();
         this._name = name.trim();
-        (0, n_defensive_1.given)(ttlDuration, "ttlDuration").ensureHasValue().ensureIsInstanceOf(n_util_1.Duration);
+        (0, n_defensive_1.given)(ttlDuration, "ttlDuration").ensureHasValue();
         this._ttlMinutes = ttlDuration.toMinutes(true);
         (0, n_defensive_1.given)(numPartitions, "numPartitions").ensureHasValue().ensureIsNumber().ensure(t => t > 0);
         this._numPartitions = numPartitions;

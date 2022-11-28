@@ -13,6 +13,7 @@ class Processor {
         this._currentWorkItem = null;
         this._processPromise = null;
         this._isDisposed = false;
+        this._delayCanceller = null;
         (0, n_defensive_1.given)(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
         this._manager = manager;
         this._eventHandlerTracer = this._manager.eventHandlerTracer;
@@ -46,6 +47,8 @@ class Processor {
     dispose() {
         if (!this._isDisposed)
             this._isDisposed = true;
+        if (this._delayCanceller)
+            this._delayCanceller.cancel();
         return this._processPromise || Promise.resolve();
     }
     _process() {
@@ -70,19 +73,30 @@ class Processor {
                                 partitionKey: workItem.partitionKey,
                                 eventName: workItem.eventName,
                                 eventId: workItem.eventId
-                            }, ((npa) => () => this.processEvent(workItem, npa))(numProcessAttempts));
+                            }, () => this.processEvent(workItem));
                         else
-                            yield this.processEvent(workItem, numProcessAttempts);
+                            yield this.processEvent(workItem);
                         successful = true;
                         workItem.deferred.resolve();
                         break;
                     }
                     catch (error) {
                         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                        if (numProcessAttempts >= maxProcessAttempts || this._isDisposed)
+                        if (this._isDisposed) {
+                            workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
+                            return;
+                        }
+                        if (numProcessAttempts >= maxProcessAttempts)
                             throw error;
-                        else
-                            yield n_util_1.Delay.seconds((5 + numProcessAttempts) * numProcessAttempts); // [6, 14, 24, 36, 50, 66, 84, 104, 126]
+                        else {
+                            if (numProcessAttempts > 7) {
+                                yield this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
+                                yield this.logger.logWarning(error);
+                            }
+                            this._delayCanceller = {};
+                            yield n_util_1.Delay.seconds((5 + numProcessAttempts) * numProcessAttempts, this._delayCanceller); // [6, 14, 24, 36, 50, 66, 84, 104, 126]
+                            this._delayCanceller = null;
+                        }
                     }
                 }
             }

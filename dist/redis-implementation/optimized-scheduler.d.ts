@@ -8,8 +8,10 @@ export declare class OptimizedScheduler implements Scheduler {
     private readonly _partitionQueue;
     private readonly _cleanupDuration;
     private _cleanupTime;
+    private _isDisposed;
     constructor(processors: ReadonlyArray<Processor>);
     scheduleWork(routedEvent: RoutedEvent): Promise<void>;
+    dispose(): Promise<void>;
     private _executeAvailableWork;
     private _findWork;
 }

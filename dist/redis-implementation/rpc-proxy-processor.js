@@ -15,23 +15,14 @@ class RpcProxyProcessor extends processor_1.Processor {
             baseURL: `http://${manager.rpcDetails.host}:${manager.rpcDetails.port}`
         });
     }
-    processEvent(workItem, numAttempt) {
+    processEvent(workItem) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            (0, n_defensive_1.given)(workItem, "workItem").ensureHasValue().ensureIsObject();
-            (0, n_defensive_1.given)(numAttempt, "numAttempt").ensureHasValue().ensureIsNumber();
-            try {
-                const response = yield this._invokeRPC(workItem);
-                if (response.status !== 200)
-                    throw new n_exception_1.ApplicationException(`Error during invocation of RPC. Details => ${response.data ? JSON.stringify(response.data) : "Check logs for details."}`);
-                const result = response.data;
-                if (result.eventName !== workItem.eventName || result.eventId !== workItem.eventId)
-                    throw new n_exception_1.ApplicationException(`Error during invocation of RPC. Details => ${result ? JSON.stringify(result) : "Check logs for details."}`);
-            }
-            catch (error) {
-                yield this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-                yield this.logger.logWarning(error);
-                throw error;
-            }
+            const response = yield this._invokeRPC(workItem);
+            if (response.status !== 200)
+                throw new n_exception_1.ApplicationException(`Error during invocation of RPC. Details => ${response.data ? JSON.stringify(response.data) : "Check logs for details."}`);
+            const result = response.data;
+            if (result.eventName !== workItem.eventName || result.eventId !== workItem.eventId)
+                throw new n_exception_1.ApplicationException(`Error during invocation of RPC. Details => ${result ? JSON.stringify(result) : "Check logs for details."}`);
         });
     }
     _invokeRPC(workItem) {

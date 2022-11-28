@@ -4,6 +4,6 @@ import { WorkItem } from "./scheduler";
 export declare class AwsLambdaProxyProcessor extends Processor {
     private readonly _lambda;
     constructor(manager: EdaManager);
-    protected processEvent(workItem: WorkItem, numAttempt: number): Promise<void>;
+    protected processEvent(workItem: WorkItem): Promise<void>;
     private _invokeLambda;
 }

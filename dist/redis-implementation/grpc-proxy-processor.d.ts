@@ -5,5 +5,5 @@ import { GrpcClientFactory } from "./grpc-client-factory";
 export declare class GrpcProxyProcessor extends Processor {
     private readonly _grpcClient;
     constructor(manager: EdaManager, grpcClientFactory: GrpcClientFactory);
-    protected processEvent(workItem: WorkItem, numAttempt: number): Promise<void>;
+    protected processEvent(workItem: WorkItem): Promise<void>;
 }

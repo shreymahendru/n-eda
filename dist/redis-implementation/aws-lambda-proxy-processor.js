@@ -19,26 +19,17 @@ class AwsLambdaProxyProcessor extends processor_1.Processor {
             }
         });
     }
-    processEvent(workItem, numAttempt) {
+    processEvent(workItem) {
         var _a, _b, _c, _d;
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            (0, n_defensive_1.given)(workItem, "workItem").ensureHasValue().ensureIsObject();
-            (0, n_defensive_1.given)(numAttempt, "numAttempt").ensureHasValue().ensureIsNumber();
-            try {
-                const response = yield this._invokeLambda(workItem);
-                const result = response.Payload ? JSON.parse(response.Payload) : null;
-                if (result != null && result.error)
-                    throw new n_exception_1.ApplicationException("Error during invocation of AWS Lambda.", result.error);
-                if (response.StatusCode !== 200)
-                    throw new n_exception_1.ApplicationException(`Error during invocation of AWS Lambda. Details => ${(_b = (_a = response.LogResult) === null || _a === void 0 ? void 0 : _a.base64Decode()) !== null && _b !== void 0 ? _b : "Check CloudWatch logs for details."}`);
-                if (result.eventName !== workItem.eventName || result.eventId !== workItem.eventId)
-                    throw new n_exception_1.ApplicationException(`Error during invocation of AWS Lambda. Details => ${(_d = (_c = response.LogResult) === null || _c === void 0 ? void 0 : _c.base64Decode()) !== null && _d !== void 0 ? _d : "Check CloudWatch logs for details."}`);
-            }
-            catch (error) {
-                yield this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numAttempt}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-                yield this.logger.logWarning(error);
-                throw error;
-            }
+            const response = yield this._invokeLambda(workItem);
+            const result = response.Payload ? JSON.parse(response.Payload) : null;
+            if (result != null && result.error)
+                throw new n_exception_1.ApplicationException("Error during invocation of AWS Lambda.", result.error);
+            if (response.StatusCode !== 200)
+                throw new n_exception_1.ApplicationException(`Error during invocation of AWS Lambda. Details => ${(_b = (_a = response.LogResult) === null || _a === void 0 ? void 0 : _a.base64Decode()) !== null && _b !== void 0 ? _b : "Check CloudWatch logs for details."}`);
+            if (result.eventName !== workItem.eventName || result.eventId !== workItem.eventId)
+                throw new n_exception_1.ApplicationException(`Error during invocation of AWS Lambda. Details => ${(_d = (_c = response.LogResult) === null || _c === void 0 ? void 0 : _c.base64Decode()) !== null && _d !== void 0 ? _d : "Check CloudWatch logs for details."}`);
         });
     }
     _invokeLambda(workItem) {

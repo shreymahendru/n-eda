@@ -4,6 +4,6 @@ import { WorkItem } from "./scheduler";
 export declare class RpcProxyProcessor extends Processor {
     private readonly _rpcClient;
     constructor(manager: EdaManager);
-    protected processEvent(workItem: WorkItem, numAttempt: number): Promise<void>;
+    protected processEvent(workItem: WorkItem): Promise<void>;
     private _invokeRPC;
 }

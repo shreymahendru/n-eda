@@ -13,6 +13,7 @@ class Broker {
         this._consumers = consumers;
         (0, n_defensive_1.given)(processors, "processors").ensureHasValue().ensureIsArray().ensure(t => t.isNotEmpty)
             .ensure(t => t.length === consumers.length, "length has to match consumers length");
+        this._processors = processors;
         this._scheduler = new optimized_scheduler_1.OptimizedScheduler(processors);
     }
     initialize() {
@@ -20,16 +21,18 @@ class Broker {
         this._consumers.forEach(t => t.consume());
     }
     route(routedEvent) {
-        return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            if (this._isDisposed)
-                throw new n_exception_1.ObjectDisposedException("Broker");
-            yield this._scheduler.scheduleWork(routedEvent);
-        });
+        if (this._isDisposed)
+            return Promise.reject(new n_exception_1.ObjectDisposedException("Broker"));
+        return this._scheduler.scheduleWork(routedEvent);
     }
     dispose() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             this._isDisposed = true;
-            yield Promise.all(this._consumers.map(t => t.dispose()));
+            yield Promise.all([
+                ...this._consumers.map(t => t.dispose()),
+                ...this._processors.map(t => t.dispose()),
+                this._scheduler.dispose()
+            ]);
         });
     }
 }

@@ -124,6 +124,10 @@ class GrpcServer {
         const server = new Grpc.Server();
         server.addService(serviceDef[this._serviceName].service, {
             process: (call, callback) => {
+                if (this._isShutDown) {
+                    callback({ code: Grpc.status.UNAVAILABLE });
+                    return;
+                }
                 const request = call.request;
                 this._eventHandler.process(request)
                     .then((response) => {

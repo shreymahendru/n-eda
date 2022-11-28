@@ -12,6 +12,7 @@ export declare abstract class Processor implements Disposable {
     private _currentWorkItem;
     private _processPromise;
     private _isDisposed;
+    private _delayCanceller;
     private get _isInitialized();
     protected get manager(): EdaManager;
     protected get logger(): Logger;
@@ -21,6 +22,6 @@ export declare abstract class Processor implements Disposable {
     constructor(manager: EdaManager);
     process(workItem: WorkItem): void;
     dispose(): Promise<void>;
-    protected abstract processEvent(workItem: WorkItem, numAttempt: number): Promise<void>;
+    protected abstract processEvent(workItem: WorkItem): Promise<void>;
     private _process;
 }
