@@ -60,7 +60,7 @@ class OptimizedScheduler {
         this._processing.add(workItem.partitionKey);
     }
     _findWork() {
-        if (this._cleanupTime < Date.now()) {
+        if (!this._isDisposed && this._cleanupTime < Date.now()) {
             for (const entry of this._queues.entries()) {
                 if (entry[1].isEmpty)
                     this._queues.delete(entry[0]);

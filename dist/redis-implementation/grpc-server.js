@@ -197,43 +197,46 @@ class GrpcServer {
                 return;
             this._isShutDown = true;
             this._changeStatus(ServingStatus.NOT_SERVING);
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
-            this._server.tryShutdown((error) => tslib_1.__awaiter(this, void 0, void 0, function* () {
-                console.warn(`SERVER STOPPING (${signal}).`);
-                if (this._hasShutdownScript) {
-                    console.log("Shutdown script executing.");
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            n_util_1.Delay.seconds(5).then(() => {
+                // eslint-disable-next-line @typescript-eslint/no-misused-promises
+                this._server.tryShutdown((error) => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                    console.warn(`SERVER STOPPING (${signal}).`);
+                    if (this._hasShutdownScript) {
+                        console.log("Shutdown script executing.");
+                        try {
+                            yield this._container.resolve(this._shutdownScriptKey).run();
+                            console.log("Shutdown script complete.");
+                        }
+                        catch (error) {
+                            console.warn("Shutdown script error.");
+                            console.error(error);
+                        }
+                    }
+                    console.log("Dispose actions executing.");
                     try {
-                        yield this._container.resolve(this._shutdownScriptKey).run();
-                        console.log("Shutdown script complete.");
+                        yield Promise.all(this._disposeActions.map(t => t()));
+                        console.log("Dispose actions complete.");
                     }
                     catch (error) {
-                        console.warn("Shutdown script error.");
+                        console.warn("Dispose actions error.");
                         console.error(error);
                     }
-                }
-                console.log("Dispose actions executing.");
-                try {
-                    yield Promise.all(this._disposeActions.map(t => t()));
-                    console.log("Dispose actions complete.");
-                }
-                catch (error) {
-                    console.warn("Dispose actions error.");
-                    console.error(error);
-                }
-                if (error) {
-                    console.warn("Error while trying to shutdown server");
-                    console.error(error);
-                    try {
-                        this._server.forceShutdown();
-                    }
-                    catch (error) {
-                        console.warn("Error while forcing server shutdown");
+                    if (error) {
+                        console.warn("Error while trying to shutdown server");
                         console.error(error);
+                        try {
+                            this._server.forceShutdown();
+                        }
+                        catch (error) {
+                            console.warn("Error while forcing server shutdown");
+                            console.error(error);
+                        }
                     }
-                }
-                console.warn(`SERVER STOPPED (${signal}).`);
-                process.exit(0);
-            }));
+                    console.warn(`SERVER STOPPED (${signal}).`);
+                    process.exit(0);
+                }));
+            });
         };
         process.on("SIGTERM", () => shutDown("SIGTERM"));
         process.on("SIGINT", () => shutDown("SIGINT"));

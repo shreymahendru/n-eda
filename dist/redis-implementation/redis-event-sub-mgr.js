@@ -22,6 +22,7 @@ const grpc_client_factory_1 = require("./grpc-client-factory");
 let RedisEventSubMgr = class RedisEventSubMgr {
     constructor(redisClient, logger) {
         this._brokers = new Array();
+        this._isDisposing = false;
         this._isDisposed = false;
         this._disposePromise = null;
         this._manager = null;
@@ -80,18 +81,17 @@ let RedisEventSubMgr = class RedisEventSubMgr {
         });
     }
     dispose() {
-        return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            if (!this._isDisposed) {
-                this._isDisposed = true;
-                this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()));
-                // if (this._manager.metricsEnabled)
-                // {
-                //     await Delay.seconds(3);
-                //     ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => (<ProfilingConsumer>t).profiler));
-                // }
-            }
-            yield this._disposePromise;
-        });
+        if (!this._isDisposing) {
+            this._isDisposing = true;
+            this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()))
+                .finally(() => this._isDisposed = true);
+            // if (this._manager.metricsEnabled)
+            // {
+            //     await Delay.seconds(3);
+            //     ConsumerProfiler.aggregate(this._manager.consumerName, this._consumers.map(t => (<ProfilingConsumer>t).profiler));
+            // }
+        }
+        return this._disposePromise;
     }
     onEventReceived(scope, topic, event) {
         (0, n_defensive_1.given)(scope, "scope").ensureHasValue().ensureIsObject();

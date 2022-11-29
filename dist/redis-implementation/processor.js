@@ -31,8 +31,10 @@ class Processor {
     process(workItem) {
         if (!this._isInitialized || this.isBusy)
             throw new n_exception_1.InvalidOperationException("processor not initialized or processor is busy");
-        if (this._isDisposed)
-            throw new n_exception_1.ObjectDisposedException("Processor");
+        if (this._isDisposed) {
+            workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
+            return;
+        }
         this._currentWorkItem = workItem;
         this._processPromise = this._process()
             .then(() => {
@@ -56,9 +58,8 @@ class Processor {
             const workItem = this._currentWorkItem;
             const maxProcessAttempts = 10;
             let numProcessAttempts = 0;
-            let successful = false;
             try {
-                while (successful === false && numProcessAttempts < maxProcessAttempts) {
+                while (numProcessAttempts < maxProcessAttempts) {
                     if (this._isDisposed) {
                         workItem.deferred.reject(new n_exception_1.ObjectDisposedException("Processor"));
                         return;
@@ -76,9 +77,8 @@ class Processor {
                             }, () => this.processEvent(workItem));
                         else
                             yield this.processEvent(workItem);
-                        successful = true;
                         workItem.deferred.resolve();
-                        break;
+                        return;
                     }
                     catch (error) {
                         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -101,9 +101,10 @@ class Processor {
                 }
             }
             catch (error) {
-                yield this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
+                const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
+                yield this._logger.logWarning(message);
                 yield this._logger.logError(error);
-                workItem.deferred.reject(error);
+                workItem.deferred.reject(new n_exception_1.ApplicationException(message, error));
             }
         });
     }
