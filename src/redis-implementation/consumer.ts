@@ -523,7 +523,8 @@ export class Consumer implements Disposable
                 // console.log(keys);
                 
                 this._trackedKeysSet = new Set<string>(keys);
-
+                this._trackedKeysArray = keys;
+                
                 resolve();
             }).catch(e => reject(e));
         });
