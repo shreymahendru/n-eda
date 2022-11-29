@@ -505,7 +505,7 @@ export class Consumer implements Disposable
     
     private _purgeTrackedKeys(): void
     {
-        this._client.ltrim(this._trackedKeysKey, 0, 2900).catch(e => this._logger.logError(e));
+        this._client.ltrim(this._trackedKeysKey, 0, 99).catch(e => this._logger.logError(e));
     }
     
     private _loadTrackedKeys(): Promise<void>
