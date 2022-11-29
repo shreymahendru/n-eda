@@ -64,6 +64,14 @@ suite("eda tests", () =>
 
         await Delay.seconds(30);
         
+        // await Delay.seconds(1);
+        
+        // await edaManager.dispose();
+        
+        // await Delay.seconds(10);
+        
+        
+        
         console.log(`EDA time => ${history.endProfiling()}ms`);
 
         // Assert.ok(history.records.length === 1 && history.records[0] === testEvent.id);

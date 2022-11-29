@@ -1,7 +1,7 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { ComponentInstaller, Container, inject, Registry } from "@nivinjoseph/n-ject";
 import { ConsoleLogger, LogDateTimeZone, Logger } from "@nivinjoseph/n-log";
-import { Delay, DisposableWrapper, Duration, Serializable, serialize } from "@nivinjoseph/n-util";
+import { Delay, Disposable, DisposableWrapper, Duration, Serializable, serialize } from "@nivinjoseph/n-util";
 // import * as Redis from "redis";
 import Redis from "ioredis";
 import { EdaEventHandler } from "../../src";
@@ -11,14 +11,16 @@ import { RedisEventBus } from "../../src/redis-implementation/redis-event-bus";
 import { RedisEventSubMgr } from "../../src/redis-implementation/redis-event-sub-mgr";
 import { Topic } from "../../src/topic";
 import { event } from "../../src/event";
+import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 
 
-export class EventHistory
+export class EventHistory implements Disposable
 {
     private readonly _historicalRecords = new Array<string>();
     
     private _startedAt = Date.now();
     private _lastEventAt = Date.now();
+    private _isDisposed = false;
     
     public get records(): ReadonlyArray<string> { return this._historicalRecords; }
     
@@ -26,6 +28,9 @@ export class EventHistory
     public async recordEvent(event: EdaEvent): Promise<void>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
+        
+        if (this._isDisposed)
+            throw new ObjectDisposedException("EventHistory");
         
         await Delay.milliseconds(10);
         
@@ -41,6 +46,12 @@ export class EventHistory
     public endProfiling(): number
     {
         return this._lastEventAt - this._startedAt;
+    }
+    
+    public dispose(): Promise<void>
+    {
+        this._isDisposed = true;
+        return Promise.resolve();
     }
 }
 
@@ -145,14 +156,14 @@ export function createEdaManager(): EdaManager
         //     return id.contains("-") ? id.split("-")[0] : id;
         // })
         .registerEventHandlers(TestEventHandler)
-        .registerEventHandlerTracer(async (eventInfo, exec) =>
-        {
-            console.log(`Starting tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
+        // .registerEventHandlerTracer(async (eventInfo, exec) =>
+        // {
+        //     console.log(`Starting tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
             
-            await exec();
+        //     await exec();
             
-            console.log(`Finished tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
-        })
+        //     console.log(`Finished tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
+        // })
         .registerEventBus(RedisEventBus);
     
     container.bootstrap();

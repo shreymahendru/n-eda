@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { Exception, InvalidOperationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { ApplicationException, Exception, InvalidOperationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
 import { Delay, DelayCanceller, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
 import { EdaManager } from "../eda-manager";
@@ -53,7 +53,10 @@ export abstract class Processor implements Disposable
             throw new InvalidOperationException("processor not initialized or processor is busy");
 
         if (this._isDisposed)
-            throw new ObjectDisposedException("Processor");
+        {
+            workItem.deferred.reject(new ObjectDisposedException("Processor"));
+            return;
+        }
 
         this._currentWorkItem = workItem;
 
@@ -88,10 +91,9 @@ export abstract class Processor implements Disposable
 
         const maxProcessAttempts = 10;
         let numProcessAttempts = 0;
-        let successful = false;
         try 
         {
-            while (successful === false && numProcessAttempts < maxProcessAttempts)
+            while (numProcessAttempts < maxProcessAttempts)
             {
                 if (this._isDisposed)
                 {
@@ -116,9 +118,8 @@ export abstract class Processor implements Disposable
 
                     else
                         await this.processEvent(workItem);
-                    successful = true;
                     workItem.deferred.resolve();
-                    break;
+                    return;
                 }
                 catch (error)
                 {
@@ -148,9 +149,10 @@ export abstract class Processor implements Disposable
         }
         catch (error)
         {
-            await this._logger.logWarning(`Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`);
+            const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
+            await this._logger.logWarning(message);
             await this._logger.logError(error as Exception);
-            workItem.deferred.reject(error);
+            workItem.deferred.reject(new ApplicationException(message, error as Exception));
         }
     }
 }

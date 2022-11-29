@@ -96,7 +96,7 @@ export class OptimizedScheduler implements Scheduler
 
     private _findWork(): WorkItem | null
     {
-        if (this._cleanupTime < Date.now())
+        if (!this._isDisposed && this._cleanupTime < Date.now())
         {
             for (const entry of this._queues.entries())
             {

@@ -28,8 +28,9 @@ export class RedisEventSubMgr implements EventSubMgr
     private readonly _logger: Logger;
     private readonly _brokers = new Array<Broker>();
 
+    private _isDisposing = false;
     private _isDisposed = false;
-    private _disposePromise: Promise<any> | null = null;
+    private _disposePromise: Promise<void> | null = null;
     private _manager: EdaManager = null as any;
     private _isConsuming = false;
     
@@ -111,13 +112,14 @@ export class RedisEventSubMgr implements EventSubMgr
         }
     }
     
-    public async dispose(): Promise<void>
+    public dispose(): Promise<void>
     {
-        if (!this._isDisposed)
+        if (!this._isDisposing)
         {
-            this._isDisposed = true;
+            this._isDisposing = true;
             
-            this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()));
+            this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()))
+                .finally(() => this._isDisposed = true) as unknown as Promise<void>;
             
             // if (this._manager.metricsEnabled)
             // {
@@ -127,7 +129,7 @@ export class RedisEventSubMgr implements EventSubMgr
             // }
         }
 
-        await this._disposePromise;
+        return this._disposePromise!;
     }    
     
     

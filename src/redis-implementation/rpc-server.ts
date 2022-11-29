@@ -244,40 +244,44 @@ export class RpcServer
 
             this._isShutDown = true;
             
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
-            this._server.close(async () =>
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            Delay.seconds(5).then(() =>
             {
-                console.warn(`SERVER STOPPING (${signal}).`);
-
-                if (this._hasShutdownScript)
+                // eslint-disable-next-line @typescript-eslint/no-misused-promises
+                this._server.close(async () =>
                 {
-                    console.log("Shutdown script executing.");
+                    console.warn(`SERVER STOPPING (${signal}).`);
+
+                    if (this._hasShutdownScript)
+                    {
+                        console.log("Shutdown script executing.");
+                        try
+                        {
+                            await this._container.resolve<ApplicationScript>(this._shutdownScriptKey).run();
+                            console.log("Shutdown script complete.");
+                        }
+                        catch (error)
+                        {
+                            console.warn("Shutdown script error.");
+                            console.error(error);
+                        }
+                    }
+
+                    console.log("Dispose actions executing.");
                     try
                     {
-                        await this._container.resolve<ApplicationScript>(this._shutdownScriptKey).run();
-                        console.log("Shutdown script complete.");
+                        await Promise.all(this._disposeActions.map(t => t()));
+                        console.log("Dispose actions complete.");
                     }
                     catch (error)
                     {
-                        console.warn("Shutdown script error.");
+                        console.warn("Dispose actions error.");
                         console.error(error);
                     }
-                }
 
-                console.log("Dispose actions executing.");
-                try
-                {
-                    await Promise.all(this._disposeActions.map(t => t()));
-                    console.log("Dispose actions complete.");
-                }
-                catch (error)
-                {
-                    console.warn("Dispose actions error.");
-                    console.error(error);
-                }
-
-                console.warn(`SERVER STOPPED (${signal}).`);
-                process.exit(0);
+                    console.warn(`SERVER STOPPED (${signal}).`);
+                    process.exit(0);
+                });    
             });
         };
 
