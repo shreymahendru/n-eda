@@ -11,7 +11,6 @@ export declare class Consumer implements Disposable {
     private readonly _topic;
     private readonly _partition;
     private readonly _id;
-    private readonly _cleanKeys;
     private readonly _trackedKeysKey;
     private readonly _flush;
     private _isDisposed;

@@ -24,7 +24,6 @@ export declare class EdaManager implements Disposable {
     private _eventSubMgrRegistered;
     private _consumerName;
     private _consumerGroupId;
-    private _cleanKeys;
     private _eventHandlerTracer;
     private _awsLambdaDetails;
     private _isAwsLambdaConsumer;
@@ -45,7 +44,6 @@ export declare class EdaManager implements Disposable {
     get eventMap(): ReadonlyMap<string, EventRegistration>;
     get consumerName(): string;
     get consumerGroupId(): string | null;
-    get cleanKeys(): boolean;
     get eventHandlerTracer(): EventHandlerTracer | null;
     get awsLambdaDetails(): LambdaDetails | null;
     get awsLambdaProxyEnabled(): boolean;
@@ -66,7 +64,6 @@ export declare class EdaManager implements Disposable {
     registerEventHandlerTracer(tracer: EventHandlerTracer): this;
     registerEventBus(eventBus: EventBus | ClassHierarchy<EventBus>): this;
     registerEventSubscriptionManager(eventSubMgr: EventSubMgr | ClassHierarchy<EventSubMgr>, consumerGroupId: string): this;
-    cleanUpKeys(): this;
     proxyToAwsLambda(lambdaDetails: LambdaDetails): this;
     actAsAwsLambdaConsumer(handler: AwsLambdaEventHandler): this;
     proxyToRpc(rpcDetails: RpcDetails): this;
