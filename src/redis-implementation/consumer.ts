@@ -23,7 +23,7 @@ export class Consumer implements Disposable
     private readonly _topic: string;
     private readonly _partition: number;
     private readonly _id: string;
-    private readonly _cleanKeys: boolean;
+    // private readonly _cleanKeys: boolean;
     private readonly _trackedKeysKey: string;
     private readonly _flush: boolean;
     
@@ -31,6 +31,7 @@ export class Consumer implements Disposable
     private _trackedKeysArray = new Array<string>();
     private _trackedKeysSet = new Set<string>();
     private _keysToTrack = new Array<string>();
+    
     private _consumePromise: Promise<void> | null = null;
     private _broker: Broker = null as any;
     
@@ -56,7 +57,7 @@ export class Consumer implements Disposable
         
         this._id = `${this._topic}-${this._partition}`;
         
-        this._cleanKeys = this._manager.cleanKeys;
+        // this._cleanKeys = this._manager.cleanKeys;
         
         this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         
@@ -127,6 +128,13 @@ export class Consumer implements Disposable
                 
                 const eventsData = await this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                 
+                if (this._flush)
+                {
+                    await this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
+                    this._removeKeys(eventsData.map(t => t.key));
+                    continue;
+                }
+                
                 const routed = new Array<Promise<void>>();
                 
                 for (const item of eventsData)
@@ -134,12 +142,6 @@ export class Consumer implements Disposable
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (this._isDisposed)
                         return;
-                    
-                    if (this._trackedKeysSet.has(item.key) || this._flush)
-                    {
-                        await this._incrementConsumerPartitionReadIndex();
-                        continue;
-                    }
                     
                     let eventData = item.value;
                     let numReadAttempts = 1;
@@ -177,9 +179,11 @@ export class Consumer implements Disposable
                     for (const event of events)
                     {
                         const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
+                        if (this._trackedKeysSet.has(eventId))
+                            continue;
+                        
                         const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                         const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
-                        // const deserializedEvent = (<any>eventRegistration.eventType).deserializeEvent(event);
                         const deserializedEvent = Deserializer.deserialize<EdaEvent>(event);
 
                         routed.push(
@@ -243,7 +247,7 @@ export class Consumer implements Disposable
             //     return;
 
             if (!brokerDisposed)
-                this._track(eventKey);
+                this._track(eventId);
         }
     }
     
@@ -430,12 +434,10 @@ export class Consumer implements Disposable
         if (this._trackedKeysSet.size >= 3000)
         {
             const newTracked = this._trackedKeysArray.skip(2900);
-            const erasedKeys = this._cleanKeys ? this._trackedKeysArray.take(2900) : [];
             
             this._trackedKeysSet = new Set<string>(newTracked);
             this._trackedKeysArray = newTracked;
             
-            this._removeKeys(erasedKeys);
             this._purgeTrackedKeys();
             
             // await Promise.all([

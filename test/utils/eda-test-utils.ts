@@ -146,7 +146,7 @@ export function createEdaManager(): EdaManager
     const basicTopic = new Topic("basic", Duration.fromHours(1), 25).subscribe();
     edaManager
         .registerEventSubscriptionManager(RedisEventSubMgr, "main")
-        .cleanUpKeys()
+        // .cleanUpKeys()
         // .proxyToAwsLambda("testFunc")
         .useConsumerName("test")
         .registerTopics(basicTopic)
