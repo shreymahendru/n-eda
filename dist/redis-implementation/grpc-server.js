@@ -190,7 +190,8 @@ class GrpcServer {
         //     return;
         this.registerDisposeAction(() => {
             console.log("CLEANING UP. PLEASE WAIT...");
-            return n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 20);
+            // return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
+            return Promise.resolve();
         });
         const shutDown = (signal) => {
             if (this._isShutDown)
@@ -198,7 +199,7 @@ class GrpcServer {
             this._isShutDown = true;
             this._changeStatus(ServingStatus.NOT_SERVING);
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            n_util_1.Delay.seconds(5).then(() => {
+            n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 15).then(() => {
                 // eslint-disable-next-line @typescript-eslint/no-misused-promises
                 this._server.tryShutdown((error) => tslib_1.__awaiter(this, void 0, void 0, function* () {
                     console.warn(`SERVER STOPPING (${signal}).`);
