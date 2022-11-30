@@ -15,6 +15,8 @@ class Consumer {
         this._edaPrefix = "n-eda";
         this._defaultDelayMS = 100;
         this._isDisposed = false;
+        this._maxTrackedSize = 3000;
+        this._keepTrackedSize = 1000;
         this._trackedKeysArray = new Array();
         this._trackedKeysSet = new Set();
         this._keysToTrack = new Array();
@@ -30,7 +32,7 @@ class Consumer {
         (0, n_defensive_1.given)(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
         this._id = `${this._topic}-${this._partition}`;
-        // this._cleanKeys = this._manager.cleanKeys;
+        this._cleanKeys = this._manager.cleanKeys;
         this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         (0, n_defensive_1.given)(flush, "flush").ensureHasValue().ensureIsBoolean();
         this._flush = flush;
@@ -81,15 +83,18 @@ class Consumer {
                     const eventsData = yield this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
                     if (this._flush) {
                         yield this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
-                        this._removeKeys(eventsData.map(t => t.key));
+                        yield this._removeKeys(eventsData.map(t => t.key));
                         continue;
                     }
                     const routed = new Array();
+                    const eventDataKeys = new Array();
                     for (const item of eventsData) {
                         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                         if (this._isDisposed)
                             return;
                         let eventData = item.value;
+                        if (this._cleanKeys)
+                            eventDataKeys.push(item.key);
                         let numReadAttempts = 1;
                         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                         while (eventData == null && numReadAttempts < maxReadAttempts) // we need to do this to deal with race condition
@@ -129,6 +134,8 @@ class Consumer {
                     if (this._isDisposed)
                         return;
                     yield this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
+                    if (this._cleanKeys)
+                        yield this._removeKeys(eventDataKeys);
                 }
                 catch (error) {
                     yield this._logger.logWarning(`Error in consumer => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${this._topic}; Partition: ${this._partition};`);
@@ -297,11 +304,11 @@ class Consumer {
             }
             if (this._isDisposed)
                 return;
-            if (this._trackedKeysSet.size >= 3000) {
-                const newTracked = this._trackedKeysArray.skip(2900);
+            if (this._trackedKeysSet.size >= this._maxTrackedSize) {
+                const newTracked = this._trackedKeysArray.skip(this._maxTrackedSize - this._keepTrackedSize);
                 this._trackedKeysSet = new Set(newTracked);
                 this._trackedKeysArray = newTracked;
-                this._purgeTrackedKeys();
+                yield this._purgeTrackedKeys();
                 // await Promise.all([
                 //     erasedKeys.isNotEmpty ? this._removeKeys(erasedKeys) : Promise.resolve(),
                 //     this._purgeTrackedKeys()
@@ -340,24 +347,21 @@ class Consumer {
     //         });
     //     });
     // }
-    // private _purgeTrackedKeys(): Promise<void>
-    // {
-    //     return new Promise((resolve, reject) =>
-    //     {
-    //         this._client.ltrim(this._trackedKeysKey, 0, 2900, (err) =>
-    //         {
-    //             if (err)
-    //             {
-    //                 reject(err);
-    //                 return;
-    //             }
-    //             resolve();
-    //         }).catch(e => reject(e));
-    //     });
-    // }
     _purgeTrackedKeys() {
-        this._client.ltrim(this._trackedKeysKey, 0, 99).catch(e => this._logger.logError(e));
+        return new Promise((resolve, reject) => {
+            this._client.ltrim(this._trackedKeysKey, 0, this._keepTrackedSize - 1, (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            }).catch(e => reject(e));
+        });
     }
+    // private _purgeTrackedKeys(): void
+    // {
+    //     this._client.ltrim(this._trackedKeysKey, 0, 1999).catch(e => this._logger.logError(e));
+    // }
     _loadTrackedKeys() {
         return new Promise((resolve, reject) => {
             this._client.lrange(this._trackedKeysKey, 0, -1, (err, keys) => {
@@ -390,27 +394,20 @@ class Consumer {
             return JSON.parse(decompressed.toString("utf8"));
         });
     }
-    // private async _removeKeys(keys: ReadonlyArray<string>): Promise<void>
-    // {
-    //     if (keys.isEmpty)
-    //         return;
-    //     return new Promise((resolve, reject) =>
-    //     {
-    //         this._client.unlink(...keys, (err) =>
-    //         {
-    //             if (err)
-    //             {
-    //                 reject(err);
-    //                 return;
-    //             }
-    //             resolve();
-    //         }).catch(e => reject(e));
-    //     });
-    // }
     _removeKeys(keys) {
-        if (keys.isEmpty)
-            return;
-        this._client.unlink(...keys).catch(e => this._logger.logError(e));
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            if (keys.isEmpty)
+                return;
+            return new Promise((resolve, reject) => {
+                this._client.unlink(...keys, (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                }).catch(e => reject(e));
+            });
+        });
     }
 }
 exports.Consumer = Consumer;

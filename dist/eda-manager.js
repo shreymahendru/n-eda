@@ -21,7 +21,7 @@ class EdaManager {
         this._eventSubMgrRegistered = false;
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
-        // private _cleanKeys = false;
+        this._cleanKeys = false;
         this._eventHandlerTracer = null;
         this._awsLambdaDetails = null;
         this._isAwsLambdaConsumer = false;
@@ -56,7 +56,7 @@ class EdaManager {
     get eventMap() { return this._eventMap; }
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
-    // public get cleanKeys(): boolean { return this._cleanKeys; }
+    get cleanKeys() { return this._cleanKeys; }
     get eventHandlerTracer() { return this._eventHandlerTracer; }
     get awsLambdaDetails() { return this._awsLambdaDetails; }
     get awsLambdaProxyEnabled() { return this._awsLambdaDetails != null; }
@@ -151,13 +151,12 @@ class EdaManager {
         this._eventSubMgrRegistered = true;
         return this;
     }
-    // public cleanUpKeys(): this
-    // {
-    //     given(this, "this")
-    //         .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
-    //     this._cleanKeys = true;
-    //     return this;
-    // }
+    cleanUpKeys() {
+        (0, n_defensive_1.given)(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        this._cleanKeys = true;
+        return this;
+    }
     proxyToAwsLambda(lambdaDetails) {
         (0, n_defensive_1.given)(lambdaDetails, "lambdaDetails").ensureHasValue().ensureIsObject();
         (0, n_defensive_1.given)(this, "this")
