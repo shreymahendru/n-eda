@@ -130,16 +130,16 @@ export abstract class Processor implements Disposable
                         return;
                     }
                     
+                    if (numProcessAttempts > 8)
+                    {
+                        await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
+                        await this.logger.logWarning(error as Exception);
+                    }
+                    
                     if (numProcessAttempts >= maxProcessAttempts)
                         throw error;
                     else
                     {
-                        if (numProcessAttempts > 7)
-                        {
-                            await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-                            await this.logger.logWarning(error as Exception);       
-                        }
-                        
                         this._delayCanceller = {};
                         await Delay.seconds((5 + numProcessAttempts) * numProcessAttempts, this._delayCanceller); // [6, 14, 24, 36, 50, 66, 84, 104, 126]
                         this._delayCanceller = null;
@@ -150,7 +150,7 @@ export abstract class Processor implements Disposable
         catch (error)
         {
             const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
-            await this._logger.logWarning(message);
+            await this._logger.logError(message);
             await this._logger.logError(error as Exception);
             workItem.deferred.reject(new ApplicationException(message, error as Exception));
         }
