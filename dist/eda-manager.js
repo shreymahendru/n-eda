@@ -19,6 +19,7 @@ class EdaManager {
         this._partitionKeyMapper = null;
         this._eventBusRegistered = false;
         this._eventSubMgrRegistered = false;
+        this._evtSubMgr = null;
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
         this._cleanKeys = false;
@@ -33,6 +34,7 @@ class EdaManager {
         this._isGrpcConsumer = false;
         this._grpcEventHandler = null;
         this._isDisposed = false;
+        this._disposePromise = null;
         this._isBootstrapped = false;
         (0, n_defensive_1.given)(container, "container").ensureIsObject().ensureIsType(n_ject_1.Container);
         if (container == null) {
@@ -237,8 +239,8 @@ class EdaManager {
             (0, n_defensive_1.given)(this, "this")
                 .ensure(t => t._isBootstrapped, "not bootstrapped")
                 .ensure(t => t._eventSubMgrRegistered, "no EventSubMgr registered");
-            const eventSubMgr = this.serviceLocator.resolve(EdaManager.eventSubMgrKey);
-            yield eventSubMgr.consume();
+            this._evtSubMgr = this.serviceLocator.resolve(EdaManager.eventSubMgrKey);
+            yield this._evtSubMgr.consume();
         });
     }
     mapToPartition(topic, event) {
@@ -266,12 +268,14 @@ class EdaManager {
     //     return eventRegistration || false;
     // }
     dispose() {
-        return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            if (this._isDisposed)
-                return;
+        if (!this._isDisposed) {
             this._isDisposed = true;
-            yield this._container.dispose();
-        });
+            if (this._evtSubMgr != null)
+                this._disposePromise = this._evtSubMgr.dispose().then(() => this._container.dispose());
+            else
+                this._disposePromise = this._container.dispose();
+        }
+        return this._disposePromise;
     }
 }
 exports.EdaManager = EdaManager;

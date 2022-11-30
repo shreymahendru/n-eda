@@ -22,6 +22,7 @@ export declare class EdaManager implements Disposable {
     private _partitionKeyMapper;
     private _eventBusRegistered;
     private _eventSubMgrRegistered;
+    private _evtSubMgr;
     private _consumerName;
     private _consumerGroupId;
     private _cleanKeys;
@@ -36,6 +37,7 @@ export declare class EdaManager implements Disposable {
     private _isGrpcConsumer;
     private _grpcEventHandler;
     private _isDisposed;
+    private _disposePromise;
     private _isBootstrapped;
     static get eventBusKey(): string;
     static get eventSubMgrKey(): string;
