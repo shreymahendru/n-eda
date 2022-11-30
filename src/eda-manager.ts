@@ -33,7 +33,7 @@ export class EdaManager implements Disposable
     private _eventSubMgrRegistered = false;
     private _consumerName = "UNNAMED";
     private _consumerGroupId: string | null = null;
-    // private _cleanKeys = false;
+    private _cleanKeys = false;
     
     private _eventHandlerTracer: EventHandlerTracer | null = null;
 
@@ -63,7 +63,7 @@ export class EdaManager implements Disposable
     public get eventMap(): ReadonlyMap<string, EventRegistration> { return this._eventMap; }
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
-    // public get cleanKeys(): boolean { return this._cleanKeys; }
+    public get cleanKeys(): boolean { return this._cleanKeys; }
     
     public get eventHandlerTracer(): EventHandlerTracer | null { return this._eventHandlerTracer; }
 
@@ -227,15 +227,15 @@ export class EdaManager implements Disposable
         return this;
     }
 
-    // public cleanUpKeys(): this
-    // {
-    //     given(this, "this")
-    //         .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+    public cleanUpKeys(): this
+    {
+        given(this, "this")
+            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
 
-    //     this._cleanKeys = true;
+        this._cleanKeys = true;
 
-    //     return this;
-    // }
+        return this;
+    }
 
     public proxyToAwsLambda(lambdaDetails: LambdaDetails): this
     {

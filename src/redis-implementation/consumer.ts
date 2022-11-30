@@ -23,11 +23,13 @@ export class Consumer implements Disposable
     private readonly _topic: string;
     private readonly _partition: number;
     private readonly _id: string;
-    // private readonly _cleanKeys: boolean;
+    private readonly _cleanKeys: boolean;
     private readonly _trackedKeysKey: string;
     private readonly _flush: boolean;
     
     private _isDisposed = false;
+    private readonly _maxTrackedSize = 3000;
+    private readonly _keepTrackedSize = 1000;
     private _trackedKeysArray = new Array<string>();
     private _trackedKeysSet = new Set<string>();
     private _keysToTrack = new Array<string>();
@@ -57,7 +59,7 @@ export class Consumer implements Disposable
         
         this._id = `${this._topic}-${this._partition}`;
         
-        // this._cleanKeys = this._manager.cleanKeys;
+        this._cleanKeys = this._manager.cleanKeys;
         
         this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         
@@ -131,11 +133,12 @@ export class Consumer implements Disposable
                 if (this._flush)
                 {
                     await this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
-                    this._removeKeys(eventsData.map(t => t.key));
+                    await this._removeKeys(eventsData.map(t => t.key));
                     continue;
                 }
                 
                 const routed = new Array<Promise<void>>();
+                const eventDataKeys = new Array<string>();
                 
                 for (const item of eventsData)
                 {
@@ -144,6 +147,8 @@ export class Consumer implements Disposable
                         return;
                     
                     let eventData = item.value;
+                    if (this._cleanKeys)
+                        eventDataKeys.push(item.key);
                     let numReadAttempts = 1;
                     
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -201,6 +206,8 @@ export class Consumer implements Disposable
                     return;
                 
                 await this._incrementConsumerPartitionReadIndex(upperBoundReadIndex);
+                if (this._cleanKeys)
+                    await this._removeKeys(eventDataKeys);
             }
             catch (error)
             {
@@ -431,14 +438,14 @@ export class Consumer implements Disposable
         if (this._isDisposed)
             return;
         
-        if (this._trackedKeysSet.size >= 3000)
+        if (this._trackedKeysSet.size >= this._maxTrackedSize)
         {
-            const newTracked = this._trackedKeysArray.skip(2900);
+            const newTracked = this._trackedKeysArray.skip(this._maxTrackedSize - this._keepTrackedSize);
             
             this._trackedKeysSet = new Set<string>(newTracked);
             this._trackedKeysArray = newTracked;
             
-            this._purgeTrackedKeys();
+            await this._purgeTrackedKeys();
             
             // await Promise.all([
             //     erasedKeys.isNotEmpty ? this._removeKeys(erasedKeys) : Promise.resolve(),
@@ -486,27 +493,27 @@ export class Consumer implements Disposable
     //     });
     // }
     
-    // private _purgeTrackedKeys(): Promise<void>
-    // {
-    //     return new Promise((resolve, reject) =>
-    //     {
-    //         this._client.ltrim(this._trackedKeysKey, 0, 2900, (err) =>
-    //         {
-    //             if (err)
-    //             {
-    //                 reject(err);
-    //                 return;
-    //             }
-
-    //             resolve();
-    //         }).catch(e => reject(e));
-    //     });
-    // }
-    
-    private _purgeTrackedKeys(): void
+    private _purgeTrackedKeys(): Promise<void>
     {
-        this._client.ltrim(this._trackedKeysKey, 0, 99).catch(e => this._logger.logError(e));
+        return new Promise((resolve, reject) =>
+        {
+            this._client.ltrim(this._trackedKeysKey, 0, this._keepTrackedSize - 1, (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+
+                resolve();
+            }).catch(e => reject(e));
+        });
     }
+    
+    // private _purgeTrackedKeys(): void
+    // {
+    //     this._client.ltrim(this._trackedKeysKey, 0, 1999).catch(e => this._logger.logError(e));
+    // }
     
     private _loadTrackedKeys(): Promise<void>
     {
@@ -554,31 +561,31 @@ export class Consumer implements Disposable
         return JSON.parse(decompressed.toString("utf8")) as Array<object>;
     }
     
-    // private async _removeKeys(keys: ReadonlyArray<string>): Promise<void>
-    // {
-    //     if (keys.isEmpty)
-    //         return;
-        
-    //     return new Promise((resolve, reject) =>
-    //     {
-    //         this._client.unlink(...keys, (err) =>
-    //         {
-    //             if (err)
-    //             {
-    //                 reject(err);
-    //                 return;
-    //             }
-
-    //             resolve();
-    //         }).catch(e => reject(e));
-    //     });
-    // }
-    
-    private _removeKeys(keys: ReadonlyArray<string>): void
+    private async _removeKeys(keys: ReadonlyArray<string>): Promise<void>
     {
         if (keys.isEmpty)
             return;
-            
-        this._client.unlink(...keys).catch(e => this._logger.logError(e));
+        
+        return new Promise((resolve, reject) =>
+        {
+            this._client.unlink(...keys, (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                    return;
+                }
+
+                resolve();
+            }).catch(e => reject(e));
+        });
     }
+    
+    // private _removeKeys(keys: ReadonlyArray<string>): void
+    // {
+    //     if (keys.isEmpty)
+    //         return;
+            
+    //     this._client.unlink(...keys).catch(e => this._logger.logError(e));
+    // }
 }
