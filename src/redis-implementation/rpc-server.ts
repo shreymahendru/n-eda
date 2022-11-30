@@ -234,7 +234,8 @@ export class RpcServer
         this.registerDisposeAction(() =>
         {
             console.log("CLEANING UP. PLEASE WAIT...");
-            return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
+            // return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
+            return Promise.resolve();
         });
 
         const shutDown = (signal: string): void =>
@@ -245,7 +246,7 @@ export class RpcServer
             this._isShutDown = true;
             
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            Delay.seconds(5).then(() =>
+            Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 15).then(() =>
             {
                 // eslint-disable-next-line @typescript-eslint/no-misused-promises
                 this._server.close(async () =>
