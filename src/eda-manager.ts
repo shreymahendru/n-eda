@@ -31,6 +31,7 @@ export class EdaManager implements Disposable
     private _partitionKeyMapper: (event: EdaEvent) => string = null as any;
     private _eventBusRegistered = false;
     private _eventSubMgrRegistered = false;
+    private _evtSubMgr: EventSubMgr | null = null;
     private _consumerName = "UNNAMED";
     private _consumerGroupId: string | null = null;
     private _cleanKeys = false;
@@ -51,6 +52,7 @@ export class EdaManager implements Disposable
 
 
     private _isDisposed = false;
+    private _disposePromise: Promise<void> | null = null;
     private _isBootstrapped = false;
 
 
@@ -365,8 +367,8 @@ export class EdaManager implements Disposable
             .ensure(t => t._isBootstrapped, "not bootstrapped")
             .ensure(t => t._eventSubMgrRegistered, "no EventSubMgr registered");
 
-        const eventSubMgr = this.serviceLocator.resolve<EventSubMgr>(EdaManager.eventSubMgrKey);
-        await eventSubMgr.consume();
+        this._evtSubMgr = this.serviceLocator.resolve<EventSubMgr>(EdaManager.eventSubMgrKey);
+        await this._evtSubMgr.consume();
     }
 
     public mapToPartition(topic: string, event: EdaEvent): number
@@ -401,14 +403,19 @@ export class EdaManager implements Disposable
     //     return eventRegistration || false;
     // }
 
-    public async dispose(): Promise<void>
+    public dispose(): Promise<void>
     {
-        if (this._isDisposed)
-            return;
+        if (!this._isDisposed)
+        {
+            this._isDisposed = true;
 
-        this._isDisposed = true;
-
-        await this._container.dispose();
+            if (this._evtSubMgr != null)
+                this._disposePromise = this._evtSubMgr.dispose().then(() => this._container.dispose());
+            else
+                this._disposePromise = this._container.dispose();
+        }
+        
+        return this._disposePromise!;
     }
 
 

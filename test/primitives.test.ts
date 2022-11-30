@@ -1,4 +1,4 @@
-import { Make } from "@nivinjoseph/n-util";
+import { Duration, Make } from "@nivinjoseph/n-util";
 import * as Assert from "assert";
 import { Queue } from "../src/redis-implementation/queue";
 
@@ -60,5 +60,15 @@ suite("Primitives tests", () =>
         
         
         Assert.ok(true);
+    });
+    
+    test.only("Num partition events", () =>
+    {
+        const now = Date.now();
+        const fiftyYears = Duration.fromHours(24 * 366 * 50).toMilliSeconds();
+        
+        const maxValue = Number.MAX_SAFE_INTEGER;
+        
+        Assert.ok(((now + fiftyYears) * 1000) < maxValue);
     });
 });
