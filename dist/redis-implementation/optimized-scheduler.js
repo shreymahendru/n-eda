@@ -41,11 +41,13 @@ class OptimizedScheduler {
     dispose() {
         if (!this._isDisposed) {
             this._isDisposed = true;
+            console.warn("Disposing scheduler");
             let work = this._findWork();
             while (work != null) {
                 work.deferred.reject(new n_exception_1.ObjectDisposedException("Scheduler"));
                 work = this._findWork();
             }
+            console.warn("Scheduler disposed");
         }
         return Promise.resolve();
     }

@@ -83,8 +83,13 @@ let RedisEventSubMgr = class RedisEventSubMgr {
     dispose() {
         if (!this._isDisposing) {
             this._isDisposing = true;
+            console.warn("Disposing EventSubMgr");
             this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()))
-                .finally(() => this._isDisposed = true);
+                .catch(e => console.error(e))
+                .finally(() => {
+                this._isDisposed = true;
+                console.warn("EventSubMgr disposed");
+            });
             // if (this._manager.metricsEnabled)
             // {
             //     await Delay.seconds(3);

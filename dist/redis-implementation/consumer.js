@@ -49,10 +49,13 @@ class Consumer {
         this._consumePromise = this._beginConsume();
     }
     dispose() {
+        var _a;
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            if (!this._isDisposed)
+            if (!this._isDisposed) {
                 this._isDisposed = true;
-            return this._consumePromise || Promise.resolve();
+                console.warn(`Disposing consumer ${this._id}`);
+            }
+            return ((_a = this._consumePromise) === null || _a === void 0 ? void 0 : _a.then(() => console.warn(`Consumer disposed ${this._id}`))) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this._id}`));
         });
     }
     _beginConsume() {

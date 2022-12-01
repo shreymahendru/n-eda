@@ -27,12 +27,15 @@ class Broker {
     }
     dispose() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            console.warn("Disposing broker");
             this._isDisposed = true;
             yield Promise.all([
                 ...this._consumers.map(t => t.dispose()),
                 ...this._processors.map(t => t.dispose()),
                 this._scheduler.dispose()
-            ]);
+            ])
+                .then(() => console.warn("Broker disposed"))
+                .catch(e => console.error(e));
         });
     }
 }
