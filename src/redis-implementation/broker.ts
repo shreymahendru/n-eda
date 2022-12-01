@@ -48,12 +48,15 @@ export class Broker implements Disposable
     
     public async dispose(): Promise<void>
     {
+        console.warn("Disposing broker");
         this._isDisposed = true;
         await Promise.all([
             ...this._consumers.map(t => t.dispose()),
             ...this._processors.map(t => t.dispose()),
             this._scheduler.dispose()
-        ]);
+        ])
+            .then(() => console.warn("Broker disposed"))
+            .catch(e => console.error(e));
     }
 }
 

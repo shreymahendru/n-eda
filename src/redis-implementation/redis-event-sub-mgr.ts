@@ -117,9 +117,14 @@ export class RedisEventSubMgr implements EventSubMgr
         if (!this._isDisposing)
         {
             this._isDisposing = true;
-            
+            console.warn("Disposing EventSubMgr");
             this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()))
-                .finally(() => this._isDisposed = true) as unknown as Promise<void>;
+                .catch(e => console.error(e))
+                .finally(() =>
+                {
+                    this._isDisposed = true;
+                    console.warn("EventSubMgr disposed");
+                }) as unknown as Promise<void>;
             
             // if (this._manager.metricsEnabled)
             // {

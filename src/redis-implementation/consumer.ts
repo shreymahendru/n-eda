@@ -87,9 +87,12 @@ export class Consumer implements Disposable
     public async dispose(): Promise<void>
     {
         if (!this._isDisposed)
+        {
             this._isDisposed = true;
+            console.warn(`Disposing consumer ${this._id}`);
+        }
         
-        return this._consumePromise || Promise.resolve();
+        return this._consumePromise?.then(() => console.warn(`Consumer disposed ${this._id}`)) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this._id}`));
     }
     
     private async _beginConsume(): Promise<void>
