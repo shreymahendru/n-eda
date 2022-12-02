@@ -421,7 +421,9 @@ export class Consumer implements Disposable
     {
         if (this._keysToTrack.isNotEmpty)
         {
-            await this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this._id}`);
+            if (this._isDisposed)
+                await this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this._id}`);
+            
             await new Promise<void>((resolve, reject) =>
             {
                 this._client.lpush(this._trackedKeysKey, ...this._keysToTrack, (err) =>
@@ -435,7 +437,9 @@ export class Consumer implements Disposable
                     resolve();
                 }).catch(e => reject(e));
             });
-            await this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this._id}`);
+            
+            if (this._isDisposed)
+                await this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this._id}`);
         
             this._keysToTrack = new Array<string>();
         }
