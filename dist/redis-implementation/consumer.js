@@ -294,7 +294,8 @@ class Consumer {
     _saveTrackedKeys() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             if (this._keysToTrack.isNotEmpty) {
-                yield this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this._id}`);
+                if (this._isDisposed)
+                    yield this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this._id}`);
                 yield new Promise((resolve, reject) => {
                     this._client.lpush(this._trackedKeysKey, ...this._keysToTrack, (err) => {
                         if (err) {
@@ -304,7 +305,8 @@ class Consumer {
                         resolve();
                     }).catch(e => reject(e));
                 });
-                yield this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this._id}`);
+                if (this._isDisposed)
+                    yield this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this._id}`);
                 this._keysToTrack = new Array();
             }
             if (this._isDisposed)
