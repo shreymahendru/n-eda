@@ -9,6 +9,7 @@ import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { GrpcEventHandler } from "./grpc-event-handler";
 import { GrpcModel } from "../grpc-details";
 import { ApplicationScript } from "./application-script";
+import { ShutdownManager } from "@nivinjoseph/n-svc";
 
 
 export class GrpcServer
@@ -39,7 +40,7 @@ export class GrpcServer
     private _server!: Grpc.Server;
     private _isBootstrapped = false;
 
-    private _isShutDown = false;
+    private _shutdownManager: ShutdownManager | null = null;
     
     
     public constructor(port: number, host: string | null, container: Container, logger?: Logger | null)
@@ -191,7 +192,7 @@ export class GrpcServer
         server.addService((serviceDef as any)[this._serviceName].service, {
             process: (call: any, callback: Function) =>
             {
-                if (this._isShutDown)
+                if (this._shutdownManager == null || this._shutdownManager.isShutdown)
                 {
                     callback({ code: Grpc.status.UNAVAILABLE });
                     return;
@@ -287,74 +288,70 @@ export class GrpcServer
             // return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
             return Promise.resolve();
         });
-
-        const shutDown = (signal: string): void =>
-        {
-            if (this._isShutDown)
-                return;
-
-            this._isShutDown = true;
-            this._changeStatus(ServingStatus.NOT_SERVING);
-
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 15).then(() =>
+        
+        this._shutdownManager = new ShutdownManager([
+            (): Promise<void> =>
             {
-                // eslint-disable-next-line @typescript-eslint/no-misused-promises
-                this._server.tryShutdown(async (error) =>
+                this._changeStatus(ServingStatus.NOT_SERVING);
+                return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 15);
+            },
+            (): Promise<void> =>
+            {
+                return new Promise((resolve, reject) =>
                 {
-                    console.warn(`SERVER STOPPING (${signal}).`);
-
-                    if (this._hasShutdownScript)
+                    this._server.tryShutdown((err) =>
                     {
-                        console.log("Shutdown script executing.");
-                        try 
+                        if (err)
                         {
-                            await this._container.resolve<ApplicationScript>(this._shutdownScriptKey).run();
-                            console.log("Shutdown script complete.");
+                            console.warn(err);
+                            
+                            try 
+                            {        
+                                this._server.forceShutdown();    
+                            }
+                            catch (error) 
+                            {
+                                reject(error);
+                                return;
+                            }
                         }
-                        catch (error)
-                        {
-                            console.warn("Shutdown script error.");
-                            console.error(error);
-                        }
-                    }
-
-                    console.log("Dispose actions executing.");
+                        
+                        resolve();
+                    });
+                });
+            },
+            async (): Promise<void> =>
+            {
+                if (this._hasShutdownScript)
+                {
+                    console.log("Shutdown script executing.");
                     try
                     {
-                        await Promise.all(this._disposeActions.map(t => t()));
-                        console.log("Dispose actions complete.");
+                        await this._container.resolve<ApplicationScript>(this._shutdownScriptKey).run();
+                        console.log("Shutdown script complete.");
                     }
                     catch (error)
                     {
-                        console.warn("Dispose actions error.");
+                        console.warn("Shutdown script error.");
                         console.error(error);
                     }
-
-                    if (error)
-                    {
-                        console.warn("Error while trying to shutdown server");
-                        console.error(error);
-
-                        try 
-                        {
-                            this._server.forceShutdown();
-                        }
-                        catch (error)
-                        {
-                            console.warn("Error while forcing server shutdown");
-                            console.error(error);
-                        }
-                    }
-
-                    console.warn(`SERVER STOPPED (${signal}).`);
-                    process.exit(0);
-                }); 
-            });
-        };
-
-        process.on("SIGTERM", () => shutDown("SIGTERM"));
-        process.on("SIGINT", () => shutDown("SIGINT"));
+                }
+            },
+            async (): Promise<void> =>
+            {
+                console.log("Dispose actions executing.");
+                try
+                {
+                    await Promise.all(this._disposeActions.map(t => t()));
+                    console.log("Dispose actions complete.");
+                }
+                catch (error)
+                {
+                    console.warn("Dispose actions error.");
+                    console.error(error);
+                }
+            }
+        ]);
     }
     
     private _changeStatus(status: ServingStatus): void
