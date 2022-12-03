@@ -16,7 +16,7 @@ export declare class RpcServer {
     private _eventHandler;
     private _server;
     private _isBootstrapped;
-    private _isShutDown;
+    private _shutdownManager;
     constructor(port: number, host: string | null, container: Container, logger?: Logger | null);
     registerEventHandler(eventHandler: RpcEventHandler): this;
     registerStartupScript(applicationScriptClass: ClassHierarchy<ApplicationScript>): this;

@@ -11,6 +11,7 @@ const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_config_1 = require("@nivinjoseph/n-config");
 const grpc_event_handler_1 = require("./grpc-event-handler");
+const n_svc_1 = require("@nivinjoseph/n-svc");
 class GrpcServer {
     constructor(port, host, container, logger) {
         this._startupScriptKey = "$startupScript";
@@ -24,7 +25,7 @@ class GrpcServer {
             [this._serviceName]: ServingStatus.NOT_SERVING
         };
         this._isBootstrapped = false;
-        this._isShutDown = false;
+        this._shutdownManager = null;
         (0, n_defensive_1.given)(port, "port").ensureHasValue().ensureIsNumber();
         this._port = port;
         (0, n_defensive_1.given)(host, "host").ensureIsString();
@@ -124,7 +125,7 @@ class GrpcServer {
         const server = new Grpc.Server();
         server.addService(serviceDef[this._serviceName].service, {
             process: (call, callback) => {
-                if (this._isShutDown) {
+                if (this._shutdownManager == null || this._shutdownManager.isShutdown) {
                     callback({ code: Grpc.status.UNAVAILABLE });
                     return;
                 }
@@ -193,54 +194,53 @@ class GrpcServer {
             // return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
             return Promise.resolve();
         });
-        const shutDown = (signal) => {
-            if (this._isShutDown)
-                return;
-            this._isShutDown = true;
-            this._changeStatus(ServingStatus.NOT_SERVING);
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 15).then(() => {
-                // eslint-disable-next-line @typescript-eslint/no-misused-promises
-                this._server.tryShutdown((error) => tslib_1.__awaiter(this, void 0, void 0, function* () {
-                    console.warn(`SERVER STOPPING (${signal}).`);
-                    if (this._hasShutdownScript) {
-                        console.log("Shutdown script executing.");
-                        try {
-                            yield this._container.resolve(this._shutdownScriptKey).run();
-                            console.log("Shutdown script complete.");
+        this._shutdownManager = new n_svc_1.ShutdownManager([
+            () => {
+                this._changeStatus(ServingStatus.NOT_SERVING);
+                return n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 15);
+            },
+            () => {
+                return new Promise((resolve, reject) => {
+                    this._server.tryShutdown((err) => {
+                        if (err) {
+                            console.warn(err);
+                            try {
+                                this._server.forceShutdown();
+                            }
+                            catch (error) {
+                                reject(error);
+                                return;
+                            }
                         }
-                        catch (error) {
-                            console.warn("Shutdown script error.");
-                            console.error(error);
-                        }
-                    }
-                    console.log("Dispose actions executing.");
+                        resolve();
+                    });
+                });
+            },
+            () => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                if (this._hasShutdownScript) {
+                    console.log("Shutdown script executing.");
                     try {
-                        yield Promise.all(this._disposeActions.map(t => t()));
-                        console.log("Dispose actions complete.");
+                        yield this._container.resolve(this._shutdownScriptKey).run();
+                        console.log("Shutdown script complete.");
                     }
                     catch (error) {
-                        console.warn("Dispose actions error.");
+                        console.warn("Shutdown script error.");
                         console.error(error);
                     }
-                    if (error) {
-                        console.warn("Error while trying to shutdown server");
-                        console.error(error);
-                        try {
-                            this._server.forceShutdown();
-                        }
-                        catch (error) {
-                            console.warn("Error while forcing server shutdown");
-                            console.error(error);
-                        }
-                    }
-                    console.warn(`SERVER STOPPED (${signal}).`);
-                    process.exit(0);
-                }));
-            });
-        };
-        process.on("SIGTERM", () => shutDown("SIGTERM"));
-        process.on("SIGINT", () => shutDown("SIGINT"));
+                }
+            }),
+            () => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                console.log("Dispose actions executing.");
+                try {
+                    yield Promise.all(this._disposeActions.map(t => t()));
+                    console.log("Dispose actions complete.");
+                }
+                catch (error) {
+                    console.warn("Dispose actions error.");
+                    console.error(error);
+                }
+            })
+        ]);
     }
     _changeStatus(status) {
         (0, n_defensive_1.given)(status, "status").ensureHasValue().ensureIsEnum(ServingStatus);

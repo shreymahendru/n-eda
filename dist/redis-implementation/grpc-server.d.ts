@@ -18,7 +18,7 @@ export declare class GrpcServer {
     private readonly _statusMap;
     private _server;
     private _isBootstrapped;
-    private _isShutDown;
+    private _shutdownManager;
     constructor(port: number, host: string | null, container: Container, logger?: Logger | null);
     registerEventHandler(eventHandler: GrpcEventHandler): this;
     registerStartupScript(applicationScriptClass: ClassHierarchy<ApplicationScript>): this;
