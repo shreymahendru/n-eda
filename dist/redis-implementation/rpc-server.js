@@ -27,7 +27,9 @@ class RpcServer {
         (0, n_defensive_1.given)(container, "container").ensureHasValue().ensureIsType(n_ject_1.Container);
         this._container = container;
         (0, n_defensive_1.given)(logger, "logger").ensureIsObject();
-        this._logger = logger !== null && logger !== void 0 ? logger : new n_log_1.ConsoleLogger();
+        this._logger = logger !== null && logger !== void 0 ? logger : new n_log_1.ConsoleLogger({
+            useJsonFormat: n_config_1.ConfigurationManager.getConfig("env") !== "dev"
+        });
     }
     registerEventHandler(eventHandler) {
         (0, n_defensive_1.given)(eventHandler, "eventHandler").ensureHasValue().ensureIsInstanceOf(rpc_event_handler_1.RpcEventHandler);
@@ -58,13 +60,13 @@ class RpcServer {
                     disposeAction()
                         .then(() => resolve())
                         .catch((e) => {
-                        console.error(e);
-                        resolve();
+                        this._logger.logError(e).finally(() => resolve());
+                        // resolve();
                     });
                 }
                 catch (error) {
-                    console.error(error);
-                    resolve();
+                    this._logger.logError(error).finally(() => resolve());
+                    // resolve();
                 }
             });
         });
@@ -78,30 +80,31 @@ class RpcServer {
         this._configureContainer();
         this._configureStartup()
             .then(() => this._configureServer())
-            .then(() => {
+            .then(() => tslib_1.__awaiter(this, void 0, void 0, function* () {
             const appEnv = n_config_1.ConfigurationManager.getConfig("env");
             const appName = n_config_1.ConfigurationManager.getConfig("package.name");
             const appVersion = n_config_1.ConfigurationManager.getConfig("package.version");
             const appDescription = n_config_1.ConfigurationManager.getConfig("package.description");
-            console.log(`ENV: ${appEnv}; NAME: ${appName}; VERSION: ${appVersion}; DESCRIPTION: ${appDescription}.`);
+            yield this._logger.logInfo(`ENV: ${appEnv}; NAME: ${appName}; VERSION: ${appVersion}; DESCRIPTION: ${appDescription}.`);
             this._configureShutDown();
             this._isBootstrapped = true;
-            console.log("SERVER STARTED.");
-        })
-            .catch(e => {
-            console.error("STARTUP FAILED!!!");
-            console.error(e);
+            yield this._logger.logInfo("RPC SERVER STARTED");
+        }))
+            .catch((e) => tslib_1.__awaiter(this, void 0, void 0, function* () {
+            yield this._logger.logWarning("RPC SERVER STARTUP FAILED");
+            yield this._logger.logError(e);
             throw e;
-        });
+        }));
     }
     _configureContainer() {
         this.registerDisposeAction(() => this._container.dispose());
     }
     _configureStartup() {
-        console.log("SERVER STARTING.");
-        if (!this._hasStartupScript)
-            return Promise.resolve();
-        return this._container.resolve(this._startupScriptKey).run();
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            yield this._logger.logInfo("RPC SERVER STARTING...");
+            if (this._hasStartupScript)
+                yield this._container.resolve(this._startupScriptKey).run();
+        });
     }
     _configureServer() {
         const server = Http.createServer((req, res) => {
@@ -159,46 +162,56 @@ class RpcServer {
         });
     }
     _configureShutDown() {
-        this.registerDisposeAction(() => {
-            console.log("CLEANING UP. PLEASE WAIT...");
+        this.registerDisposeAction(() => tslib_1.__awaiter(this, void 0, void 0, function* () {
+            yield this._logger.logInfo("CLEANING UP. PLEASE WAIT...");
             // return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
-            return Promise.resolve();
-        });
-        this._shutdownManager = new n_svc_1.ShutdownManager([
-            () => n_util_1.Delay.seconds(n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 15),
+        }));
+        this._shutdownManager = new n_svc_1.ShutdownManager(this._logger, [
+            () => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                const seconds = n_config_1.ConfigurationManager.getConfig("env") === "dev" ? 2 : 15;
+                yield this._logger.logInfo(`BEGINNING WAIT (${seconds}S) FOR CONNECTION DRAIN...`);
+                yield n_util_1.Delay.seconds(seconds);
+                yield this._logger.logInfo("CONNECTION DRAIN COMPLETE");
+            }),
             () => {
                 return new Promise((resolve, reject) => {
-                    this._server.close((err) => {
-                        if (err) {
-                            reject(err);
-                            return;
-                        }
-                        resolve();
+                    this._logger.logInfo("CLOSING HTTP SERVER...").finally(() => {
+                        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+                        this._server.close((err) => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                            if (err) {
+                                yield this._logger.logWarning("HTTP SERVER CLOSED WITH ERROR");
+                                yield this._logger.logError(err);
+                                reject(err);
+                                return;
+                            }
+                            yield this._logger.logInfo("HTTP SERVER CLOSED");
+                            resolve();
+                        }));
                     });
                 });
             },
             () => tslib_1.__awaiter(this, void 0, void 0, function* () {
                 if (this._hasShutdownScript) {
-                    console.log("Shutdown script executing.");
+                    yield this._logger.logInfo("SHUTDOWN SCRIPT EXECUTING...");
                     try {
                         yield this._container.resolve(this._shutdownScriptKey).run();
-                        console.log("Shutdown script complete.");
+                        yield this._logger.logInfo("SHUTDOWN SCRIPT COMPLETE");
                     }
                     catch (error) {
-                        console.warn("Shutdown script error.");
-                        console.error(error);
+                        yield this._logger.logWarning("SHUTDOWN SCRIPT ERROR");
+                        yield this._logger.logError(error);
                     }
                 }
             }),
             () => tslib_1.__awaiter(this, void 0, void 0, function* () {
-                console.log("Dispose actions executing.");
+                yield this._logger.logInfo("DISPOSE ACTIONS EXECUTING...");
                 try {
-                    yield Promise.all(this._disposeActions.map(t => t()));
-                    console.log("Dispose actions complete.");
+                    yield Promise.allSettled(this._disposeActions.map(t => t()));
+                    yield this._logger.logInfo("DISPOSE ACTIONS COMPLETE");
                 }
                 catch (error) {
-                    console.warn("Dispose actions error.");
-                    console.error(error);
+                    yield this._logger.logWarning("DISPOSE ACTIONS ERROR");
+                    yield this._logger.logError(error);
                 }
             })
         ]);
