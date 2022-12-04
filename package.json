@@ -55,7 +55,7 @@
         "@nivinjoseph/n-ext": "^1.1.35",
         "@nivinjoseph/n-ject": "^2.0.5",
         "@nivinjoseph/n-log": "^2.1.8",
-        "@nivinjoseph/n-svc": "^2.0.18",
+        "@nivinjoseph/n-svc": "^2.0.19",
         "@nivinjoseph/n-util": "^1.0.81",
         "aws-sdk": "^2.1139.0",
         "axios": "^0.27.2",

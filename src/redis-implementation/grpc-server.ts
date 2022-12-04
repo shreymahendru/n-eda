@@ -17,7 +17,6 @@ export class GrpcServer
     private readonly _port: number;
     private readonly _host: string;
     private readonly _container: Container;
-    // @ts-expect-error: not used atm
     private readonly _logger: Logger;
     
     private readonly _startupScriptKey = "$startupScript";
@@ -55,7 +54,9 @@ export class GrpcServer
         this._container = container;
         
         given(logger as Logger, "logger").ensureIsObject();
-        this._logger = logger ?? new ConsoleLogger();
+        this._logger = logger ?? new ConsoleLogger({
+            useJsonFormat: ConfigurationManager.getConfig<string>("env") !== "dev"
+        });
     }
     
     public registerEventHandler(eventHandler: GrpcEventHandler): this
@@ -107,14 +108,14 @@ export class GrpcServer
                         .then(() => resolve())
                         .catch((e) =>
                         {
-                            console.error(e);
-                            resolve();
+                            this._logger.logError(e).finally(() => resolve());
+                            // resolve();
                         });
                 }
                 catch (error)
                 {
-                    console.error(error);
-                    resolve();
+                    this._logger.logError(error as any).finally(() => resolve());
+                    // resolve();
                 }
             });
         });
@@ -133,24 +134,24 @@ export class GrpcServer
         
         this._configureStartup()
             .then(() => this._configureServer())
-            .then(() =>
+            .then(async () =>
             {
                 const appEnv = ConfigurationManager.getConfig<string>("env");
                 const appName = ConfigurationManager.getConfig<string>("package.name");
                 const appVersion = ConfigurationManager.getConfig<string>("package.version");
                 const appDescription = ConfigurationManager.getConfig<string>("package.description");
 
-                console.log(`ENV: ${appEnv}; NAME: ${appName}; VERSION: ${appVersion}; DESCRIPTION: ${appDescription}.`);
+                await this._logger.logInfo(`ENV: ${appEnv}; NAME: ${appName}; VERSION: ${appVersion}; DESCRIPTION: ${appDescription}.`);
                 
                 this._configureShutDown();
                 
                 this._isBootstrapped = true;
-                console.log("SERVER STARTED.");
+                await this._logger.logInfo("GRPC SERVER STARTED");
             })
-            .catch(e =>
+            .catch(async e =>
             {
-                console.error("STARTUP FAILED!!!");
-                console.error(e);
+                await this._logger.logWarning("GRPC SERVER STARTUP FAILED");
+                await this._logger.logError(e);
                 throw e;
             });
     }
@@ -160,14 +161,12 @@ export class GrpcServer
         this.registerDisposeAction(() => this._container.dispose());
     }
 
-    private _configureStartup(): Promise<void>
+    private async _configureStartup(): Promise<void>
     {
-        console.log("SERVER STARTING.");
+        await this._logger.logInfo("GRPC SERVER STARTING...");
 
-        if (!this._hasStartupScript)
-            return Promise.resolve();
-
-        return this._container.resolve<ApplicationScript>(this._startupScriptKey).run();
+        if (this._hasStartupScript)
+            await this._container.resolve<ApplicationScript>(this._startupScriptKey).run();
     }
     
     private _configureServer(): Promise<void>
@@ -282,41 +281,52 @@ export class GrpcServer
         // if (ConfigurationManager.getConfig<string>("env") === "dev")
         //     return;
 
-        this.registerDisposeAction(() =>
+        this.registerDisposeAction(async () =>
         {
-            console.log("CLEANING UP. PLEASE WAIT...");
+            await this._logger.logInfo("CLEANING UP. PLEASE WAIT...");
             // return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
-            return Promise.resolve();
         });
         
-        this._shutdownManager = new ShutdownManager([
-            (): Promise<void> =>
+        this._shutdownManager = new ShutdownManager(this._logger, [
+            async (): Promise<void> =>
             {
+                const seconds = ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 15;
+                await this._logger.logInfo(`BEGINNING WAIT (${seconds}S) FOR CONNECTION DRAIN...`);
                 this._changeStatus(ServingStatus.NOT_SERVING);
-                return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 15);
+                await Delay.seconds(seconds);
+                await this._logger.logInfo("CONNECTION DRAIN COMPLETE");
             },
             (): Promise<void> =>
             {
                 return new Promise((resolve, reject) =>
                 {
-                    this._server.tryShutdown((err) =>
+                    this._logger.logInfo("CLOSING GRPC SERVER...").finally(() =>
                     {
-                        if (err)
+                        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+                        this._server.tryShutdown(async (err) =>
                         {
-                            console.warn(err);
-                            
-                            try 
-                            {        
-                                this._server.forceShutdown();    
-                            }
-                            catch (error) 
+                            if (err)
                             {
-                                reject(error);
-                                return;
+                                await this._logger.logWarning("GRPC SERVER CLOSE ERRORED");
+                                await this._logger.logError(err as any);
+
+                                try 
+                                {
+                                    await this._logger.logInfo("FORCING GRPC SERVER SHUTDOWN...");
+                                    this._server.forceShutdown();
+                                    await this._logger.logInfo("FORCE SHUTDOWN OF GRPC SERVER COMPLETE");
+                                }
+                                catch (error) 
+                                {
+                                    await this._logger.logWarning("FORCE SHUTDOWN OF GRPC SERVER ERRORED");
+                                    await this._logger.logError(error as any);
+                                    reject(error);
+                                    return;
+                                }
                             }
-                        }
-                        
-                        resolve();
+                            await this._logger.logInfo("GRPC SERVER CLOSED");
+                            resolve();
+                        });    
                     });
                 });
             },
@@ -324,31 +334,31 @@ export class GrpcServer
             {
                 if (this._hasShutdownScript)
                 {
-                    console.log("Shutdown script executing.");
+                    await this._logger.logInfo("SHUTDOWN SCRIPT EXECUTING...");
                     try
                     {
                         await this._container.resolve<ApplicationScript>(this._shutdownScriptKey).run();
-                        console.log("Shutdown script complete.");
+                        await this._logger.logInfo("SHUTDOWN SCRIPT COMPLETE");
                     }
                     catch (error)
                     {
-                        console.warn("Shutdown script error.");
-                        console.error(error);
+                        await this._logger.logWarning("SHUTDOWN SCRIPT ERROR");
+                        await this._logger.logWarning(error as any);
                     }
                 }
             },
             async (): Promise<void> =>
             {
-                console.log("Dispose actions executing.");
+                await this._logger.logInfo("DISPOSE ACTIONS EXECUTING...");
                 try
                 {
-                    await Promise.all(this._disposeActions.map(t => t()));
-                    console.log("Dispose actions complete.");
+                    await Promise.allSettled(this._disposeActions.map(t => t()));
+                    await this._logger.logInfo("DISPOSE ACTIONS COMPLETE");
                 }
                 catch (error)
                 {
-                    console.warn("Dispose actions error.");
-                    console.error(error);
+                    await this._logger.logWarning("DISPOSE ACTIONS ERROR");
+                    await this._logger.logError(error as any);
                 }
             }
         ]);
