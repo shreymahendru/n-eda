@@ -250,19 +250,19 @@ export class RpcServer
             {
                 return new Promise((resolve, reject) =>
                 {
-                    this._logger.logInfo("CLOSING HTTP SERVER...").finally(() =>
+                    this._logger.logInfo("CLOSING RPC SERVER...").finally(() =>
                     {
                         // eslint-disable-next-line @typescript-eslint/no-misused-promises
                         this._server.close(async (err) =>
                         {
                             if (err)
                             {
-                                await this._logger.logWarning("HTTP SERVER CLOSED WITH ERROR");
+                                await this._logger.logWarning("RPC SERVER CLOSED WITH ERROR");
                                 await this._logger.logError(err as any);
                                 reject(err);
                                 return;
                             }
-                            await this._logger.logInfo("HTTP SERVER CLOSED");
+                            await this._logger.logInfo("RPC SERVER CLOSED");
                             resolve();
                         });    
                     });
