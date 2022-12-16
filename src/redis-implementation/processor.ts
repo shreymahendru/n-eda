@@ -85,15 +85,10 @@ export abstract class Processor implements Disposable
                 const doneWorkItem = this._currentWorkItem!;
                 this._doneProcessingObserver.notify(doneWorkItem);
                 this._currentWorkItem = null;
-                span.end();
                 if (!this._isDisposed)
                     this._availabilityObserver.notify(this);
             })
-            .catch((e) =>
-            {
-                span.recordException(e);
-                return this._logger.logError(e);
-            }).finally(() => span.end());
+            .catch((e) => this._logger.logError(e));
     }
 
     public dispose(): Promise<void>
@@ -183,10 +178,19 @@ export abstract class Processor implements Disposable
         }
         catch (error)
         {
+            span.recordException(error as Error);
+            span.addEvent(`Failed to process event of type '${workItem.eventName}'`, {
+                eventData: JSON.stringify(workItem.event.serialize())
+            });
+            
             const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
             await this._logger.logError(message);
             await this._logger.logError(error as Exception);
             workItem.deferred.reject(new ApplicationException(message, error as Exception));
+        }
+        finally
+        {
+            span.end();
         }
     }
 }
