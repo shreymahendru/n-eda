@@ -60,14 +60,10 @@ class Processor {
             const doneWorkItem = this._currentWorkItem;
             this._doneProcessingObserver.notify(doneWorkItem);
             this._currentWorkItem = null;
-            span.end();
             if (!this._isDisposed)
                 this._availabilityObserver.notify(this);
         })
-            .catch((e) => {
-            span.recordException(e);
-            return this._logger.logError(e);
-        }).finally(() => span.end());
+            .catch((e) => this._logger.logError(e));
     }
     dispose() {
         var _a;
@@ -134,10 +130,17 @@ class Processor {
                 }
             }
             catch (error) {
+                span.recordException(error);
+                span.addEvent(`Failed to process event of type '${workItem.eventName}'`, {
+                    eventData: JSON.stringify(workItem.event.serialize())
+                });
                 const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
                 yield this._logger.logError(message);
                 yield this._logger.logError(error);
                 workItem.deferred.reject(new n_exception_1.ApplicationException(message, error));
+            }
+            finally {
+                span.end();
             }
         });
     }
