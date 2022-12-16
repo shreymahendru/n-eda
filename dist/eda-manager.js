@@ -10,6 +10,7 @@ const MurmurHash = require("murmurhash3js");
 const aws_lambda_event_handler_1 = require("./redis-implementation/aws-lambda-event-handler");
 const rpc_event_handler_1 = require("./redis-implementation/rpc-event-handler");
 const grpc_event_handler_1 = require("./redis-implementation/grpc-event-handler");
+// import { ConsumerTracer } from "./event-handler-tracer";
 // public
 class EdaManager {
     // public get metricsEnabled(): boolean { return this._metricsEnabled; }
@@ -23,7 +24,7 @@ class EdaManager {
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
         this._cleanKeys = false;
-        this._eventHandlerTracer = null;
+        // private _consumerTracer: ConsumerTracer | null = null;
         this._awsLambdaDetails = null;
         this._isAwsLambdaConsumer = false;
         this._awsLambdaEventHandler = null;
@@ -59,7 +60,7 @@ class EdaManager {
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
     get cleanKeys() { return this._cleanKeys; }
-    get eventHandlerTracer() { return this._eventHandlerTracer; }
+    // public get consumerTracer(): ConsumerTracer | null { return this._consumerTracer; }
     get awsLambdaDetails() { return this._awsLambdaDetails; }
     get awsLambdaProxyEnabled() { return this._awsLambdaDetails != null; }
     get isAwsLambdaConsumer() { return this._isAwsLambdaConsumer; }
@@ -119,14 +120,15 @@ class EdaManager {
         }
         return this;
     }
-    registerEventHandlerTracer(tracer) {
-        (0, n_defensive_1.given)(tracer, "tracer").ensureHasValue().ensureIsFunction();
-        (0, n_defensive_1.given)(this, "this")
-            .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
-            .ensure(t => !t._eventHandlerTracer, "event handler tracer already set");
-        this._eventHandlerTracer = tracer;
-        return this;
-    }
+    // public registerConsumerTracer(tracer: ConsumerTracer): this
+    // {
+    //     given(tracer, "tracer").ensureHasValue().ensureIsFunction();
+    //     given(this, "this")
+    //         .ensure(t => !t._isBootstrapped, "invoking method after bootstrap")
+    //         .ensure(t => !t._consumerTracer, "consumer tracer already set");
+    //     this._consumerTracer = tracer;
+    //     return this;
+    // }
     registerEventBus(eventBus) {
         (0, n_defensive_1.given)(eventBus, "eventBus").ensureHasValue();
         (0, n_defensive_1.given)(this, "this")

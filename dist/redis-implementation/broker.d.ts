@@ -22,6 +22,7 @@ export interface RoutedEvent {
     eventIndex: number;
     eventKey: string;
     eventId: string;
+    rawEvent: object;
     event: EdaEvent;
     partitionKey: string;
 }

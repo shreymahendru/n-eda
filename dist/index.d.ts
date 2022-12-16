@@ -17,5 +17,4 @@ import { RpcServer } from "./redis-implementation/rpc-server";
 import { GrpcDetails } from "./grpc-details";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
 import { GrpcServer } from "./redis-implementation/grpc-server";
-import { EventHandlerTracer, EventInfo } from "./event-handler-tracer";
-export { EdaEvent, EdaEventHandler, EventInfo, EventHandlerTracer, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, RedisEventBus, RedisEventSubMgr, LambdaDetails, AwsLambdaEventHandler, ApplicationScript, RpcDetails, RpcEventHandler, RpcServer, GrpcDetails, GrpcEventHandler, GrpcServer };
+export { EdaEvent, EdaEventHandler, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, RedisEventBus, RedisEventSubMgr, LambdaDetails, AwsLambdaEventHandler, ApplicationScript, RpcDetails, RpcEventHandler, RpcServer, GrpcDetails, GrpcEventHandler, GrpcServer };

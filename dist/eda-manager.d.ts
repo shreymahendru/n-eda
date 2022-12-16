@@ -12,7 +12,6 @@ import { RpcDetails } from "./rpc-details";
 import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
 import { GrpcDetails } from "./grpc-details";
-import { EventHandlerTracer } from "./event-handler-tracer";
 export declare class EdaManager implements Disposable {
     private readonly _container;
     private readonly _ownsContainer;
@@ -26,7 +25,6 @@ export declare class EdaManager implements Disposable {
     private _consumerName;
     private _consumerGroupId;
     private _cleanKeys;
-    private _eventHandlerTracer;
     private _awsLambdaDetails;
     private _isAwsLambdaConsumer;
     private _awsLambdaEventHandler;
@@ -48,7 +46,6 @@ export declare class EdaManager implements Disposable {
     get consumerName(): string;
     get consumerGroupId(): string | null;
     get cleanKeys(): boolean;
-    get eventHandlerTracer(): EventHandlerTracer | null;
     get awsLambdaDetails(): LambdaDetails | null;
     get awsLambdaProxyEnabled(): boolean;
     get isAwsLambdaConsumer(): boolean;
@@ -65,7 +62,6 @@ export declare class EdaManager implements Disposable {
     registerTopics(...topics: Array<Topic>): this;
     usePartitionKeyMapper(func: (event: EdaEvent) => string): this;
     registerEventHandlers(...eventHandlerClasses: Array<ClassHierarchy<EdaEventHandler<any>>>): this;
-    registerEventHandlerTracer(tracer: EventHandlerTracer): this;
     registerEventBus(eventBus: EventBus | ClassHierarchy<EventBus>): this;
     registerEventSubscriptionManager(eventSubMgr: EventSubMgr | ClassHierarchy<EventSubMgr>, consumerGroupId: string): this;
     cleanUpKeys(): this;

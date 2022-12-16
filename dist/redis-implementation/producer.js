@@ -7,9 +7,13 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const Zlib = require("zlib");
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
+const otelApi = require("@opentelemetry/api");
+const semCon = require("@opentelemetry/semantic-conventions");
 class Producer {
-    constructor(client, logger, topic, ttlMinutes, partition) {
+    constructor(key, client, logger, topic, ttlMinutes, partition) {
         this._edaPrefix = "n-eda";
+        (0, n_defensive_1.given)(key, "key").ensureHasValue().ensureIsString();
+        this._key = key;
         (0, n_defensive_1.given)(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
         (0, n_defensive_1.given)(logger, "logger").ensureHasValue().ensureIsObject();
@@ -26,7 +30,31 @@ class Producer {
             (0, n_defensive_1.given)(events, "events").ensureHasValue().ensureIsArray();
             if (events.isEmpty)
                 return;
-            const compressed = yield this._compressEvents(events.map(t => t.serialize()));
+            const serialized = new Array();
+            const spans = new Array();
+            const tracer = otelApi.trace.getTracer("n-eda");
+            events.forEach((event) => {
+                const span = tracer.startSpan(`"event.${event.name} publish`, {
+                    kind: otelApi.SpanKind.PRODUCER,
+                    attributes: {
+                        [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
+                        [semCon.SemanticAttributes.MESSAGING_OPERATION]: "send",
+                        [semCon.SemanticAttributes.MESSAGING_DESTINATION]: this._key,
+                        [semCon.SemanticAttributes.MESSAGING_DESTINATION_KIND]: "topic",
+                        [semCon.SemanticAttributes.MESSAGING_TEMP_DESTINATION]: false,
+                        [semCon.SemanticAttributes.MESSAGING_PROTOCOL]: "NEDA",
+                        [semCon.SemanticAttributes.MESSAGE_ID]: event.id,
+                        [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: event.partitionKey
+                    }
+                });
+                const traceData = {};
+                otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
+                const serializedEvent = event.serialize();
+                serializedEvent["$traceData"] = traceData;
+                serialized.push(serializedEvent);
+                spans.push(span);
+            });
+            const compressed = yield this._compressEvents(serialized);
             try {
                 const writeIndex = yield n_util_1.Make.retryWithExponentialBackoff(() => this._incrementPartitionWriteIndex(), 5)();
                 yield n_util_1.Make.retryWithExponentialBackoff(() => this._storeEvents(writeIndex, compressed), 5)();
@@ -34,7 +62,11 @@ class Producer {
             catch (error) {
                 yield this._logger.logWarning(`Error while storing ${events.length} events => Topic: ${this._topic}; Partition: ${this._partition};`);
                 yield this._logger.logError(error);
+                spans.forEach(span => span.recordException(error));
                 throw error;
+            }
+            finally {
+                spans.forEach(span => span.end());
             }
         });
     }

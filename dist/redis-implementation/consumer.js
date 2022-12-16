@@ -8,6 +8,8 @@ const eda_manager_1 = require("../eda-manager");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const Zlib = require("zlib");
 const broker_1 = require("./broker");
+const otelApi = require("@opentelemetry/api");
+const semCon = require("@opentelemetry/semantic-conventions");
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
 class Consumer {
@@ -128,7 +130,7 @@ class Consumer {
                             const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
                             const eventRegistration = this._manager.eventMap.get(eventName);
                             const deserializedEvent = n_util_1.Deserializer.deserialize(event);
-                            routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));
+                            routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, event, deserializedEvent));
                         }
                     }
                     yield Promise.all(routed);
@@ -151,8 +153,28 @@ class Consumer {
             }
         });
     }
-    _attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, event) {
+    _attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, rawEvent, event) {
+        var _a;
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            let traceData = (_a = rawEvent["$traceData"]) !== null && _a !== void 0 ? _a : {};
+            const parentContext = otelApi.propagation.extract(otelApi.ROOT_CONTEXT, traceData);
+            const tracer = otelApi.trace.getTracer("n-eda");
+            const span = tracer.startSpan(`event.${event.name} receive`, {
+                kind: otelApi.SpanKind.CONSUMER,
+                attributes: {
+                    [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
+                    [semCon.SemanticAttributes.MESSAGING_OPERATION]: "receive",
+                    [semCon.SemanticAttributes.MESSAGING_DESTINATION]: `${this._topic}+++${this._partition}`,
+                    [semCon.SemanticAttributes.MESSAGING_DESTINATION_KIND]: "topic",
+                    [semCon.SemanticAttributes.MESSAGING_TEMP_DESTINATION]: false,
+                    [semCon.SemanticAttributes.MESSAGING_PROTOCOL]: "NEDA",
+                    [semCon.SemanticAttributes.MESSAGE_ID]: event.id,
+                    [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: event.partitionKey
+                }
+            }, parentContext);
+            traceData = {};
+            otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
+            rawEvent["$traceData"] = traceData;
             let brokerDisposed = false;
             try {
                 yield this._broker.route({
@@ -164,11 +186,13 @@ class Consumer {
                     eventIndex,
                     eventKey,
                     eventId,
+                    rawEvent,
                     event,
                     partitionKey: this._manager.partitionKeyMapper(event)
                 });
             }
             catch (error) {
+                span.recordException(error);
                 if (error instanceof n_exception_1.ObjectDisposedException)
                     brokerDisposed = true;
                 // await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
@@ -180,6 +204,7 @@ class Consumer {
                 //     return;
                 if (!brokerDisposed)
                     this._track(eventId);
+                span.end();
             }
         });
     }
