@@ -62,7 +62,7 @@ suite("Primitives tests", () =>
         Assert.ok(true);
     });
     
-    test.only("Num partition events", () =>
+    test("Num partition events", () =>
     {
         const now = Date.now();
         const fiftyYears = Duration.fromHours(24 * 366 * 50).toMilliSeconds();

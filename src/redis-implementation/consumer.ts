@@ -9,6 +9,8 @@ import { Logger } from "@nivinjoseph/n-log";
 import { ObjectDisposedException, ApplicationException, Exception } from "@nivinjoseph/n-exception";
 import * as Zlib from "zlib";
 import { Broker } from "./broker";
+import * as otelApi from "@opentelemetry/api";
+import * as semCon from "@opentelemetry/semantic-conventions";
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
 
@@ -196,7 +198,7 @@ export class Consumer implements Disposable
 
                         routed.push(
                             this._attemptRoute(
-                                eventName, eventRegistration, item.index, item.key, eventId, deserializedEvent));    
+                                eventName, eventRegistration, item.index, item.key, eventId, event, deserializedEvent));    
                     }
                 }
                 
@@ -225,8 +227,29 @@ export class Consumer implements Disposable
     }
     
     private async _attemptRoute(eventName: string, eventRegistration: EventRegistration,
-        eventIndex: number, eventKey: string, eventId: string, event: EdaEvent): Promise<void>
+        eventIndex: number, eventKey: string, eventId: string, rawEvent: object, event: EdaEvent): Promise<void>
     {
+        let traceData = (<any>rawEvent)["$traceData"] ?? {};
+        const parentContext = otelApi.propagation.extract(otelApi.ROOT_CONTEXT, traceData);
+        const tracer = otelApi.trace.getTracer("n-eda");
+        const span = tracer.startSpan(`event.${event.name} receive`, {
+            kind: otelApi.SpanKind.CONSUMER,
+            attributes: {
+                [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
+                [semCon.SemanticAttributes.MESSAGING_OPERATION]: "receive",
+                [semCon.SemanticAttributes.MESSAGING_DESTINATION]: `${this._topic}+++${this._partition}`,
+                [semCon.SemanticAttributes.MESSAGING_DESTINATION_KIND]: "topic",
+                [semCon.SemanticAttributes.MESSAGING_TEMP_DESTINATION]: false,
+                [semCon.SemanticAttributes.MESSAGING_PROTOCOL]: "NEDA",
+                [semCon.SemanticAttributes.MESSAGE_ID]: event.id,
+                [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: event.partitionKey
+            }
+        }, parentContext);
+        
+        traceData = {};
+        otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
+        (<any>rawEvent)["$traceData"] = traceData;
+        
         let brokerDisposed = false;
         try 
         {
@@ -239,12 +262,15 @@ export class Consumer implements Disposable
                 eventIndex,
                 eventKey,
                 eventId,
+                rawEvent,
                 event,
                 partitionKey: this._manager.partitionKeyMapper(event)
             });
         }
         catch (error)
         {
+            span.recordException(error as Error);
+            
             if (error instanceof ObjectDisposedException)
                 brokerDisposed = true;
             // await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
@@ -255,9 +281,11 @@ export class Consumer implements Disposable
             // if (failed && this._isDisposed) // cuz it could have failed because things were disposed
             //     // eslint-disable-next-line no-unsafe-finally
             //     return;
-
+            
             if (!brokerDisposed)
                 this._track(eventId);
+            
+            span.end();
         }
     }
     

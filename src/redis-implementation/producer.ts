@@ -8,11 +8,14 @@ import * as Zlib from "zlib";
 import { Exception } from "@nivinjoseph/n-exception";
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
+import * as otelApi from "@opentelemetry/api";
+import * as semCon from "@opentelemetry/semantic-conventions";
 
 
 export class Producer
 {
     private readonly _edaPrefix = "n-eda";
+    private readonly _key: string;
     private readonly _client: Redis;
     private readonly _logger: Logger;
     private readonly _topic: string;
@@ -20,9 +23,11 @@ export class Producer
     private readonly _partition: number;
 
 
-    public constructor(client: Redis, logger: Logger, topic: string, ttlMinutes: number,
-        partition: number)
+    public constructor(key: string, client: Redis, logger: Logger, topic: string, ttlMinutes: number, partition: number)
     {
+        given(key, "key").ensureHasValue().ensureIsString();
+        this._key = key;
+        
         given(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
 
@@ -46,7 +51,37 @@ export class Producer
         if (events.isEmpty)
             return;
         
-        const compressed = await this._compressEvents(events.map(t => t.serialize()));
+        const serialized = new Array<object>();
+        const spans = new Array<otelApi.Span>();
+        
+        const tracer = otelApi.trace.getTracer("n-eda");
+        events.forEach((event) =>
+        {
+            const span = tracer.startSpan(`"event.${event.name} publish`, {
+                kind: otelApi.SpanKind.PRODUCER,
+                attributes: {
+                    [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
+                    [semCon.SemanticAttributes.MESSAGING_OPERATION]: "send",
+                    [semCon.SemanticAttributes.MESSAGING_DESTINATION]: this._key,
+                    [semCon.SemanticAttributes.MESSAGING_DESTINATION_KIND]: "topic",
+                    [semCon.SemanticAttributes.MESSAGING_TEMP_DESTINATION]: false,
+                    [semCon.SemanticAttributes.MESSAGING_PROTOCOL]: "NEDA",
+                    [semCon.SemanticAttributes.MESSAGE_ID]: event.id,
+                    [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: event.partitionKey
+                }
+            });
+
+            const traceData = {};
+            otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
+            
+            const serializedEvent = event.serialize();
+            (<any>serializedEvent)["$traceData"] = traceData;
+
+            serialized.push(serializedEvent);
+            spans.push(span);
+        });
+        
+        const compressed = await this._compressEvents(serialized);
 
         try 
         {
@@ -57,7 +92,12 @@ export class Producer
         {
             await this._logger.logWarning(`Error while storing ${events.length} events => Topic: ${this._topic}; Partition: ${this._partition};`);
             await this._logger.logError(error as Exception);
+            spans.forEach(span => span.recordException(error as Exception));
             throw error;
+        }
+        finally
+        {
+            spans.forEach(span => span.end());
         }
     }
 

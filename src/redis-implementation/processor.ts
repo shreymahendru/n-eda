@@ -3,15 +3,17 @@ import { ApplicationException, Exception, InvalidOperationException, ObjectDispo
 import { Logger } from "@nivinjoseph/n-log";
 import { Delay, DelayCanceller, Disposable, Observable, Observer } from "@nivinjoseph/n-util";
 import { EdaManager } from "../eda-manager";
-import { EventHandlerTracer } from "../event-handler-tracer";
+// import { ConsumerTracer } from "../event-handler-tracer";
 import { WorkItem } from "./scheduler";
+import * as otelApi from "@opentelemetry/api";
+import * as semCon from "@opentelemetry/semantic-conventions";
 
 
 export abstract class Processor implements Disposable
 {
     private readonly _manager: EdaManager;
-    private readonly _eventHandlerTracer: EventHandlerTracer | null;
-    private readonly _hasEventHandlerTracer: boolean;
+    // private readonly _consumerTracer: ConsumerTracer | null;
+    // private readonly _hasConsumerTracer: boolean;
     private readonly _logger: Logger;
     private readonly _availabilityObserver = new Observer<this>("available");
     private readonly _doneProcessingObserver = new Observer<WorkItem>("done-processing");
@@ -40,8 +42,8 @@ export abstract class Processor implements Disposable
         given(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(EdaManager);
         this._manager = manager;
 
-        this._eventHandlerTracer = this._manager.eventHandlerTracer;
-        this._hasEventHandlerTracer = this._eventHandlerTracer != null;
+        // this._consumerTracer = this._manager.consumerTracer;
+        // this._hasConsumerTracer = this._consumerTracer != null;
 
         this._logger = this._manager.serviceLocator.resolve<Logger>("Logger");
     }
@@ -60,16 +62,38 @@ export abstract class Processor implements Disposable
 
         this._currentWorkItem = workItem;
 
-        this._processPromise = this._process()
+        const traceData = (<any>workItem.rawEvent)["$traceData"] ?? {};
+        const parentContext = otelApi.propagation.extract(otelApi.ROOT_CONTEXT, traceData);
+        const tracer = otelApi.trace.getTracer("n-eda");
+        const span = tracer.startSpan(`event.${workItem.event.name} process`, {
+            kind: otelApi.SpanKind.CONSUMER,
+            attributes: {
+                [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
+                [semCon.SemanticAttributes.MESSAGING_OPERATION]: "process",
+                [semCon.SemanticAttributes.MESSAGING_DESTINATION]: `${workItem.topic}+++${workItem.partition}`,
+                [semCon.SemanticAttributes.MESSAGING_DESTINATION_KIND]: "topic",
+                [semCon.SemanticAttributes.MESSAGING_TEMP_DESTINATION]: false,
+                [semCon.SemanticAttributes.MESSAGING_PROTOCOL]: "NEDA",
+                [semCon.SemanticAttributes.MESSAGE_ID]: workItem.event.id,
+                [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: workItem.event.partitionKey
+            }
+        }, parentContext);
+        
+        this._processPromise = this._process(span)
             .then(() =>
             {
                 const doneWorkItem = this._currentWorkItem!;
                 this._doneProcessingObserver.notify(doneWorkItem);
                 this._currentWorkItem = null;
+                span.end();
                 if (!this._isDisposed)
                     this._availabilityObserver.notify(this);
             })
-            .catch((e) => this._logger.logError(e));
+            .catch((e) =>
+            {
+                span.recordException(e);
+                return this._logger.logError(e);
+            }).finally(() => span.end());
     }
 
     public dispose(): Promise<void>
@@ -88,7 +112,7 @@ export abstract class Processor implements Disposable
 
     protected abstract processEvent(workItem: WorkItem): Promise<void>;
 
-    private async _process(): Promise<void>
+    private async _process(span: otelApi.Span): Promise<void>
     {
         const workItem = this._currentWorkItem!;
 
@@ -110,17 +134,18 @@ export abstract class Processor implements Disposable
                 {
                     // await this._logger.logInfo(`Processing event ${workItem.eventName} with id ${workItem.eventId}`);
 
-                    if (this._hasEventHandlerTracer)
-                        await this._eventHandlerTracer!({
-                            topic: workItem.topic,
-                            partition: workItem.partition,
-                            partitionKey: workItem.partitionKey,
-                            eventName: workItem.eventName,
-                            eventId: workItem.eventId
-                        }, () => this.processEvent(workItem));
-
-                    else
-                        await this.processEvent(workItem);
+                    // if (this._hasConsumerTracer)
+                    //     await this._consumerTracer!({
+                    //         topic: workItem.topic,
+                    //         partition: workItem.partition,
+                    //         partitionKey: workItem.partitionKey,
+                    //         eventName: workItem.eventName,
+                    //         eventId: workItem.eventId
+                    //     }, () => this.processEvent(workItem));
+                    // else
+                    //     await this.processEvent(workItem);
+                    
+                    await this.processEvent(workItem);
                     workItem.deferred.resolve();
                     return;
                 }
@@ -143,8 +168,14 @@ export abstract class Processor implements Disposable
                         throw error;
                     else
                     {
+                        span.recordException(error as Error);
+                        const seconds = (5 + numProcessAttempts) * numProcessAttempts; // [6, 14, 24, 36, 50, 66, 84, 104, 126]
+                        span.addEvent("Waiting before retry", {
+                            "delay": `${seconds}s`,
+                            "attempt": numProcessAttempts
+                        });
                         this._delayCanceller = {};
-                        await Delay.seconds((5 + numProcessAttempts) * numProcessAttempts, this._delayCanceller); // [6, 14, 24, 36, 50, 66, 84, 104, 126]
+                        await Delay.seconds(seconds, this._delayCanceller); 
                         this._delayCanceller = null;
                     } 
                 }
