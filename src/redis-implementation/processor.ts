@@ -113,89 +113,92 @@ export abstract class Processor implements Disposable
         
         // otelApi.trace.setSpan(otelApi.context.active(), span);
         
-        const maxProcessAttempts = 10;
-        let numProcessAttempts = 0;
-        try 
-        {
-            while (numProcessAttempts < maxProcessAttempts)
+        await otelApi.context.with(otelApi.trace.setSpan(otelApi.context.active(), span), async () =>
+        { 
+            const maxProcessAttempts = 10;
+            let numProcessAttempts = 0;
+            try 
             {
-                if (this._isDisposed)
+                while (numProcessAttempts < maxProcessAttempts)
                 {
-                    workItem.deferred.reject(new ObjectDisposedException("Processor"));
-                    return;
-                }
-
-                numProcessAttempts++;
-
-                try 
-                {
-                    // await this._logger.logInfo(`Processing event ${workItem.eventName} with id ${workItem.eventId}`);
-
-                    // if (this._hasConsumerTracer)
-                    //     await this._consumerTracer!({
-                    //         topic: workItem.topic,
-                    //         partition: workItem.partition,
-                    //         partitionKey: workItem.partitionKey,
-                    //         eventName: workItem.eventName,
-                    //         eventId: workItem.eventId
-                    //     }, () => this.processEvent(workItem));
-                    // else
-                    //     await this.processEvent(workItem);
-                    
-                    await this.processEvent(workItem);
-                    workItem.deferred.resolve();
-                    return;
-                }
-                catch (error)
-                {
-                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (this._isDisposed)
                     {
                         workItem.deferred.reject(new ObjectDisposedException("Processor"));
                         return;
                     }
-                    
-                    if (numProcessAttempts > 8)
+
+                    numProcessAttempts++;
+
+                    try 
                     {
-                        await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-                        await this.logger.logWarning(error as Exception);
+                        // await this._logger.logInfo(`Processing event ${workItem.eventName} with id ${workItem.eventId}`);
+
+                        // if (this._hasConsumerTracer)
+                        //     await this._consumerTracer!({
+                        //         topic: workItem.topic,
+                        //         partition: workItem.partition,
+                        //         partitionKey: workItem.partitionKey,
+                        //         eventName: workItem.eventName,
+                        //         eventId: workItem.eventId
+                        //     }, () => this.processEvent(workItem));
+                        // else
+                        //     await this.processEvent(workItem);
+
+                        await this.processEvent(workItem);
+                        workItem.deferred.resolve();
+                        return;
                     }
-                    
-                    if (numProcessAttempts >= maxProcessAttempts)
-                        throw error;
-                    else
+                    catch (error)
                     {
-                        span.recordException(error as Error);
-                        const seconds = (5 + numProcessAttempts) * numProcessAttempts; // [6, 14, 24, 36, 50, 66, 84, 104, 126]
-                        span.addEvent("Waiting before retry", {
-                            "delay": `${seconds}s`,
-                            "attempt": numProcessAttempts
-                        });
-                        this._delayCanceller = {};
-                        await Delay.seconds(seconds, this._delayCanceller); 
-                        this._delayCanceller = null;
-                    } 
+                        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                        if (this._isDisposed)
+                        {
+                            workItem.deferred.reject(new ObjectDisposedException("Processor"));
+                            return;
+                        }
+
+                        if (numProcessAttempts > 8)
+                        {
+                            await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
+                            await this.logger.logWarning(error as Exception);
+                        }
+
+                        if (numProcessAttempts >= maxProcessAttempts)
+                            throw error;
+                        else
+                        {
+                            span.recordException(error as Error);
+                            const seconds = (5 + numProcessAttempts) * numProcessAttempts; // [6, 14, 24, 36, 50, 66, 84, 104, 126]
+                            span.addEvent("Waiting before retry", {
+                                "delay": `${seconds}s`,
+                                "attempt": numProcessAttempts
+                            });
+                            this._delayCanceller = {};
+                            await Delay.seconds(seconds, this._delayCanceller);
+                            this._delayCanceller = null;
+                        }
+                    }
                 }
             }
-        }
-        catch (error)
-        {
-            span.recordException(error as Error);
-            span.addEvent(`Failed to process event of type '${workItem.eventName}'`, {
-                eventData: JSON.stringify(workItem.event.serialize())
-            });
-            const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
-            span.setStatus({
-                code: otelApi.SpanStatusCode.ERROR,
-                message
-            });
-            await this._logger.logError(message);
-            await this._logger.logError(error as Exception);
-            workItem.deferred.reject(new ApplicationException(message, error as Exception));
-        }
-        finally
-        {
-            span.end();
-        }
+            catch (error)
+            {
+                span.recordException(error as Error);
+                span.addEvent(`Failed to process event of type '${workItem.eventName}'`, {
+                    eventData: JSON.stringify(workItem.event.serialize())
+                });
+                const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
+                span.setStatus({
+                    code: otelApi.SpanStatusCode.ERROR,
+                    message
+                });
+                await this._logger.logError(message);
+                await this._logger.logError(error as Exception);
+                workItem.deferred.reject(new ApplicationException(message, error as Exception));
+            }
+            finally
+            {
+                span.end();
+            } 
+        });
     }
 }
