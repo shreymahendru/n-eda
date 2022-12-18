@@ -76,6 +76,7 @@ class Processor {
                     [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: workItem.event.partitionKey
                 }
             }, parentContext);
+            otelApi.trace.setSpan(otelApi.context.active(), span);
             const maxProcessAttempts = 10;
             let numProcessAttempts = 0;
             try {
