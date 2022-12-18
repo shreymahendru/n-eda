@@ -172,25 +172,28 @@ class Consumer {
                     [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: event.partitionKey
                 }
             }, parentContext);
+            // otelApi.trace.setSpan(otelApi.context.active(), span);
             // traceData = {};
             // otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
             // (<any>rawEvent)["$traceData"] = traceData;
             let brokerDisposed = false;
             try {
-                yield this._broker.route({
-                    consumerId: this._id,
-                    topic: this._topic,
-                    partition: this._partition,
-                    eventName,
-                    eventRegistration,
-                    eventIndex,
-                    eventKey,
-                    eventId,
-                    rawEvent,
-                    event,
-                    partitionKey: this._manager.partitionKeyMapper(event),
-                    span
-                });
+                yield otelApi.context.with(otelApi.trace.setSpan(otelApi.context.active(), span), () => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                    yield this._broker.route({
+                        consumerId: this._id,
+                        topic: this._topic,
+                        partition: this._partition,
+                        eventName,
+                        eventRegistration,
+                        eventIndex,
+                        eventKey,
+                        eventId,
+                        rawEvent,
+                        event,
+                        partitionKey: this._manager.partitionKeyMapper(event),
+                        span
+                    });
+                }));
             }
             catch (error) {
                 span.recordException(error);
