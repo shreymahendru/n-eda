@@ -54,7 +54,7 @@
         "@nivinjoseph/n-exception": "^1.0.26",
         "@nivinjoseph/n-ext": "^1.1.35",
         "@nivinjoseph/n-ject": "^2.0.5",
-        "@nivinjoseph/n-log": "^2.1.8",
+        "@nivinjoseph/n-log": "^2.1.9",
         "@nivinjoseph/n-svc": "^2.0.19",
         "@nivinjoseph/n-util": "^1.0.81",
         "@opentelemetry/api": "^1.3.0",

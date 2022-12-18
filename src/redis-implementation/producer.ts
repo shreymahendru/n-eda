@@ -57,7 +57,9 @@ export class Producer
         const tracer = otelApi.trace.getTracer("n-eda");
         events.forEach((event) =>
         {
-            const span = tracer.startSpan(`"event.${event.name} publish`, {
+            const activeSpan = otelApi.trace.getActiveSpan();
+            
+            const span = tracer.startSpan(`event.${event.name} publish`, {
                 kind: otelApi.SpanKind.PRODUCER,
                 attributes: {
                     [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
@@ -79,6 +81,9 @@ export class Producer
 
             serialized.push(serializedEvent);
             spans.push(span);
+            
+            if (activeSpan)
+                otelApi.trace.setSpan(otelApi.context.active(), activeSpan);
         });
         
         const compressed = await this._compressEvents(serialized);
@@ -90,9 +95,17 @@ export class Producer
         }
         catch (error)
         {
-            await this._logger.logWarning(`Error while storing ${events.length} events => Topic: ${this._topic}; Partition: ${this._partition};`);
+            const message = `Error while storing ${events.length} events => Topic: ${this._topic}; Partition: ${this._partition};`;
+            await this._logger.logWarning(message);
             await this._logger.logError(error as Exception);
-            spans.forEach(span => span.recordException(error as Exception));
+            spans.forEach(span =>
+            {
+                span.recordException(error as Exception);
+                span.setStatus({
+                    code: otelApi.SpanStatusCode.ERROR,
+                    message
+                });
+            });
             throw error;
         }
         finally

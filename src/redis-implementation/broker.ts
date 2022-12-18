@@ -8,6 +8,7 @@ import { Consumer } from "./consumer";
 import { OptimizedScheduler } from "./optimized-scheduler";
 import { Processor } from "./processor";
 import { Scheduler } from "./scheduler";
+import * as otelApi from "@opentelemetry/api";
 
 
 export class Broker implements Disposable
@@ -74,4 +75,5 @@ export interface RoutedEvent
     rawEvent: object;
     event: EdaEvent;
     partitionKey: string;
+    span: otelApi.Span;
 }
