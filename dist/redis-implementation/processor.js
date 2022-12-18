@@ -31,7 +31,6 @@ class Processor {
     get doneProcessing() { return this._doneProcessingObserver; }
     get isBusy() { return this._currentWorkItem != null; }
     process(workItem) {
-        var _a;
         if (!this._isInitialized || this.isBusy)
             throw new n_exception_1.InvalidOperationException("processor not initialized or processor is busy");
         if (this._isDisposed) {
@@ -39,23 +38,7 @@ class Processor {
             return;
         }
         this._currentWorkItem = workItem;
-        const traceData = (_a = workItem.rawEvent["$traceData"]) !== null && _a !== void 0 ? _a : {};
-        const parentContext = otelApi.propagation.extract(otelApi.ROOT_CONTEXT, traceData);
-        const tracer = otelApi.trace.getTracer("n-eda");
-        const span = tracer.startSpan(`event.${workItem.event.name} process`, {
-            kind: otelApi.SpanKind.CONSUMER,
-            attributes: {
-                [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
-                [semCon.SemanticAttributes.MESSAGING_OPERATION]: "process",
-                [semCon.SemanticAttributes.MESSAGING_DESTINATION]: `${workItem.topic}+++${workItem.partition}`,
-                [semCon.SemanticAttributes.MESSAGING_DESTINATION_KIND]: "topic",
-                [semCon.SemanticAttributes.MESSAGING_TEMP_DESTINATION]: false,
-                [semCon.SemanticAttributes.MESSAGING_PROTOCOL]: "NEDA",
-                [semCon.SemanticAttributes.MESSAGE_ID]: workItem.event.id,
-                [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: workItem.event.partitionKey
-            }
-        }, parentContext);
-        this._processPromise = this._process(span)
+        this._processPromise = this._process()
             .then(() => {
             const doneWorkItem = this._currentWorkItem;
             this._doneProcessingObserver.notify(doneWorkItem);
@@ -75,9 +58,24 @@ class Processor {
             this._delayCanceller.cancel();
         return ((_a = this._processPromise) === null || _a === void 0 ? void 0 : _a.then(() => console.warn("Processor disposed"))) || Promise.resolve().then(() => console.warn("Processor disposed"));
     }
-    _process(span) {
+    _process() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             const workItem = this._currentWorkItem;
+            const parentContext = otelApi.trace.setSpan(otelApi.context.active(), workItem.span);
+            const tracer = otelApi.trace.getTracer("n-eda");
+            const span = tracer.startSpan(`event.${workItem.event.name} process`, {
+                kind: otelApi.SpanKind.CONSUMER,
+                attributes: {
+                    [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
+                    [semCon.SemanticAttributes.MESSAGING_OPERATION]: "process",
+                    [semCon.SemanticAttributes.MESSAGING_DESTINATION]: `${workItem.topic}+++${workItem.partition}`,
+                    [semCon.SemanticAttributes.MESSAGING_DESTINATION_KIND]: "topic",
+                    [semCon.SemanticAttributes.MESSAGING_TEMP_DESTINATION]: false,
+                    [semCon.SemanticAttributes.MESSAGING_PROTOCOL]: "NEDA",
+                    [semCon.SemanticAttributes.MESSAGE_ID]: workItem.event.id,
+                    [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: workItem.event.partitionKey
+                }
+            }, parentContext);
             const maxProcessAttempts = 10;
             let numProcessAttempts = 0;
             try {
@@ -135,6 +133,10 @@ class Processor {
                     eventData: JSON.stringify(workItem.event.serialize())
                 });
                 const message = `Failed to process event of type '${workItem.eventName}' with data ${JSON.stringify(workItem.event.serialize())}`;
+                span.setStatus({
+                    code: otelApi.SpanStatusCode.ERROR,
+                    message
+                });
                 yield this._logger.logError(message);
                 yield this._logger.logError(error);
                 workItem.deferred.reject(new n_exception_1.ApplicationException(message, error));

@@ -3,6 +3,7 @@ import { EdaEvent } from "../eda-event";
 import { EventRegistration } from "../event-registration";
 import { Consumer } from "./consumer";
 import { Processor } from "./processor";
+import * as otelApi from "@opentelemetry/api";
 export declare class Broker implements Disposable {
     private readonly _consumers;
     private readonly _processors;
@@ -25,4 +26,5 @@ export interface RoutedEvent {
     rawEvent: object;
     event: EdaEvent;
     partitionKey: string;
+    span: otelApi.Span;
 }

@@ -156,11 +156,11 @@ class Consumer {
     _attemptRoute(eventName, eventRegistration, eventIndex, eventKey, eventId, rawEvent, event) {
         var _a;
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            let traceData = (_a = rawEvent["$traceData"]) !== null && _a !== void 0 ? _a : {};
+            const traceData = (_a = rawEvent["$traceData"]) !== null && _a !== void 0 ? _a : {};
             const parentContext = otelApi.propagation.extract(otelApi.ROOT_CONTEXT, traceData);
             const tracer = otelApi.trace.getTracer("n-eda");
             const span = tracer.startSpan(`event.${event.name} receive`, {
-                kind: otelApi.SpanKind.CONSUMER,
+                kind: otelApi.SpanKind.INTERNAL,
                 attributes: {
                     [semCon.SemanticAttributes.MESSAGING_SYSTEM]: "n-eda",
                     [semCon.SemanticAttributes.MESSAGING_OPERATION]: "receive",
@@ -172,9 +172,9 @@ class Consumer {
                     [semCon.SemanticAttributes.MESSAGING_CONVERSATION_ID]: event.partitionKey
                 }
             }, parentContext);
-            traceData = {};
-            otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
-            rawEvent["$traceData"] = traceData;
+            // traceData = {};
+            // otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
+            // (<any>rawEvent)["$traceData"] = traceData;
             let brokerDisposed = false;
             try {
                 yield this._broker.route({
@@ -188,11 +188,13 @@ class Consumer {
                     eventId,
                     rawEvent,
                     event,
-                    partitionKey: this._manager.partitionKeyMapper(event)
+                    partitionKey: this._manager.partitionKeyMapper(event),
+                    span
                 });
             }
             catch (error) {
                 span.recordException(error);
+                span.setStatus({ code: otelApi.SpanStatusCode.ERROR });
                 if (error instanceof n_exception_1.ObjectDisposedException)
                     brokerDisposed = true;
                 // await this._logger.logWarning(`Failed to consume event of type '${eventName}' with data ${JSON.stringify(event.serialize())}`);
