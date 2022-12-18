@@ -246,6 +246,8 @@ export class Consumer implements Disposable
             }
         }, parentContext);
         
+        // otelApi.trace.setSpan(otelApi.context.active(), span);
+        
         // traceData = {};
         // otelApi.propagation.inject(otelApi.trace.setSpan(otelApi.context.active(), span), traceData);
         // (<any>rawEvent)["$traceData"] = traceData;
@@ -253,20 +255,25 @@ export class Consumer implements Disposable
         let brokerDisposed = false;
         try 
         {
-            await this._broker.route({
-                consumerId: this._id,
-                topic: this._topic,
-                partition: this._partition,
-                eventName,
-                eventRegistration,
-                eventIndex,
-                eventKey,
-                eventId,
-                rawEvent,
-                event,
-                partitionKey: this._manager.partitionKeyMapper(event),
-                span
+            await otelApi.context.with(otelApi.trace.setSpan(otelApi.context.active(), span), async () =>
+            {
+                await this._broker.route({
+                    consumerId: this._id,
+                    topic: this._topic,
+                    partition: this._partition,
+                    eventName,
+                    eventRegistration,
+                    eventIndex,
+                    eventKey,
+                    eventId,
+                    rawEvent,
+                    event,
+                    partitionKey: this._manager.partitionKeyMapper(event),
+                    span
+                });
             });
+            
+            
         }
         catch (error)
         {
