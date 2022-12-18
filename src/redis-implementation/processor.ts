@@ -111,8 +111,8 @@ export abstract class Processor implements Disposable
             }
         }, parentContext);
         
+        otelApi.trace.setSpan(otelApi.context.active(), span);
         
-
         const maxProcessAttempts = 10;
         let numProcessAttempts = 0;
         try 
