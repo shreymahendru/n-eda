@@ -16,12 +16,14 @@ const aws_lambda_proxy_processor_1 = require("./aws-lambda-proxy-processor");
 const rpc_proxy_processor_1 = require("./rpc-proxy-processor");
 const grpc_proxy_processor_1 = require("./grpc-proxy-processor");
 const grpc_client_factory_1 = require("./grpc-client-factory");
+const monitor_1 = require("./monitor");
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 // public
 let RedisEventSubMgr = class RedisEventSubMgr {
     constructor(redisClient, logger) {
         this._brokers = new Array();
+        this._monitors = new Array();
         this._isDisposing = false;
         this._isDisposed = false;
         this._disposePromise = null;
@@ -72,8 +74,11 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                         processors = consumers.map(_ => new default_processor_1.DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                     const broker = new broker_1.Broker(consumers, processors);
                     this._brokers.push(broker);
+                    const monitor = new monitor_1.Monitor(this._client, consumers);
+                    this._monitors.push(monitor);
                 });
                 this._brokers.forEach(t => t.initialize());
+                this._monitors.forEach(t => t.start());
             }
             while (!this._isDisposed) {
                 yield n_util_1.Delay.seconds(5);
@@ -84,7 +89,10 @@ let RedisEventSubMgr = class RedisEventSubMgr {
         if (!this._isDisposing) {
             this._isDisposing = true;
             console.warn("Disposing EventSubMgr");
-            this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()))
+            this._disposePromise = Promise.all([
+                ...this._monitors.map(t => t.dispose()),
+                ...this._brokers.map(t => t.dispose())
+            ])
                 .catch(e => console.error(e))
                 .finally(() => {
                 this._isDisposed = true;

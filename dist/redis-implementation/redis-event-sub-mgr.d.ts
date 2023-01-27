@@ -8,6 +8,7 @@ export declare class RedisEventSubMgr implements EventSubMgr {
     private readonly _client;
     private readonly _logger;
     private readonly _brokers;
+    private readonly _monitors;
     private _isDisposing;
     private _isDisposed;
     private _disposePromise;

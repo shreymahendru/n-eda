@@ -15,7 +15,6 @@ const semCon = require("@opentelemetry/semantic-conventions");
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
         this._edaPrefix = "n-eda";
-        this._defaultDelayMS = 100;
         this._isDisposed = false;
         this._maxTrackedSize = 3000;
         this._keepTrackedSize = 1000;
@@ -24,6 +23,7 @@ class Consumer {
         this._keysToTrack = new Array();
         this._consumePromise = null;
         this._broker = null;
+        this._delayCanceller = null;
         (0, n_defensive_1.given)(client, "client").ensureHasValue().ensureIsObject();
         this._client = client;
         (0, n_defensive_1.given)(manager, "manager").ensureHasValue().ensureIsObject().ensureIsType(eda_manager_1.EdaManager);
@@ -33,13 +33,14 @@ class Consumer {
         this._topic = topic;
         (0, n_defensive_1.given)(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
-        this._id = `${this._topic}-${this._partition}`;
         this._cleanKeys = this._manager.cleanKeys;
         this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         (0, n_defensive_1.given)(flush, "flush").ensureHasValue().ensureIsBoolean();
         this._flush = flush;
     }
-    get id() { return this._id; }
+    get id() { return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
+    get writeIndexKey() { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`; }
+    get readIndexKey() { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`; }
     registerBroker(broker) {
         (0, n_defensive_1.given)(broker, "broker").ensureHasValue().ensureIsObject().ensureIsObject().ensureIsType(broker_1.Broker);
         this._broker = broker;
@@ -55,15 +56,21 @@ class Consumer {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             if (!this._isDisposed) {
                 this._isDisposed = true;
-                console.warn(`Disposing consumer ${this._id}`);
+                if (this._delayCanceller != null)
+                    this._delayCanceller.cancel();
+                console.warn(`Disposing consumer ${this.id}`);
             }
-            return ((_a = this._consumePromise) === null || _a === void 0 ? void 0 : _a.then(() => console.warn(`Consumer disposed ${this._id}`))) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this._id}`));
+            return ((_a = this._consumePromise) === null || _a === void 0 ? void 0 : _a.then(() => console.warn(`Consumer disposed ${this.id}`))) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this.id}`));
         });
+    }
+    awaken() {
+        if (this._delayCanceller != null)
+            this._delayCanceller.cancel();
     }
     _beginConsume() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             yield this._loadTrackedKeys();
-            yield this._logger.logInfo(`Loaded tracked keys for Consumer ${this._id} => ${this._trackedKeysSet.size}`);
+            yield this._logger.logInfo(`Loaded tracked keys for Consumer ${this.id} => ${this._trackedKeysSet.size}`);
             const maxReadAttempts = 50;
             // eslint-disable-next-line no-constant-condition
             while (true) {
@@ -74,7 +81,8 @@ class Consumer {
                     // const readIndex = await this._fetchConsumerPartitionReadIndex();
                     const [writeIndex, readIndex] = yield this._fetchPartitionWriteAndConsumerPartitionReadIndexes();
                     if (readIndex >= writeIndex) {
-                        yield n_util_1.Delay.milliseconds(this._defaultDelayMS);
+                        this._delayCanceller = {};
+                        yield n_util_1.Delay.seconds(n_util_1.Make.randomInt(60, 120), this._delayCanceller);
                         continue;
                     }
                     const maxRead = 50;
@@ -180,7 +188,7 @@ class Consumer {
             try {
                 yield otelApi.context.with(otelApi.trace.setSpan(otelApi.context.active(), span), () => tslib_1.__awaiter(this, void 0, void 0, function* () {
                     yield this._broker.route({
-                        consumerId: this._id,
+                        consumerId: this.id,
                         topic: this._topic,
                         partition: this._partition,
                         eventName,
@@ -248,10 +256,8 @@ class Consumer {
     //     });
     // }
     _fetchPartitionWriteAndConsumerPartitionReadIndexes() {
-        const partitionWriteIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`;
-        const consumerPartitionReadIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
         return new Promise((resolve, reject) => {
-            this._client.mget(partitionWriteIndexKey, consumerPartitionReadIndexKey, (err, results) => {
+            this._client.mget(this.writeIndexKey, this.readIndexKey, (err, results) => {
                 if (err) {
                     reject(err);
                     return;
@@ -262,10 +268,9 @@ class Consumer {
         });
     }
     _incrementConsumerPartitionReadIndex(index) {
-        const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
         if (index != null) {
             return new Promise((resolve, reject) => {
-                this._client.set(key, index.toString(), (err) => {
+                this._client.set(this.readIndexKey, index.toString(), (err) => {
                     if (err) {
                         reject(err);
                         return;
@@ -275,7 +280,7 @@ class Consumer {
             });
         }
         return new Promise((resolve, reject) => {
-            this._client.incr(key, (err) => {
+            this._client.incr(this.readIndexKey, (err) => {
                 if (err) {
                     reject(err);
                     return;
@@ -325,7 +330,7 @@ class Consumer {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             if (this._keysToTrack.isNotEmpty) {
                 if (this._isDisposed)
-                    yield this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this._id}`);
+                    yield this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this.id}`);
                 yield new Promise((resolve, reject) => {
                     this._client.lpush(this._trackedKeysKey, ...this._keysToTrack, (err) => {
                         if (err) {
@@ -336,7 +341,7 @@ class Consumer {
                     }).catch(e => reject(e));
                 });
                 if (this._isDisposed)
-                    yield this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this._id}`);
+                    yield this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this.id}`);
                 this._keysToTrack = new Array();
             }
             if (this._isDisposed)
