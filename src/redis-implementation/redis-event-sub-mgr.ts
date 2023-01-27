@@ -16,6 +16,7 @@ import { AwsLambdaProxyProcessor } from "./aws-lambda-proxy-processor";
 import { RpcProxyProcessor } from "./rpc-proxy-processor";
 import { GrpcProxyProcessor } from "./grpc-proxy-processor";
 import { GrpcClientFactory } from "./grpc-client-factory";
+import { Monitor } from "./monitor";
 // import { ConsumerProfiler } from "./consumer-profiler";
 // import { ProfilingConsumer } from "./profiling-consumer";
 
@@ -27,6 +28,7 @@ export class RedisEventSubMgr implements EventSubMgr
     // @ts-expect-error: not used atm
     private readonly _logger: Logger;
     private readonly _brokers = new Array<Broker>();
+    private readonly _monitors = new Array<Monitor>();
 
     private _isDisposing = false;
     private _isDisposed = false;
@@ -101,9 +103,13 @@ export class RedisEventSubMgr implements EventSubMgr
                 
                 const broker = new Broker(consumers, processors);
                 this._brokers.push(broker);
+                
+                const monitor = new Monitor(this._client, consumers);
+                this._monitors.push(monitor);
             });
             
             this._brokers.forEach(t => t.initialize());
+            this._monitors.forEach(t => t.start());
         }
         
         while (!this._isDisposed)
@@ -118,7 +124,10 @@ export class RedisEventSubMgr implements EventSubMgr
         {
             this._isDisposing = true;
             console.warn("Disposing EventSubMgr");
-            this._disposePromise = Promise.all(this._brokers.map(t => t.dispose()))
+            this._disposePromise = Promise.all([
+                ...this._monitors.map(t => t.dispose()),
+                ...this._brokers.map(t => t.dispose())
+            ])
                 .catch(e => console.error(e))
                 .finally(() =>
                 {

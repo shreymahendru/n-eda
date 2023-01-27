@@ -1,5 +1,5 @@
 import { given } from "@nivinjoseph/n-defensive";
-import { ComponentInstaller, Container, inject, Registry } from "@nivinjoseph/n-ject";
+import { ComponentInstaller, inject, Registry } from "@nivinjoseph/n-ject";
 import { ConsoleLogger, LogDateTimeZone, Logger } from "@nivinjoseph/n-log";
 import { Delay, Disposable, DisposableWrapper, Duration, Serializable, serialize } from "@nivinjoseph/n-util";
 // import * as Redis from "redis";
@@ -140,11 +140,10 @@ class TestEventHandler implements EdaEventHandler<TestEvent>
 
 export function createEdaManager(): EdaManager
 {
-    const container = new Container();
-    container.install(new CommonComponentInstaller());
-    const edaManager = new EdaManager(container);
     const basicTopic = new Topic("basic", Duration.fromHours(1), 25).subscribe();
+    const edaManager = new EdaManager();
     edaManager
+        .useInstaller(new CommonComponentInstaller())
         .registerEventSubscriptionManager(RedisEventSubMgr, "main")
         .cleanUpKeys()
         // .proxyToAwsLambda("testFunc")
@@ -166,7 +165,6 @@ export function createEdaManager(): EdaManager
         // })
         .registerEventBus(RedisEventBus);
     
-    container.bootstrap();
     edaManager.bootstrap();
     
     return edaManager;

@@ -1,4 +1,4 @@
-import { Disposable, Delay, Deserializer, Make } from "@nivinjoseph/n-util";
+import { Disposable, Delay, Deserializer, Make, DelayCanceller } from "@nivinjoseph/n-util";
 import { given } from "@nivinjoseph/n-defensive";
 // import * as Redis from "redis";
 import Redis from "ioredis";
@@ -18,13 +18,12 @@ import * as semCon from "@opentelemetry/semantic-conventions";
 export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
-    private readonly _defaultDelayMS = 100;
+    // private readonly _defaultDelayMS = 100;
     private readonly _client: Redis;
     private readonly _manager: EdaManager;
     private readonly _logger: Logger;
     private readonly _topic: string;
     private readonly _partition: number;
-    private readonly _id: string;
     private readonly _cleanKeys: boolean;
     private readonly _trackedKeysKey: string;
     private readonly _flush: boolean;
@@ -38,9 +37,13 @@ export class Consumer implements Disposable
     
     private _consumePromise: Promise<void> | null = null;
     private _broker: Broker = null as any;
+    private _delayCanceller: DelayCanceller | null = null;
     
     
-    public get id(): string { return this._id; }
+    public get id(): string {  return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
+    
+    public get writeIndexKey(): string { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`; }
+    public get readIndexKey(): string { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`; }
     
     
     public constructor(client: Redis, manager: EdaManager, topic: string, partition: number, flush = false)
@@ -58,8 +61,6 @@ export class Consumer implements Disposable
         
         given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
-        
-        this._id = `${this._topic}-${this._partition}`;
         
         this._cleanKeys = this._manager.cleanKeys;
         
@@ -91,16 +92,26 @@ export class Consumer implements Disposable
         if (!this._isDisposed)
         {
             this._isDisposed = true;
-            console.warn(`Disposing consumer ${this._id}`);
+            
+            if (this._delayCanceller != null)
+                this._delayCanceller.cancel!();
+            
+            console.warn(`Disposing consumer ${this.id}`);
         }
         
-        return this._consumePromise?.then(() => console.warn(`Consumer disposed ${this._id}`)) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this._id}`));
+        return this._consumePromise?.then(() => console.warn(`Consumer disposed ${this.id}`)) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this.id}`));
+    }
+    
+    public awaken(): void
+    {
+        if (this._delayCanceller != null)
+            this._delayCanceller.cancel!();
     }
     
     private async _beginConsume(): Promise<void>
     {
         await this._loadTrackedKeys();
-        await this._logger.logInfo(`Loaded tracked keys for Consumer ${this._id} => ${this._trackedKeysSet.size}`);
+        await this._logger.logInfo(`Loaded tracked keys for Consumer ${this.id} => ${this._trackedKeysSet.size}`);
         
         const maxReadAttempts = 50;
         
@@ -119,7 +130,8 @@ export class Consumer implements Disposable
                 
                 if (readIndex >= writeIndex)
                 {
-                    await Delay.milliseconds(this._defaultDelayMS);
+                    this._delayCanceller = {};
+                    await Delay.seconds(Make.randomInt(60, 120), this._delayCanceller);
                     continue;
                 }
 
@@ -258,7 +270,7 @@ export class Consumer implements Disposable
             await otelApi.context.with(otelApi.trace.setSpan(otelApi.context.active(), span), async () =>
             {
                 await this._broker.route({
-                    consumerId: this._id,
+                    consumerId: this.id,
                     topic: this._topic,
                     partition: this._partition,
                     eventName,
@@ -342,12 +354,9 @@ export class Consumer implements Disposable
     
     private _fetchPartitionWriteAndConsumerPartitionReadIndexes(): Promise<Array<number>>
     {
-        const partitionWriteIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`;
-        const consumerPartitionReadIndexKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
-        
         return new Promise((resolve, reject) =>
         {
-            this._client.mget(partitionWriteIndexKey, consumerPartitionReadIndexKey, (err, results) =>
+            this._client.mget(this.writeIndexKey, this.readIndexKey, (err, results) =>
             {
                 if (err)
                 {
@@ -359,19 +368,15 @@ export class Consumer implements Disposable
                 resolve(results!.map(value => value != null ? JSON.parse(value) as number : 0));
             }).catch(e => reject(e));
         });
-        
-        
     }
     
     private _incrementConsumerPartitionReadIndex(index?: number): Promise<void>
     {
-        const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`;
-        
         if (index != null)
         {
             return new Promise((resolve, reject) =>
             {
-                this._client.set(key, index.toString(), (err) =>
+                this._client.set(this.readIndexKey, index.toString(), (err) =>
                 {
                     if (err)
                     {
@@ -386,7 +391,7 @@ export class Consumer implements Disposable
         
         return new Promise((resolve, reject) =>
         {
-            this._client.incr(key, (err) =>
+            this._client.incr(this.readIndexKey, (err) =>
             {
                 if (err)
                 {
@@ -459,7 +464,7 @@ export class Consumer implements Disposable
         if (this._keysToTrack.isNotEmpty)
         {
             if (this._isDisposed)
-                await this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this._id}`);
+                await this._logger.logInfo(`Saving ${this._keysToTrack.length} tracked keys in ${this.id}`);
             
             await new Promise<void>((resolve, reject) =>
             {
@@ -476,7 +481,7 @@ export class Consumer implements Disposable
             });
             
             if (this._isDisposed)
-                await this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this._id}`);
+                await this._logger.logInfo(`Saved ${this._keysToTrack.length} tracked keys in ${this.id}`);
         
             this._keysToTrack = new Array<string>();
         }
