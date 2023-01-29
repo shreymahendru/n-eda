@@ -23,7 +23,7 @@ const monitor_1 = require("./monitor");
 let RedisEventSubMgr = class RedisEventSubMgr {
     constructor(redisClient, logger) {
         this._brokers = new Array();
-        this._monitors = new Array();
+        this._monitor = null;
         this._isDisposing = false;
         this._isDisposed = false;
         this._disposePromise = null;
@@ -50,6 +50,7 @@ let RedisEventSubMgr = class RedisEventSubMgr {
             (0, n_defensive_1.given)(this, "this").ensure(t => !!t._manager, "not initialized");
             if (!this._isConsuming) {
                 this._isConsuming = true;
+                const monitorConsumers = new Array();
                 this._manager.topics.forEach(topic => {
                     if (topic.isDisabled || topic.publishOnly)
                         return;
@@ -74,11 +75,13 @@ let RedisEventSubMgr = class RedisEventSubMgr {
                         processors = consumers.map(_ => new default_processor_1.DefaultProcessor(this._manager, this.onEventReceived.bind(this)));
                     const broker = new broker_1.Broker(consumers, processors);
                     this._brokers.push(broker);
-                    const monitor = new monitor_1.Monitor(this._client, consumers);
-                    this._monitors.push(monitor);
+                    monitorConsumers.push(...consumers);
+                    // const monitor = new Monitor(this._client, consumers, this._logger);
+                    // this._monitors.push(monitor);
                 });
+                this._monitor = new monitor_1.Monitor(this._client, monitorConsumers, this._logger);
+                yield this._monitor.start();
                 this._brokers.forEach(t => t.initialize());
-                this._monitors.forEach(t => t.start());
             }
             while (!this._isDisposed) {
                 yield n_util_1.Delay.seconds(5);
@@ -90,7 +93,8 @@ let RedisEventSubMgr = class RedisEventSubMgr {
             this._isDisposing = true;
             console.warn("Disposing EventSubMgr");
             this._disposePromise = Promise.all([
-                ...this._monitors.map(t => t.dispose()),
+                // ...this._monitors.map(t => t.dispose()),
+                this._monitor.dispose(),
                 ...this._brokers.map(t => t.dispose())
             ])
                 .catch(e => console.error(e))

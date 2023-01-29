@@ -7,8 +7,10 @@ export declare class Producer {
     private readonly _client;
     private readonly _logger;
     private readonly _topic;
-    private readonly _ttlMinutes;
+    private readonly _ttlSeconds;
     private readonly _partition;
+    get id(): string;
+    get writeIndexKey(): string;
     constructor(key: string, client: Redis, logger: Logger, topic: string, ttlMinutes: number, partition: number);
     produce(...events: ReadonlyArray<EdaEvent>): Promise<void>;
     private _compressEvents;

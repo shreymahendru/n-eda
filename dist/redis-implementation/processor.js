@@ -52,11 +52,15 @@ class Processor {
         var _a;
         if (!this._isDisposed) {
             this._isDisposed = true;
-            console.warn("Disposing processor");
+            // console.warn("Disposing processor");
         }
         if (this._delayCanceller)
             this._delayCanceller.cancel();
-        return ((_a = this._processPromise) === null || _a === void 0 ? void 0 : _a.then(() => console.warn("Processor disposed"))) || Promise.resolve().then(() => console.warn("Processor disposed"));
+        return ((_a = this._processPromise) === null || _a === void 0 ? void 0 : _a.then(() => {
+            // console.warn("Processor disposed");
+        })) || Promise.resolve().then(() => {
+            // console.warn("Processor disposed");
+        });
     }
     _process() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {

@@ -39,8 +39,8 @@ class Consumer {
         this._flush = flush;
     }
     get id() { return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
-    get writeIndexKey() { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`; }
-    get readIndexKey() { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`; }
+    get writeIndexKey() { return `${this.id}-write-index`; }
+    get readIndexKey() { return `${this.id}-${this._manager.consumerGroupId}-read-index`; }
     registerBroker(broker) {
         (0, n_defensive_1.given)(broker, "broker").ensureHasValue().ensureIsObject().ensureIsObject().ensureIsType(broker_1.Broker);
         this._broker = broker;
@@ -58,9 +58,13 @@ class Consumer {
                 this._isDisposed = true;
                 if (this._delayCanceller != null)
                     this._delayCanceller.cancel();
-                console.warn(`Disposing consumer ${this.id}`);
+                // console.warn(`Disposing consumer ${this.id}`);
             }
-            return ((_a = this._consumePromise) === null || _a === void 0 ? void 0 : _a.then(() => console.warn(`Consumer disposed ${this.id}`))) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this.id}`));
+            return ((_a = this._consumePromise) === null || _a === void 0 ? void 0 : _a.then(() => {
+                // console.warn(`Consumer disposed ${this.id}`);
+            })) || Promise.resolve().then(() => {
+                // console.warn(`Consumer disposed ${this.id}`);
+            });
         });
     }
     awaken() {
@@ -82,7 +86,8 @@ class Consumer {
                     const [writeIndex, readIndex] = yield this._fetchPartitionWriteAndConsumerPartitionReadIndexes();
                     if (readIndex >= writeIndex) {
                         this._delayCanceller = {};
-                        yield n_util_1.Delay.seconds(n_util_1.Make.randomInt(60, 120), this._delayCanceller);
+                        yield n_util_1.Delay.seconds(n_util_1.Make.randomInt(30, 120), this._delayCanceller);
+                        // await Delay.seconds(1, this._delayCanceller);
                         continue;
                     }
                     const maxRead = 50;
