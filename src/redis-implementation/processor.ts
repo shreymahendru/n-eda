@@ -79,13 +79,19 @@ export abstract class Processor implements Disposable
         if (!this._isDisposed)
         {
             this._isDisposed = true;
-            console.warn("Disposing processor");
+            // console.warn("Disposing processor");
         }
             
         if (this._delayCanceller)
             this._delayCanceller.cancel!();
 
-        return this._processPromise?.then(() => console.warn("Processor disposed")) || Promise.resolve().then(() => console.warn("Processor disposed"));
+        return this._processPromise?.then(() =>
+        {
+            // console.warn("Processor disposed");
+        }) || Promise.resolve().then(() =>
+        {
+            // console.warn("Processor disposed");
+        });
     }
 
     protected abstract processEvent(workItem: WorkItem): Promise<void>;

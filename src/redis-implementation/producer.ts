@@ -19,8 +19,13 @@ export class Producer
     private readonly _client: Redis;
     private readonly _logger: Logger;
     private readonly _topic: string;
-    private readonly _ttlMinutes: number;
+    private readonly _ttlSeconds: number;
     private readonly _partition: number;
+    
+    
+    public get id(): string { return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
+    
+    public get writeIndexKey(): string { return `${this.id}-write-index`; }
 
 
     public constructor(key: string, client: Redis, logger: Logger, topic: string, ttlMinutes: number, partition: number)
@@ -38,7 +43,7 @@ export class Producer
         this._topic = topic;
 
         given(ttlMinutes, "ttlMinutes").ensureHasValue().ensureIsNumber();
-        this._ttlMinutes = ttlMinutes;
+        this._ttlSeconds = ttlMinutes * 60;
 
         given(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
@@ -123,9 +128,7 @@ export class Producer
     {
         return new Promise((resolve, reject) =>
         {
-            const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`;
-
-            this._client.incr(key, (err, val) =>
+            this._client.incr(this.writeIndexKey, (err, val) =>
             {
                 if (err)
                 {
@@ -138,29 +141,47 @@ export class Producer
         });
     }
     
-    private _storeEvents(writeIndex: number, eventData: Buffer): Promise<void>
+    // private _storeEvents(writeIndex: number, eventData: Buffer): Promise<void>
+    // {
+    //     return new Promise((resolve, reject) =>
+    //     {
+    //         const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
+
+    //         this._client.setex(key, this._ttlSeconds, eventData, (err) =>
+    //         {
+    //             if (err)
+    //             {
+    //                 reject(err);
+    //                 return;
+    //             }
+
+    //             resolve();
+    //         }).catch(e => reject(e));
+    //     });
+    // }
+    
+    private async _storeEvents(writeIndex: number, eventData: Buffer): Promise<void>
     {
-        return new Promise((resolve, reject) =>
-        {
-            given(writeIndex, "writeIndex").ensureHasValue().ensureIsNumber();
-            given(eventData, "eventData").ensureHasValue();
+        const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
 
-            const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
-            // const expirySeconds = 60 * 60 * 4;
-            const expirySeconds = this._ttlMinutes * 60;
-
-            this._client.setex(key, expirySeconds, eventData, (err) =>
-            {
-                if (err)
-                {
-                    reject(err);
-                    return;
-                }
-
-                resolve();
-            }).catch(e => reject(e));
-        });
+        await this._client
+            .pipeline()
+            .setex(key, this._ttlSeconds, eventData)
+            .publish(`${this.id}-changed`, this.id)
+            .exec();
     }
+    
+    // private async _publish(writeIndex: number, eventData: Buffer): Promise<void>
+    // {
+    //     const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
+
+    //     await this._client
+    //         .pipeline()
+    //         .setex(key, this._ttlSeconds, eventData)
+    //         .incr(this.writeIndexKey)
+    //         .publish(`${this.writeIndexKey}-changed`, this.writeIndexKey)
+    //         .exec();
+    // }
 
     // private _storeEvents(writeIndexUpper: number, events: Array<any>): Promise<void>
     // {

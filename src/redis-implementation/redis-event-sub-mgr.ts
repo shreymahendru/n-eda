@@ -25,10 +25,9 @@ import { Monitor } from "./monitor";
 export class RedisEventSubMgr implements EventSubMgr
 {
     private readonly _client: Redis;
-    // @ts-expect-error: not used atm
     private readonly _logger: Logger;
     private readonly _brokers = new Array<Broker>();
-    private readonly _monitors = new Array<Monitor>();
+    private _monitor: Monitor = null as any;
 
     private _isDisposing = false;
     private _isDisposed = false;
@@ -72,6 +71,8 @@ export class RedisEventSubMgr implements EventSubMgr
         {
             this._isConsuming = true;
             
+            const monitorConsumers = new Array<Consumer>();
+            
             this._manager.topics.forEach(topic =>
             {
                 if (topic.isDisabled || topic.publishOnly)
@@ -104,12 +105,15 @@ export class RedisEventSubMgr implements EventSubMgr
                 const broker = new Broker(consumers, processors);
                 this._brokers.push(broker);
                 
-                const monitor = new Monitor(this._client, consumers);
-                this._monitors.push(monitor);
+                monitorConsumers.push(...consumers);
+                // const monitor = new Monitor(this._client, consumers, this._logger);
+                // this._monitors.push(monitor);
             });
             
+            this._monitor = new Monitor(this._client, monitorConsumers, this._logger);
+            await this._monitor.start();
+            
             this._brokers.forEach(t => t.initialize());
-            this._monitors.forEach(t => t.start());
         }
         
         while (!this._isDisposed)
@@ -125,7 +129,8 @@ export class RedisEventSubMgr implements EventSubMgr
             this._isDisposing = true;
             console.warn("Disposing EventSubMgr");
             this._disposePromise = Promise.all([
-                ...this._monitors.map(t => t.dispose()),
+                // ...this._monitors.map(t => t.dispose()),
+                this._monitor.dispose(),
                 ...this._brokers.map(t => t.dispose())
             ])
                 .catch(e => console.error(e))

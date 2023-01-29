@@ -1,36 +1,45 @@
 import { Consumer } from "./consumer";
 import Redis from "ioredis";
 import { given } from "@nivinjoseph/n-defensive";
-import { ApplicationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
-import { Delay, DelayCanceller, Disposable, Make } from "@nivinjoseph/n-util";
+import { ObjectDisposedException } from "@nivinjoseph/n-exception";
+import { Disposable } from "@nivinjoseph/n-util";
+import { Logger } from "@nivinjoseph/n-log";
 
 
 export class Monitor implements Disposable
 {
     private readonly _client: Redis;
-    private readonly _consumers = new Array<Consumer>();
-    private readonly _indexKeys = new Array<string>;
+    private readonly _consumers = new Map<string, Consumer>();
+    // @ts-expect-error: not used atm
+    private readonly _logger: Logger;
+    private readonly _listener: Function;
     private _isRunning = false;
     private _isDisposed = false;
-    private _runPromise: Promise<void> | null = null;
-    private _delayCanceller: DelayCanceller | null = null;
     
     
-    public constructor(client: Redis, consumers: ReadonlyArray<Consumer>)
+    public constructor(client: Redis, consumers: ReadonlyArray<Consumer>, logger: Logger)
     {
         given(client, "client").ensureHasValue().ensureIsObject();
-        this._client = client;
+        this._client = client.duplicate();
         
         given(consumers, "consumers").ensureHasValue().ensureIsArray().ensureIsNotEmpty();
         consumers.forEach(consumer =>
         {
-            this._consumers.push(consumer);
-            this._indexKeys.push(consumer.writeIndexKey, consumer.readIndexKey);
+            this._consumers.set(consumer.id, consumer);
         });
+        
+        given(logger, "logger").ensureHasValue().ensureIsObject();
+        this._logger = logger;
+        
+        this._listener = (_channel: string, id: string): void =>
+        {
+            // console.log(_channel, id);
+            this._consumers.get(id)!.awaken();
+        };
     }
     
     
-    public start(): void
+    public async start(): Promise<void>
     {
         if (this._isDisposed)
             throw new ObjectDisposedException("Monitor");
@@ -40,60 +49,19 @@ export class Monitor implements Disposable
         
         this._isRunning = true;
         
-        this._runPromise = this._run();
+        await this._client.subscribe(...[...this._consumers.values()].map(t => `${t.id}-changed`));
+        this._client.on("message", this._listener as any);
     }
     
-    public dispose(): Promise<void>
+    public async dispose(): Promise<void>
     {
         this._isRunning = false;
+        if (this._isDisposed)
+            return;
+        
         this._isDisposed = true;
-        
-        if (this._delayCanceller != null)
-            this._delayCanceller.cancel!();
-        
-        return this._runPromise ?? Promise.resolve();
-    }
-    
-    private async _run(): Promise<void>
-    {
-        while (this._isRunning)
-        {
-            const values = await this._fetchPartitionWriteAndConsumerPartitionReadIndexes();
-            if (values.length % 2 !== 0 || values.length / 2 !== this._consumers.length)
-                throw new ApplicationException("Monitor index values count is not valid");    
-            
-            for (let i = 0; i < values.length; i += 2)
-            {
-                const writeIndex = values[i];
-                const readIndex = values[i + 1];
-                
-                if (readIndex >= writeIndex)
-                    continue;
-                
-                const consumer = this._consumers[i / 2];
-                consumer.awaken();
-            }
-            
-            this._delayCanceller = {};
-            await Delay.milliseconds(Make.randomInt(80, 120), this._delayCanceller);
-        }
-    }
-    
-    private _fetchPartitionWriteAndConsumerPartitionReadIndexes(): Promise<Array<number>>
-    {
-        return new Promise((resolve, reject) =>
-        {
-            this._client.mget(...this._indexKeys, (err, results) =>
-            {
-                if (err)
-                {
-                    reject(err);
-                    return;
-                }
-
-                const values = results!.map(value => value != null ? JSON.parse(value) as number : 0);
-                resolve(values);
-            }).catch(e => reject(e));
-        });
+        this._client.off("message", this._listener as any);
+        await this._client.unsubscribe(...[...this._consumers.values()].map(t => `${t.id}-changed`));
+        await this._client.quit();
     }
 }

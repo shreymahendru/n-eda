@@ -67,14 +67,14 @@ export class OptimizedScheduler implements Scheduler
         if (!this._isDisposed)
         {
             this._isDisposed = true;
-            console.warn("Disposing scheduler");
+            // console.warn("Disposing scheduler");
             let work = this._findWork();
             while (work != null)
             {
                 work.deferred.reject(new ObjectDisposedException("Scheduler"));
                 work = this._findWork();
             }
-            console.warn("Scheduler disposed");
+            // console.warn("Scheduler disposed");
         }
         
         return Promise.resolve();

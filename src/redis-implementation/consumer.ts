@@ -42,8 +42,8 @@ export class Consumer implements Disposable
     
     public get id(): string {  return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
     
-    public get writeIndexKey(): string { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-write-index`; }
-    public get readIndexKey(): string { return `{${this._edaPrefix}-${this._topic}-${this._partition}}-${this._manager.consumerGroupId}-read-index`; }
+    public get writeIndexKey(): string { return `${this.id}-write-index`; }
+    public get readIndexKey(): string { return `${this.id}-${this._manager.consumerGroupId}-read-index`; }
     
     
     public constructor(client: Redis, manager: EdaManager, topic: string, partition: number, flush = false)
@@ -96,14 +96,20 @@ export class Consumer implements Disposable
             if (this._delayCanceller != null)
                 this._delayCanceller.cancel!();
             
-            console.warn(`Disposing consumer ${this.id}`);
+            // console.warn(`Disposing consumer ${this.id}`);
         }
         
-        return this._consumePromise?.then(() => console.warn(`Consumer disposed ${this.id}`)) || Promise.resolve().then(() => console.warn(`Consumer disposed ${this.id}`));
+        return this._consumePromise?.then(() =>
+        {
+            // console.warn(`Consumer disposed ${this.id}`);
+        }) || Promise.resolve().then(() =>
+        {
+            // console.warn(`Consumer disposed ${this.id}`);
+        });
     }
     
     public awaken(): void
-    {
+    {    
         if (this._delayCanceller != null)
             this._delayCanceller.cancel!();
     }
@@ -131,7 +137,8 @@ export class Consumer implements Disposable
                 if (readIndex >= writeIndex)
                 {
                     this._delayCanceller = {};
-                    await Delay.seconds(Make.randomInt(60, 120), this._delayCanceller);
+                    await Delay.seconds(Make.randomInt(30, 120), this._delayCanceller);
+                    // await Delay.seconds(1, this._delayCanceller);
                     continue;
                 }
 

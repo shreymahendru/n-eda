@@ -4,7 +4,7 @@ import { ConsoleLogger, LogDateTimeZone, Logger } from "@nivinjoseph/n-log";
 import { Delay, Disposable, DisposableWrapper, Duration, Serializable, serialize } from "@nivinjoseph/n-util";
 // import * as Redis from "redis";
 import Redis from "ioredis";
-import { EdaEventHandler } from "../../src";
+import { EdaEventHandler, EventBus } from "../../src";
 import { EdaEvent } from "../../src/eda-event";
 import { EdaManager } from "../../src/eda-manager";
 import { RedisEventBus } from "../../src/redis-implementation/redis-event-bus";
@@ -107,10 +107,77 @@ export class TestEvent extends Serializable implements EdaEvent
     }
 }
 
+export class AnalyticEvent extends Serializable implements EdaEvent
+{
+    private readonly _id: string;
+    private readonly _message: string;
+
+
+    @serialize
+    public get id(): string { return this._id; }
+
+    @serialize // has to be serialized for eda purposes
+    public get name(): string { return (<Object>AnalyticEvent).getTypeName(); }
+
+    public get partitionKey(): string { return this.id.split("-")[0]; }
+    
+    @serialize
+    public get message(): string { return this._message; }
+
+
+    public constructor(data: { id: string; message: string; })
+    {
+        super(data);
+
+        const { id, message } = data;
+
+        given(id, "id").ensureHasValue().ensureIsString();
+        this._id = id;
+        
+        given(message, "message").ensureHasValue().ensureIsString();
+        this._message = message;
+    }
+}
+
 
 @event(TestEvent)
-@inject("Logger", "EventHistory")
+@inject("Logger", "EventHistory", "EventBus")
 class TestEventHandler implements EdaEventHandler<TestEvent>
+{
+    // @ts-expect-error: not used atm
+    private readonly _logger: Logger;
+    private readonly _eventHistory: EventHistory;
+    private readonly _eventBus: EventBus;
+
+
+    public constructor(logger: Logger, eventHistory: EventHistory, eventBus: EventBus)
+    {
+        given(logger, "logger").ensureHasValue().ensureIsObject();
+        this._logger = logger;
+        
+        given(eventHistory, "eventHistory").ensureHasValue().ensureIsObject();
+        this._eventHistory = eventHistory;
+        
+        given(eventBus, "eventBus").ensureHasValue().ensureIsObject();
+        this._eventBus = eventBus;
+    }
+
+
+    public async handle(event: TestEvent): Promise<void>
+    {
+        given(event, "event").ensureHasValue().ensureIsObject().ensureIsType(TestEvent);
+        
+        await this._eventHistory.recordEvent(event);
+        
+        const message = `Event '${event.name}' with id '${event.id}'.`;
+        
+        await this._eventBus.publish("analytic", new AnalyticEvent({ id: `analytic_${event.id}_${Date.now()}`, message }));
+    }
+}
+
+@event(AnalyticEvent)
+@inject("Logger", "EventHistory")
+class AnalyticEventHandler implements EdaEventHandler<AnalyticEvent>
 {
     private readonly _logger: Logger;
     private readonly _eventHistory: EventHistory;
@@ -126,21 +193,20 @@ class TestEventHandler implements EdaEventHandler<TestEvent>
     }
 
 
-    public async handle(event: TestEvent): Promise<void>
+    public async handle(event: AnalyticEvent): Promise<void>
     {
-        given(event, "event").ensureHasValue().ensureIsObject().ensureIsType(TestEvent);
-
+        given(event, "event").ensureHasValue().ensureIsObject().ensureIsType(AnalyticEvent);
+        
         await this._eventHistory.recordEvent(event);
         
-        const message = `Event '${event.name}' with id '${event.id}'.`;
-        // if (event.id.endsWith("9"))
-            await this._logger.logInfo(message);
+        await this._logger.logInfo(event.message);
     }
 }
 
 export function createEdaManager(): EdaManager
 {
     const basicTopic = new Topic("basic", Duration.fromHours(1), 25).subscribe();
+    const analyticTopic = new Topic("analytic", Duration.fromHours(1), 25).subscribe();
     const edaManager = new EdaManager();
     edaManager
         .useInstaller(new CommonComponentInstaller())
@@ -148,13 +214,13 @@ export function createEdaManager(): EdaManager
         .cleanUpKeys()
         // .proxyToAwsLambda("testFunc")
         .useConsumerName("test")
-        .registerTopics(basicTopic)
+        .registerTopics(analyticTopic, basicTopic)
         // .usePartitionKeyMapper((event) =>
         // {
         //     const id = event.id;
         //     return id.contains("-") ? id.split("-")[0] : id;
         // })
-        .registerEventHandlers(TestEventHandler)
+        .registerEventHandlers(AnalyticEventHandler, TestEventHandler)
         // .registerEventHandlerTracer(async (eventInfo, exec) =>
         // {
         //     console.log(`Starting tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
