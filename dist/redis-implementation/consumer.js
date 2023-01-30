@@ -86,7 +86,7 @@ class Consumer {
                     const [writeIndex, readIndex] = yield this._fetchPartitionWriteAndConsumerPartitionReadIndexes();
                     if (readIndex >= writeIndex) {
                         this._delayCanceller = {};
-                        yield n_util_1.Delay.seconds(n_util_1.Make.randomInt(30, 120), this._delayCanceller);
+                        yield n_util_1.Delay.milliseconds(n_util_1.Make.randomInt(2000, 5000), this._delayCanceller);
                         // await Delay.seconds(1, this._delayCanceller);
                         continue;
                     }
