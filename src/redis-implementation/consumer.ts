@@ -137,7 +137,7 @@ export class Consumer implements Disposable
                 if (readIndex >= writeIndex)
                 {
                     this._delayCanceller = {};
-                    await Delay.milliseconds(Make.randomInt(2000, 5000), this._delayCanceller);
+                    await Delay.milliseconds(Make.randomInt(2500, 5000), this._delayCanceller);
                     // await Delay.seconds(1, this._delayCanceller);
                     continue;
                 }
