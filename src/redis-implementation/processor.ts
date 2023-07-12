@@ -163,11 +163,14 @@ export abstract class Processor implements Disposable
                             return;
                         }
 
-                        if (numProcessAttempts > 8)
-                        {
-                            await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
-                            await this.logger.logWarning(error as Exception);
-                        }
+                        // if (numProcessAttempts > 8)
+                        // {
+                        //     await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
+                        //     await this.logger.logWarning(error as Exception);
+                        // }
+                        
+                        await this.logger.logWarning(`Error in EventHandler while handling event of type '${workItem.eventName}' (ATTEMPT = ${numProcessAttempts}) with data ${JSON.stringify(workItem.event.serialize())}.`);
+                        await this.logger.logWarning(error as Exception);
 
                         if (numProcessAttempts >= maxProcessAttempts)
                             throw error;
