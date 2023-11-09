@@ -385,7 +385,7 @@ export class EdaManager implements Disposable
 
         const partitionKey = this._partitionKeyMapper(event).trim();
 
-        return MurmurHash.x86.hash32(partitionKey) % (this._topicMap.get(topic) as Topic).numPartitions;
+        return MurmurHash.x86.hash32(partitionKey) % this._topicMap.get(topic)!.numPartitions;
     }
 
     // public getEventRegistration(event: EdaEvent): EventRegistration | false

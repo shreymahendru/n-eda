@@ -10,11 +10,13 @@ import { inject } from "@nivinjoseph/n-ject";
 import { Producer } from "./producer";
 import { Delay } from "@nivinjoseph/n-util";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
+import { NedaClearTrackedKeysEvent } from "./neda-clear-tracked-keys-event";
 
 // public
 @inject("EdaRedisClient")
 export class RedisEventBus implements EventBus
 {
+    private readonly _nedaClearTrackedKeysEventName = (<Object>NedaClearTrackedKeysEvent).getTypeName();
     private readonly _client: Redis;
     private readonly _producers = new Map<string, Producer>();
     
@@ -80,19 +82,42 @@ export class RedisEventBus implements EventBus
         const pubTopic = this._manager.topics.find(t => t.name === topic)!;
         if (pubTopic.isDisabled)
             return;
-
-        events = events.where(event => this._manager.eventMap.has(event.name));
         
-        if (events.isEmpty)
+        const partitionEvents = new Map<number, Array<EdaEvent>>();
+        
+        for (const event of events)
+        {
+            if (event.name === this._nedaClearTrackedKeysEventName)
+            {
+                for (let partition = 0; partition < pubTopic.numPartitions; partition++)
+                {
+                    if (!partitionEvents.has(partition))
+                        partitionEvents.set(partition, new Array<EdaEvent>());
+                    partitionEvents.get(partition)!.push(event);
+                }
+                
+                continue;
+            }
+            
+            if (!this._manager.eventMap.has(event.name))
+                continue;
+            
+            const partition = this._manager.mapToPartition(topic, event);
+            if (!partitionEvents.has(partition))
+                partitionEvents.set(partition, new Array<EdaEvent>());
+            partitionEvents.get(partition)!.push(event);
+        }
+        
+        if (partitionEvents.size === 0)
             return;
         
-        await events.groupBy(event => this._manager.mapToPartition(topic, event).toString())
-            .forEachAsync(async (group) =>
-            {
-                const partition = Number.parseInt(group.key);
-                const key = this._generateKey(topic, partition);
-                await this._producers.get(key)!.produce(...group.values);
-            });
+        const promises = new Array<Promise<void>>();
+        partitionEvents.forEach((events, partition) =>
+        {
+            const producerKey = this._generateKey(topic, partition);
+            promises.push(this._producers.get(producerKey)!.produce(...events));
+        });
+        await Promise.all(promises);
     }
     
     public async dispose(): Promise<void>

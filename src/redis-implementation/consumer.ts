@@ -11,6 +11,7 @@ import * as Zlib from "zlib";
 import { Broker } from "./broker";
 import * as otelApi from "@opentelemetry/api";
 import * as semCon from "@opentelemetry/semantic-conventions";
+import { NedaClearTrackedKeysEvent } from "./neda-clear-tracked-keys-event";
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
 
@@ -18,6 +19,7 @@ import * as semCon from "@opentelemetry/semantic-conventions";
 export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
+    private readonly _nedaClearTrackedKeysEventName = (<Object>NedaClearTrackedKeysEvent).getTypeName();
     // private readonly _defaultDelayMS = 100;
     private readonly _client: Redis;
     private readonly _manager: EdaManager;
@@ -25,7 +27,7 @@ export class Consumer implements Disposable
     private readonly _topic: string;
     private readonly _partition: number;
     private readonly _cleanKeys: boolean;
-    private readonly _trackedKeysKey: string;
+    // private readonly _trackedKeysKey: string;
     private readonly _flush: boolean;
     
     private _isDisposed = false;
@@ -39,11 +41,13 @@ export class Consumer implements Disposable
     private _broker: Broker = null as any;
     private _delayCanceller: DelayCanceller | null = null;
     
+    private get _writeIndexKey(): string { return `${this.id}-write-index`; }
+    private get _readIndexKey(): string { return `${this._fullId}-read-index`; }
+    private get _trackedKeysKey(): string { return `${this._fullId}-tracked_keys`; }
     
-    public get id(): string {  return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
+    private get _fullId(): string { return `${this.id}-${this._manager.consumerGroupId}`; }
     
-    public get writeIndexKey(): string { return `${this.id}-write-index`; }
-    public get readIndexKey(): string { return `${this.id}-${this._manager.consumerGroupId}-read-index`; }
+    public get id(): string { return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
     
     
     public constructor(client: Redis, manager: EdaManager, topic: string, partition: number, flush = false)
@@ -63,8 +67,6 @@ export class Consumer implements Disposable
         this._partition = partition;
         
         this._cleanKeys = this._manager.cleanKeys;
-        
-        this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         
         given(flush, "flush").ensureHasValue().ensureIsBoolean();
         this._flush = flush;
@@ -152,7 +154,8 @@ export class Consumer implements Disposable
                     await this._logger.logWarning(`Event queue depth for ${this.id} is ${depth}.`);
                 }
                 
-                const eventsData = await this._batchRetrieveEvents(lowerBoundReadIndex, upperBoundReadIndex);
+                const eventsData = await this._batchRetrieveEvents(
+                    lowerBoundReadIndex, upperBoundReadIndex);
                 
                 if (this._flush)
                 {
@@ -214,10 +217,19 @@ export class Consumer implements Disposable
                         const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
                         const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
                         const deserializedEvent = Deserializer.deserialize<EdaEvent>(event);
+                        
+                        if (deserializedEvent.name === this._nedaClearTrackedKeysEventName)
+                        {
+                            await this._logger.logWarning(`NedaClearTrackedKeysEvent (${this._fullId}) --- clearing all event tracking data`);
+                            await this._clearAllEventTracking();
+                            await this._logger.logWarning(`NedaClearTrackedKeysEvent (${this._fullId}) --- event tracking data cleared`);
+                            continue;
+                        }
 
                         routed.push(
                             this._attemptRoute(
-                                eventName, eventRegistration, item.index, item.key, eventId, event, deserializedEvent));    
+                                eventName, eventRegistration, item.index,
+                                item.key, eventId, event, deserializedEvent));    
                     }
                 }
                 
@@ -363,7 +375,7 @@ export class Consumer implements Disposable
     {
         return new Promise((resolve, reject) =>
         {
-            this._client.mget(this.writeIndexKey, this.readIndexKey, (err, results) =>
+            this._client.mget(this._writeIndexKey, this._readIndexKey, (err, results) =>
             {
                 if (err)
                 {
@@ -383,7 +395,7 @@ export class Consumer implements Disposable
         {
             return new Promise((resolve, reject) =>
             {
-                this._client.set(this.readIndexKey, index.toString(), (err) =>
+                this._client.set(this._readIndexKey, index.toString(), (err) =>
                 {
                     if (err)
                     {
@@ -398,7 +410,7 @@ export class Consumer implements Disposable
         
         return new Promise((resolve, reject) =>
         {
-            this._client.incr(this.readIndexKey, (err) =>
+            this._client.incr(this._readIndexKey, (err) =>
             {
                 if (err)
                 {
@@ -436,27 +448,50 @@ export class Consumer implements Disposable
             const keys = new Array<{ index: number; key: string; }>();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++)
             {
-                const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${i}`;
+                const key = `${this.id}-${i}`;
                 keys.push({index: i, key});
             }
             
-            this._client.mgetBuffer(...keys.map(t => t.key), (err, values) =>
+            this._client.mgetBuffer(...keys.map(t => t.key),
+                (err, values) =>
+                {
+                    if (err)
+                    {
+                        reject(err);
+                        return;
+                    }
+                
+                    const result = values!.map((t, index) => ({
+                        index: keys[index].index,
+                        key: keys[index].key,
+                        value: t!
+                    }));
+                
+                    resolve(result);
+                }).catch(e => reject(e));
+        });
+    }
+    
+    private async _clearAllEventTracking(): Promise<void>
+    {
+        await new Promise<void>((resolve, reject) =>
+        {
+            this._client.unlink(this._trackedKeysKey, (err) =>
             {
                 if (err)
                 {
                     reject(err);
                     return;
                 }
-                
-                const result = values!.map((t, index) => ({
-                    index: keys[index].index,
-                    key: keys[index].key,
-                    value: t!
-                }));
-                
-                resolve(result);
+
+                resolve();
             }).catch(e => reject(e));
         });
+        
+        
+        this._trackedKeysSet = new Set<string>();
+        this._trackedKeysArray = new Array<string>();
+        this._keysToTrack = new Array<string>();
     }
     
     private _track(eventKey: string): void
