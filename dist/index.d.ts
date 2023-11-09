@@ -17,4 +17,5 @@ import { RpcServer } from "./redis-implementation/rpc-server";
 import { GrpcDetails } from "./grpc-details";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
 import { GrpcServer } from "./redis-implementation/grpc-server";
-export { EdaEvent, EdaEventHandler, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, RedisEventBus, RedisEventSubMgr, LambdaDetails, AwsLambdaEventHandler, ApplicationScript, RpcDetails, RpcEventHandler, RpcServer, GrpcDetails, GrpcEventHandler, GrpcServer };
+import { NedaClearTrackedKeysEvent } from "./redis-implementation/neda-clear-tracked-keys-event";
+export { EdaEvent, EdaEventHandler, event, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, RedisEventBus, RedisEventSubMgr, LambdaDetails, AwsLambdaEventHandler, ApplicationScript, RpcDetails, RpcEventHandler, RpcServer, GrpcDetails, GrpcEventHandler, GrpcServer, NedaClearTrackedKeysEvent };

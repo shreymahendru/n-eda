@@ -4,13 +4,13 @@ import { EdaManager } from "../eda-manager";
 import { Broker } from "./broker";
 export declare class Consumer implements Disposable {
     private readonly _edaPrefix;
+    private readonly _nedaClearTrackedKeysEventName;
     private readonly _client;
     private readonly _manager;
     private readonly _logger;
     private readonly _topic;
     private readonly _partition;
     private readonly _cleanKeys;
-    private readonly _trackedKeysKey;
     private readonly _flush;
     private _isDisposed;
     private readonly _maxTrackedSize;
@@ -21,9 +21,11 @@ export declare class Consumer implements Disposable {
     private _consumePromise;
     private _broker;
     private _delayCanceller;
+    private get _writeIndexKey();
+    private get _readIndexKey();
+    private get _trackedKeysKey();
+    private get _fullId();
     get id(): string;
-    get writeIndexKey(): string;
-    get readIndexKey(): string;
     constructor(client: Redis, manager: EdaManager, topic: string, partition: number, flush?: boolean);
     registerBroker(broker: Broker): void;
     consume(): void;
@@ -35,6 +37,7 @@ export declare class Consumer implements Disposable {
     private _incrementConsumerPartitionReadIndex;
     private _retrieveEvent;
     private _batchRetrieveEvents;
+    private _clearAllEventTracking;
     private _track;
     private _saveTrackedKeys;
     private _purgeTrackedKeys;

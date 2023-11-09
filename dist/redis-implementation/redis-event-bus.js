@@ -11,9 +11,11 @@ const n_ject_1 = require("@nivinjoseph/n-ject");
 const producer_1 = require("./producer");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_config_1 = require("@nivinjoseph/n-config");
+const neda_clear_tracked_keys_event_1 = require("./neda-clear-tracked-keys-event");
 // public
 let RedisEventBus = class RedisEventBus {
     constructor(redisClient) {
+        this._nedaClearTrackedKeysEventName = neda_clear_tracked_keys_event_1.NedaClearTrackedKeysEvent.getTypeName();
         this._producers = new Map();
         this._isDisposing = false;
         this._isDisposed = false;
@@ -55,15 +57,31 @@ let RedisEventBus = class RedisEventBus {
             const pubTopic = this._manager.topics.find(t => t.name === topic);
             if (pubTopic.isDisabled)
                 return;
-            events = events.where(event => this._manager.eventMap.has(event.name));
-            if (events.isEmpty)
+            const partitionEvents = new Map();
+            for (const event of events) {
+                if (event.name === this._nedaClearTrackedKeysEventName) {
+                    for (let partition = 0; partition < pubTopic.numPartitions; partition++) {
+                        if (!partitionEvents.has(partition))
+                            partitionEvents.set(partition, new Array());
+                        partitionEvents.get(partition).push(event);
+                    }
+                    continue;
+                }
+                if (!this._manager.eventMap.has(event.name))
+                    continue;
+                const partition = this._manager.mapToPartition(topic, event);
+                if (!partitionEvents.has(partition))
+                    partitionEvents.set(partition, new Array());
+                partitionEvents.get(partition).push(event);
+            }
+            if (partitionEvents.size === 0)
                 return;
-            yield events.groupBy(event => this._manager.mapToPartition(topic, event).toString())
-                .forEachAsync((group) => tslib_1.__awaiter(this, void 0, void 0, function* () {
-                const partition = Number.parseInt(group.key);
-                const key = this._generateKey(topic, partition);
-                yield this._producers.get(key).produce(...group.values);
-            }));
+            const promises = new Array();
+            partitionEvents.forEach((events, partition) => {
+                const producerKey = this._generateKey(topic, partition);
+                promises.push(this._producers.get(producerKey).produce(...events));
+            });
+            yield Promise.all(promises);
         });
     }
     dispose() {

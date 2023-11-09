@@ -3,6 +3,7 @@ import { EdaManager } from "../eda-manager";
 import { EdaEvent } from "../eda-event";
 import Redis from "ioredis";
 export declare class RedisEventBus implements EventBus {
+    private readonly _nedaClearTrackedKeysEventName;
     private readonly _client;
     private readonly _producers;
     private _isDisposing;

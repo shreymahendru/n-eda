@@ -10,11 +10,13 @@ const Zlib = require("zlib");
 const broker_1 = require("./broker");
 const otelApi = require("@opentelemetry/api");
 const semCon = require("@opentelemetry/semantic-conventions");
+const neda_clear_tracked_keys_event_1 = require("./neda-clear-tracked-keys-event");
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
         this._edaPrefix = "n-eda";
+        this._nedaClearTrackedKeysEventName = neda_clear_tracked_keys_event_1.NedaClearTrackedKeysEvent.getTypeName();
         this._isDisposed = false;
         this._maxTrackedSize = 3000;
         this._keepTrackedSize = 1000;
@@ -34,13 +36,14 @@ class Consumer {
         (0, n_defensive_1.given)(partition, "partition").ensureHasValue().ensureIsNumber();
         this._partition = partition;
         this._cleanKeys = this._manager.cleanKeys;
-        this._trackedKeysKey = `{${this._edaPrefix}-${this._topic}-${this._partition}}-tracked_keys`;
         (0, n_defensive_1.given)(flush, "flush").ensureHasValue().ensureIsBoolean();
         this._flush = flush;
     }
+    get _writeIndexKey() { return `${this.id}-write-index`; }
+    get _readIndexKey() { return `${this._fullId}-read-index`; }
+    get _trackedKeysKey() { return `${this._fullId}-tracked_keys`; }
+    get _fullId() { return `${this.id}-${this._manager.consumerGroupId}`; }
     get id() { return `{${this._edaPrefix}-${this._topic}-${this._partition}}`; }
-    get writeIndexKey() { return `${this.id}-write-index`; }
-    get readIndexKey() { return `${this.id}-${this._manager.consumerGroupId}-read-index`; }
     registerBroker(broker) {
         (0, n_defensive_1.given)(broker, "broker").ensureHasValue().ensureIsObject().ensureIsObject().ensureIsType(broker_1.Broker);
         this._broker = broker;
@@ -143,6 +146,12 @@ class Consumer {
                             const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
                             const eventRegistration = this._manager.eventMap.get(eventName);
                             const deserializedEvent = n_util_1.Deserializer.deserialize(event);
+                            if (deserializedEvent.name === this._nedaClearTrackedKeysEventName) {
+                                yield this._logger.logWarning(`NedaClearTrackedKeysEvent (${this._fullId}) --- clearing all event tracking data`);
+                                yield this._clearAllEventTracking();
+                                yield this._logger.logWarning(`NedaClearTrackedKeysEvent (${this._fullId}) --- event tracking data cleared`);
+                                continue;
+                            }
                             routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, event, deserializedEvent));
                         }
                     }
@@ -262,7 +271,7 @@ class Consumer {
     // }
     _fetchPartitionWriteAndConsumerPartitionReadIndexes() {
         return new Promise((resolve, reject) => {
-            this._client.mget(this.writeIndexKey, this.readIndexKey, (err, results) => {
+            this._client.mget(this._writeIndexKey, this._readIndexKey, (err, results) => {
                 if (err) {
                     reject(err);
                     return;
@@ -275,7 +284,7 @@ class Consumer {
     _incrementConsumerPartitionReadIndex(index) {
         if (index != null) {
             return new Promise((resolve, reject) => {
-                this._client.set(this.readIndexKey, index.toString(), (err) => {
+                this._client.set(this._readIndexKey, index.toString(), (err) => {
                     if (err) {
                         reject(err);
                         return;
@@ -285,7 +294,7 @@ class Consumer {
             });
         }
         return new Promise((resolve, reject) => {
-            this._client.incr(this.readIndexKey, (err) => {
+            this._client.incr(this._readIndexKey, (err) => {
                 if (err) {
                     reject(err);
                     return;
@@ -309,7 +318,7 @@ class Consumer {
         return new Promise((resolve, reject) => {
             const keys = new Array();
             for (let i = lowerBoundIndex; i <= upperBoundIndex; i++) {
-                const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${i}`;
+                const key = `${this.id}-${i}`;
                 keys.push({ index: i, key });
             }
             this._client.mgetBuffer(...keys.map(t => t.key), (err, values) => {
@@ -324,6 +333,22 @@ class Consumer {
                 }));
                 resolve(result);
             }).catch(e => reject(e));
+        });
+    }
+    _clearAllEventTracking() {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            yield new Promise((resolve, reject) => {
+                this._client.unlink(this._trackedKeysKey, (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                }).catch(e => reject(e));
+            });
+            this._trackedKeysSet = new Set();
+            this._trackedKeysArray = new Array();
+            this._keysToTrack = new Array();
         });
     }
     _track(eventKey) {
