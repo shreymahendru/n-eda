@@ -25,6 +25,7 @@ export class EdaManager implements Disposable
     private readonly _topics: Array<Topic>;
     private readonly _topicMap: Map<string, Topic>;
     private readonly _eventMap: Map<string, EventRegistration>;
+    private readonly _observerEventMap: Map<string, EventRegistration>;
     // private readonly _wildKeys: Array<string>;
 
     // private _metricsEnabled = false;
@@ -35,6 +36,8 @@ export class EdaManager implements Disposable
     private _consumerName = "UNNAMED";
     private _consumerGroupId: string | null = null;
     private _cleanKeys = false;
+    
+    private _distributedObserverTopic: Topic | null = null;
     
     // private _consumerTracer: ConsumerTracer | null = null;
 
@@ -62,7 +65,9 @@ export class EdaManager implements Disposable
     public get containerRegistry(): Registry { return this._container; }
     public get serviceLocator(): ServiceLocator { return this._container; }
     public get topics(): ReadonlyArray<Topic> { return this._topics; }
+    public get distributedObserverTopic(): Topic | null { return this._distributedObserverTopic; }
     public get eventMap(): ReadonlyMap<string, EventRegistration> { return this._eventMap; }
+    public get observerEventMap(): ReadonlyMap<string, EventRegistration> { return this._observerEventMap; }
     public get consumerName(): string { return this._consumerName; }
     public get consumerGroupId(): string | null { return this._consumerGroupId; }
     public get cleanKeys(): boolean { return this._cleanKeys; }
@@ -103,6 +108,7 @@ export class EdaManager implements Disposable
         this._topics = new Array<Topic>();
         this._topicMap = new Map<string, Topic>();
         this._eventMap = new Map<string, EventRegistration>();
+        this._observerEventMap = new Map<string, EventRegistration>();
         // this._wildKeys = new Array<string>();
     }
 
@@ -170,11 +176,27 @@ export class EdaManager implements Disposable
         for (const eventHandler of eventHandlerClasses)
         {
             const eventRegistration = new EventRegistration(eventHandler);
+            
+            if (eventRegistration.isObservedEvent)
+            {
+                // observable, observedEvent, observer, observedEventHandler
+                
+                // Need to enforce: that for one observable.observedEvent.observer combination, there is on only one handler
+                if (this._observerEventMap.has(eventRegistration.observationKey))
+                    throw new ApplicationException(`Multiple observer event handlers detected for observer key '${eventRegistration.observationKey}'.`);
+                
+                this._observerEventMap.set(eventRegistration.observationKey, eventRegistration);
+            }
+            else
+            {
+                // this enforces that you cannot have 2 handler classes for the same event
+                if (this._eventMap.has(eventRegistration.eventTypeName))
+                    throw new ApplicationException(`Multiple event handlers detected for event '${eventRegistration.eventTypeName}'.`);
 
-            if (this._eventMap.has(eventRegistration.eventTypeName))
-                throw new ApplicationException(`Multiple handlers detected for event '${eventRegistration.eventTypeName}'.`);
+                this._eventMap.set(eventRegistration.eventTypeName, eventRegistration);    
+            }
 
-            this._eventMap.set(eventRegistration.eventTypeName, eventRegistration);
+            // this enforces that you cannot have 2 handler classes with the same name
             this._container.registerScoped(eventRegistration.eventHandlerTypeName, eventRegistration.eventHandlerType);
         }
 
@@ -311,6 +333,21 @@ export class EdaManager implements Disposable
         this._grpcEventHandler = handler;
         this._isGrpcConsumer = true;
 
+        return this;
+    }
+    
+    public enableDistributedObserver(topic: Topic): this
+    {
+        given(topic, "topic").ensureHasValue().ensureIsType(Topic);
+        given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        
+        const name = topic.name.toLowerCase();
+        if (this._topics.some(t => t.name.toLowerCase() === name))
+            throw new ApplicationException(`Multiple topics with the name '${name}' detected when registering distributed observer topic.`);
+
+        this._topics.push(topic);
+        this._distributedObserverTopic = topic;
+        
         return this;
     }
 

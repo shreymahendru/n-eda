@@ -12,6 +12,7 @@ import { Broker } from "./broker";
 import * as otelApi from "@opentelemetry/api";
 import * as semCon from "@opentelemetry/semantic-conventions";
 import { NedaClearTrackedKeysEvent } from "./neda-clear-tracked-keys-event";
+import { NedaDistributedObserverNotifyEvent } from "./neda-distributed-observer-notify-event";
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
 
@@ -20,6 +21,7 @@ export class Consumer implements Disposable
 {
     private readonly _edaPrefix = "n-eda";
     private readonly _nedaClearTrackedKeysEventName = (<Object>NedaClearTrackedKeysEvent).getTypeName();
+    private readonly _nedaDistributedObserverNotifyEventName = (<Object>NedaDistributedObserverNotifyEvent).getTypeName();
     // private readonly _defaultDelayMS = 100;
     private readonly _client: Redis;
     private readonly _manager: EdaManager;
@@ -210,13 +212,16 @@ export class Consumer implements Disposable
                     const events = await this._decompressEvents(eventData);
                     for (const event of events)
                     {
-                        const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
+                        // const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
+                        // if (this._trackedKeysSet.has(eventId))
+                        //     continue;
+                        
+                        // const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
+                        const deserializedEvent = Deserializer.deserialize<EdaEvent>(event);
+                        
+                        const eventId = deserializedEvent.id;
                         if (this._trackedKeysSet.has(eventId))
                             continue;
-                        
-                        const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
-                        const eventRegistration = this._manager.eventMap.get(eventName) as EventRegistration;
-                        const deserializedEvent = Deserializer.deserialize<EdaEvent>(event);
                         
                         if (deserializedEvent.name === this._nedaClearTrackedKeysEventName)
                         {
@@ -225,7 +230,29 @@ export class Consumer implements Disposable
                             await this._logger.logWarning(`NedaClearTrackedKeysEvent (${this._fullId}) --- event tracking data cleared`);
                             continue;
                         }
+                        
+                        const eventName = deserializedEvent.name;
+                        let eventRegistration;
+                        
+                        if (eventName === this._nedaDistributedObserverNotifyEventName)
+                        {
+                            const distributedObserverEvent = deserializedEvent as NedaDistributedObserverNotifyEvent;
+                            const observationKey = EventRegistration.generateObservationKey(
+                                distributedObserverEvent.observerTypeName,
+                                distributedObserverEvent.observedEvent.refType,
+                                distributedObserverEvent.observedEvent.name
+                            );
+                            eventRegistration = this._manager.observerEventMap.get(observationKey);
+                        }
+                        else
+                            eventRegistration = this._manager.eventMap.get(eventName);
 
+                        if (eventRegistration == null) // Because we check event registrations on publish, if the registration is null here, then that is a consequence of rolling deployment
+                        {
+                            this._track(eventId);
+                            continue;
+                        }
+                        
                         routed.push(
                             this._attemptRoute(
                                 eventName, eventRegistration, item.index,
@@ -303,8 +330,6 @@ export class Consumer implements Disposable
                     span
                 });
             });
-            
-            
         }
         catch (error)
         {

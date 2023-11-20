@@ -6,12 +6,14 @@ import { Deserializer } from "@nivinjoseph/n-util";
 import { EdaEvent } from "../eda-event";
 import { EdaEventHandler } from "../eda-event-handler";
 import { EdaManager } from "../eda-manager";
-import { EventRegistration } from "../event-registration";
 import { GrpcModel } from "../grpc-details";
+import { ObserverEdaEventHandler } from "../observer-eda-event-handler";
+import { NedaDistributedObserverNotifyEvent } from "./neda-distributed-observer-notify-event";
 
 
 export class GrpcEventHandler
 {
+    private readonly _nedaDistributedObserverNotifyEventName = (<Object>NedaDistributedObserverNotifyEvent).getTypeName();
     private _manager: EdaManager | null = null;
     private _logger: Logger | null = null;
 
@@ -75,18 +77,29 @@ export class GrpcEventHandler
         //         event: "object"
         //     });
         
-        const eventRegistration = this._manager!.eventMap.get(data.eventName) as EventRegistration;
+        const isObservedEvent = data.eventName === this._nedaDistributedObserverNotifyEventName;
+        let event = data.event;
+        if (isObservedEvent)
+            event = (event as NedaDistributedObserverNotifyEvent).observedEvent;
+
+        const eventRegistration = isObservedEvent
+            ? this._manager!.observerEventMap.get(event.name)
+            : this._manager!.eventMap.get(event.name);
+
+        if (eventRegistration == null) // Because we check event registrations on publish, if the registration is null here, then that is a consequence of rolling deployment
+            return;
 
         const scope = this._manager!.serviceLocator.createScope();
-        (<any>data.event).$scope = scope;
+        (<any>event).$scope = scope;
 
-        this.onEventReceived(scope, data.topic, data.event);
+        this.onEventReceived(scope, data.topic, event);
 
-        const handler = scope.resolve<EdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
+        const handler = scope.resolve<EdaEventHandler<EdaEvent> | ObserverEdaEventHandler<EdaEvent>>(eventRegistration.eventHandlerTypeName);
+
 
         try 
         {
-            await handler.handle(data.event);
+            await handler.handle(event, (data.event as NedaDistributedObserverNotifyEvent).observerId);
         }
         catch (error)
         {

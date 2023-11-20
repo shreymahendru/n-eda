@@ -95,6 +95,9 @@ export class TestEvent extends Serializable implements EdaEvent
     
     public get partitionKey(): string { return this.id.split("-")[0]; }
     
+    public get refId(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
+    public get refType(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
+    
     
     public constructor(data: { id: string; })
     {
@@ -123,6 +126,9 @@ export class AnalyticEvent extends Serializable implements EdaEvent
     
     @serialize
     public get message(): string { return this._message; }
+    
+    public get refId(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
+    public get refType(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
 
 
     public constructor(data: { id: string; message: string; })

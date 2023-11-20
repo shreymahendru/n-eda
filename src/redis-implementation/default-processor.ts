@@ -3,6 +3,8 @@ import { ServiceLocator } from "@nivinjoseph/n-ject";
 import { EdaEvent } from "../eda-event";
 import { EdaEventHandler } from "../eda-event-handler";
 import { EdaManager } from "../eda-manager";
+import { ObserverEdaEventHandler } from "../observer-eda-event-handler";
+import { NedaDistributedObserverNotifyEvent } from "./neda-distributed-observer-notify-event";
 import { Processor } from "./processor";
 import { WorkItem } from "./scheduler";
 
@@ -23,16 +25,21 @@ export class DefaultProcessor extends Processor
     
     protected async processEvent(workItem: WorkItem): Promise<void>
     {
+        const isObservedEvent = workItem.eventRegistration.isObservedEvent;
+        let event = workItem.event;
+        if (isObservedEvent)
+            event = (event as NedaDistributedObserverNotifyEvent).observedEvent;
+        
         const scope = this.manager.serviceLocator.createScope();
-        (<any>workItem.event).$scope = scope;
+        (<any>event).$scope = scope;   
 
-        this._onEventReceived(scope, workItem.topic, workItem.event);
+        this._onEventReceived(scope, workItem.topic, event);
 
-        const handler = scope.resolve<EdaEventHandler<EdaEvent>>(workItem.eventRegistration.eventHandlerTypeName);
+        const handler = scope.resolve<EdaEventHandler<EdaEvent> | ObserverEdaEventHandler<EdaEvent>>(workItem.eventRegistration.eventHandlerTypeName);
 
         try 
         {
-            await handler.handle(workItem.event);
+            await handler.handle(event, (workItem.event as NedaDistributedObserverNotifyEvent).observerId);
 
             // await this._logger.logInfo(`Executed EventHandler '${workItem.eventRegistration.eventHandlerTypeName}' for event '${workItem.eventName}' with id '${workItem.eventId}' => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${workItem.topic}; Partition: ${workItem.partition};`);
         }

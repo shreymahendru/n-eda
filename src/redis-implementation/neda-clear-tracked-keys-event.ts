@@ -16,6 +16,9 @@ export class NedaClearTrackedKeysEvent extends Serializable implements EdaEvent
     
     public get partitionKey(): string { return this.name; }
     
+    public get refId(): string { return this.id; }
+    
+    public get refType(): string { return "neda"; }
     
     public constructor(data: Pick<NedaClearTrackedKeysEvent, "id">)
     {

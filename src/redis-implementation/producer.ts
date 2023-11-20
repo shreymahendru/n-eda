@@ -162,7 +162,7 @@ export class Producer
     
     private async _storeEvents(writeIndex: number, eventData: Buffer): Promise<void>
     {
-        const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
+        const key = `${this.id}-${writeIndex}`;
 
         await this._client
             .pipeline()
