@@ -6,6 +6,7 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_ject_1 = require("@nivinjoseph/n-ject");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const event_registration_1 = require("./event-registration");
+const topic_1 = require("./topic");
 const MurmurHash = require("murmurhash3js");
 const aws_lambda_event_handler_1 = require("./redis-implementation/aws-lambda-event-handler");
 const rpc_event_handler_1 = require("./redis-implementation/rpc-event-handler");
@@ -24,6 +25,7 @@ class EdaManager {
         this._consumerName = "UNNAMED";
         this._consumerGroupId = null;
         this._cleanKeys = false;
+        this._distributedObserverTopic = null;
         // private _consumerTracer: ConsumerTracer | null = null;
         this._awsLambdaDetails = null;
         this._isAwsLambdaConsumer = false;
@@ -49,6 +51,7 @@ class EdaManager {
         this._topics = new Array();
         this._topicMap = new Map();
         this._eventMap = new Map();
+        this._observerEventMap = new Map();
         // this._wildKeys = new Array<string>();
     }
     static get eventBusKey() { return "EventBus"; }
@@ -56,7 +59,9 @@ class EdaManager {
     get containerRegistry() { return this._container; }
     get serviceLocator() { return this._container; }
     get topics() { return this._topics; }
+    get distributedObserverTopic() { return this._distributedObserverTopic; }
     get eventMap() { return this._eventMap; }
+    get observerEventMap() { return this._observerEventMap; }
     get consumerName() { return this._consumerName; }
     get consumerGroupId() { return this._consumerGroupId; }
     get cleanKeys() { return this._cleanKeys; }
@@ -113,9 +118,20 @@ class EdaManager {
         (0, n_defensive_1.given)(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
         for (const eventHandler of eventHandlerClasses) {
             const eventRegistration = new event_registration_1.EventRegistration(eventHandler);
-            if (this._eventMap.has(eventRegistration.eventTypeName))
-                throw new n_exception_1.ApplicationException(`Multiple handlers detected for event '${eventRegistration.eventTypeName}'.`);
-            this._eventMap.set(eventRegistration.eventTypeName, eventRegistration);
+            if (eventRegistration.isObservedEvent) {
+                // observable, observedEvent, observer, observedEventHandler
+                // Need to enforce: that for one observable.observedEvent.observer combination, there is on only one handler
+                if (this._observerEventMap.has(eventRegistration.observationKey))
+                    throw new n_exception_1.ApplicationException(`Multiple observer event handlers detected for observer key '${eventRegistration.observationKey}'.`);
+                this._observerEventMap.set(eventRegistration.observationKey, eventRegistration);
+            }
+            else {
+                // this enforces that you cannot have 2 handler classes for the same event
+                if (this._eventMap.has(eventRegistration.eventTypeName))
+                    throw new n_exception_1.ApplicationException(`Multiple event handlers detected for event '${eventRegistration.eventTypeName}'.`);
+                this._eventMap.set(eventRegistration.eventTypeName, eventRegistration);
+            }
+            // this enforces that you cannot have 2 handler classes with the same name
             this._container.registerScoped(eventRegistration.eventHandlerTypeName, eventRegistration.eventHandlerType);
         }
         return this;
@@ -204,6 +220,16 @@ class EdaManager {
             .ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
         this._grpcEventHandler = handler;
         this._isGrpcConsumer = true;
+        return this;
+    }
+    enableDistributedObserver(topic) {
+        (0, n_defensive_1.given)(topic, "topic").ensureHasValue().ensureIsType(topic_1.Topic);
+        (0, n_defensive_1.given)(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
+        const name = topic.name.toLowerCase();
+        if (this._topics.some(t => t.name.toLowerCase() === name))
+            throw new n_exception_1.ApplicationException(`Multiple topics with the name '${name}' detected when registering distributed observer topic.`);
+        this._topics.push(topic);
+        this._distributedObserverTopic = topic;
         return this;
     }
     bootstrap() {

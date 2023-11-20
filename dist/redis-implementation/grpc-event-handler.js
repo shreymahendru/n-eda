@@ -6,8 +6,10 @@ const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const n_util_1 = require("@nivinjoseph/n-util");
 const eda_manager_1 = require("../eda-manager");
+const neda_distributed_observer_notify_event_1 = require("./neda-distributed-observer-notify-event");
 class GrpcEventHandler {
     constructor() {
+        this._nedaDistributedObserverNotifyEventName = neda_distributed_observer_notify_event_1.NedaDistributedObserverNotifyEvent.getTypeName();
         this._manager = null;
         this._logger = null;
     }
@@ -56,13 +58,21 @@ class GrpcEventHandler {
             //         eventName: "string",
             //         event: "object"
             //     });
-            const eventRegistration = this._manager.eventMap.get(data.eventName);
+            const isObservedEvent = data.eventName === this._nedaDistributedObserverNotifyEventName;
+            let event = data.event;
+            if (isObservedEvent)
+                event = event.observedEvent;
+            const eventRegistration = isObservedEvent
+                ? this._manager.observerEventMap.get(event.name)
+                : this._manager.eventMap.get(event.name);
+            if (eventRegistration == null) // Because we check event registrations on publish, if the registration is null here, then that is a consequence of rolling deployment
+                return;
             const scope = this._manager.serviceLocator.createScope();
-            data.event.$scope = scope;
-            this.onEventReceived(scope, data.topic, data.event);
+            event.$scope = scope;
+            this.onEventReceived(scope, data.topic, event);
             const handler = scope.resolve(eventRegistration.eventHandlerTypeName);
             try {
-                yield handler.handle(data.event);
+                yield handler.handle(event, data.event.observerId);
             }
             catch (error) {
                 yield this._logger.logWarning(`Error in GRPC event handler while handling event of type '${data.eventName}' with data ${JSON.stringify(data.event.serialize())}.`);

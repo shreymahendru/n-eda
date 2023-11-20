@@ -14,6 +14,8 @@ class NedaClearTrackedKeysEvent extends n_util_1.Serializable {
     get id() { return this._id; }
     get name() { return NedaClearTrackedKeysEvent.getTypeName(); }
     get partitionKey() { return this.name; }
+    get refId() { return this.id; }
+    get refType() { return "neda"; }
 }
 tslib_1.__decorate([
     n_util_1.serialize,

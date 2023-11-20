@@ -5,5 +5,7 @@ export declare class NedaClearTrackedKeysEvent extends Serializable implements E
     get id(): string;
     get name(): string;
     get partitionKey(): string;
+    get refId(): string;
+    get refType(): string;
     constructor(data: Pick<NedaClearTrackedKeysEvent, "id">);
 }

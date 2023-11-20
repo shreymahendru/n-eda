@@ -114,7 +114,7 @@ class Producer {
     // }
     _storeEvents(writeIndex, eventData) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            const key = `{${this._edaPrefix}-${this._topic}-${this._partition}}-${writeIndex}`;
+            const key = `${this.id}-${writeIndex}`;
             yield this._client
                 .pipeline()
                 .setex(key, this._ttlSeconds, eventData)

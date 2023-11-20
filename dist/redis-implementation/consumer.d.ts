@@ -5,6 +5,7 @@ import { Broker } from "./broker";
 export declare class Consumer implements Disposable {
     private readonly _edaPrefix;
     private readonly _nedaClearTrackedKeysEventName;
+    private readonly _nedaDistributedObserverNotifyEventName;
     private readonly _client;
     private readonly _manager;
     private readonly _logger;

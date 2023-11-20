@@ -12,12 +12,16 @@ class DefaultProcessor extends processor_1.Processor {
     }
     processEvent(workItem) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            const isObservedEvent = workItem.eventRegistration.isObservedEvent;
+            let event = workItem.event;
+            if (isObservedEvent)
+                event = event.observedEvent;
             const scope = this.manager.serviceLocator.createScope();
-            workItem.event.$scope = scope;
-            this._onEventReceived(scope, workItem.topic, workItem.event);
+            event.$scope = scope;
+            this._onEventReceived(scope, workItem.topic, event);
             const handler = scope.resolve(workItem.eventRegistration.eventHandlerTypeName);
             try {
-                yield handler.handle(workItem.event);
+                yield handler.handle(event, workItem.event.observerId);
                 // await this._logger.logInfo(`Executed EventHandler '${workItem.eventRegistration.eventHandlerTypeName}' for event '${workItem.eventName}' with id '${workItem.eventId}' => ConsumerGroupId: ${this._manager.consumerGroupId}; Topic: ${workItem.topic}; Partition: ${workItem.partition};`);
             }
             finally {

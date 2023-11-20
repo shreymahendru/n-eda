@@ -3,6 +3,7 @@ import { EdaEvent } from "../eda-event";
 import { EdaManager } from "../eda-manager";
 import { GrpcModel } from "../grpc-details";
 export declare class GrpcEventHandler {
+    private readonly _nedaDistributedObserverNotifyEventName;
     private _manager;
     private _logger;
     initialize(manager: EdaManager): void;

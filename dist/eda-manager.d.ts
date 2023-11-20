@@ -18,6 +18,7 @@ export declare class EdaManager implements Disposable {
     private readonly _topics;
     private readonly _topicMap;
     private readonly _eventMap;
+    private readonly _observerEventMap;
     private _partitionKeyMapper;
     private _eventBusRegistered;
     private _eventSubMgrRegistered;
@@ -25,6 +26,7 @@ export declare class EdaManager implements Disposable {
     private _consumerName;
     private _consumerGroupId;
     private _cleanKeys;
+    private _distributedObserverTopic;
     private _awsLambdaDetails;
     private _isAwsLambdaConsumer;
     private _awsLambdaEventHandler;
@@ -42,7 +44,9 @@ export declare class EdaManager implements Disposable {
     get containerRegistry(): Registry;
     get serviceLocator(): ServiceLocator;
     get topics(): ReadonlyArray<Topic>;
+    get distributedObserverTopic(): Topic | null;
     get eventMap(): ReadonlyMap<string, EventRegistration>;
+    get observerEventMap(): ReadonlyMap<string, EventRegistration>;
     get consumerName(): string;
     get consumerGroupId(): string | null;
     get cleanKeys(): boolean;
@@ -71,6 +75,7 @@ export declare class EdaManager implements Disposable {
     actAsRpcConsumer(handler: RpcEventHandler): this;
     proxyToGrpc(grpcDetails: GrpcDetails): this;
     actAsGrpcConsumer(handler: GrpcEventHandler): this;
+    enableDistributedObserver(topic: Topic): this;
     bootstrap(): void;
     beginConsumption(): Promise<void>;
     mapToPartition(topic: string, event: EdaEvent): number;

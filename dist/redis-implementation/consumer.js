@@ -5,18 +5,21 @@ const tslib_1 = require("tslib");
 const n_util_1 = require("@nivinjoseph/n-util");
 const n_defensive_1 = require("@nivinjoseph/n-defensive");
 const eda_manager_1 = require("../eda-manager");
+const event_registration_1 = require("../event-registration");
 const n_exception_1 = require("@nivinjoseph/n-exception");
 const Zlib = require("zlib");
 const broker_1 = require("./broker");
 const otelApi = require("@opentelemetry/api");
 const semCon = require("@opentelemetry/semantic-conventions");
 const neda_clear_tracked_keys_event_1 = require("./neda-clear-tracked-keys-event");
+const neda_distributed_observer_notify_event_1 = require("./neda-distributed-observer-notify-event");
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";
 class Consumer {
     constructor(client, manager, topic, partition, flush = false) {
         this._edaPrefix = "n-eda";
         this._nedaClearTrackedKeysEventName = neda_clear_tracked_keys_event_1.NedaClearTrackedKeysEvent.getTypeName();
+        this._nedaDistributedObserverNotifyEventName = neda_distributed_observer_notify_event_1.NedaDistributedObserverNotifyEvent.getTypeName();
         this._isDisposed = false;
         this._maxTrackedSize = 3000;
         this._keepTrackedSize = 1000;
@@ -140,16 +143,32 @@ class Consumer {
                         }
                         const events = yield this._decompressEvents(eventData);
                         for (const event of events) {
-                            const eventId = event.$id || event.id; // for compatibility with n-domain DomainEvent
+                            // const eventId = (<any>event).$id || (<any>event).id; // for compatibility with n-domain DomainEvent
+                            // if (this._trackedKeysSet.has(eventId))
+                            //     continue;
+                            // const eventName = (<any>event).$name || (<any>event).name; // for compatibility with n-domain DomainEvent
+                            const deserializedEvent = n_util_1.Deserializer.deserialize(event);
+                            const eventId = deserializedEvent.id;
                             if (this._trackedKeysSet.has(eventId))
                                 continue;
-                            const eventName = event.$name || event.name; // for compatibility with n-domain DomainEvent
-                            const eventRegistration = this._manager.eventMap.get(eventName);
-                            const deserializedEvent = n_util_1.Deserializer.deserialize(event);
                             if (deserializedEvent.name === this._nedaClearTrackedKeysEventName) {
                                 yield this._logger.logWarning(`NedaClearTrackedKeysEvent (${this._fullId}) --- clearing all event tracking data`);
                                 yield this._clearAllEventTracking();
                                 yield this._logger.logWarning(`NedaClearTrackedKeysEvent (${this._fullId}) --- event tracking data cleared`);
+                                continue;
+                            }
+                            const eventName = deserializedEvent.name;
+                            let eventRegistration;
+                            if (eventName === this._nedaDistributedObserverNotifyEventName) {
+                                const distributedObserverEvent = deserializedEvent;
+                                const observationKey = event_registration_1.EventRegistration.generateObservationKey(distributedObserverEvent.observerTypeName, distributedObserverEvent.observedEvent.refType, distributedObserverEvent.observedEvent.name);
+                                eventRegistration = this._manager.observerEventMap.get(observationKey);
+                            }
+                            else
+                                eventRegistration = this._manager.eventMap.get(eventName);
+                            if (eventRegistration == null) // Because we check event registrations on publish, if the registration is null here, then that is a consequence of rolling deployment
+                             {
+                                this._track(eventId);
                                 continue;
                             }
                             routed.push(this._attemptRoute(eventName, eventRegistration, item.index, item.key, eventId, event, deserializedEvent));
