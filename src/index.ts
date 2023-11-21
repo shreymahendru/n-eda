@@ -20,6 +20,8 @@ import { GrpcDetails } from "./grpc-details";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
 import { GrpcServer } from "./redis-implementation/grpc-server";
 import { NedaClearTrackedKeysEvent } from "./redis-implementation/neda-clear-tracked-keys-event";
+import { observable, observedEvent, observer } from "./observed-event";
+import { ObserverEdaEventHandler } from "./observer-eda-event-handler";
 
 
 
@@ -39,5 +41,9 @@ export
     
     GrpcDetails, GrpcEventHandler, GrpcServer,
     
-    NedaClearTrackedKeysEvent
+    NedaClearTrackedKeysEvent,
+    
+    observedEvent, observable, observer,
+    
+    ObserverEdaEventHandler
 };
