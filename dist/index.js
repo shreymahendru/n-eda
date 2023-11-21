@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NedaClearTrackedKeysEvent = exports.GrpcServer = exports.GrpcEventHandler = exports.RpcServer = exports.RpcEventHandler = exports.AwsLambdaEventHandler = exports.RedisEventSubMgr = exports.RedisEventBus = exports.EdaManager = exports.EventRegistration = exports.Topic = exports.event = void 0;
+exports.observer = exports.observable = exports.observedEvent = exports.NedaClearTrackedKeysEvent = exports.GrpcServer = exports.GrpcEventHandler = exports.RpcServer = exports.RpcEventHandler = exports.AwsLambdaEventHandler = exports.RedisEventSubMgr = exports.RedisEventBus = exports.EdaManager = exports.EventRegistration = exports.Topic = exports.event = void 0;
 const event_1 = require("./event");
 Object.defineProperty(exports, "event", { enumerable: true, get: function () { return event_1.event; } });
 const event_registration_1 = require("./event-registration");
@@ -27,4 +27,8 @@ const grpc_server_1 = require("./redis-implementation/grpc-server");
 Object.defineProperty(exports, "GrpcServer", { enumerable: true, get: function () { return grpc_server_1.GrpcServer; } });
 const neda_clear_tracked_keys_event_1 = require("./redis-implementation/neda-clear-tracked-keys-event");
 Object.defineProperty(exports, "NedaClearTrackedKeysEvent", { enumerable: true, get: function () { return neda_clear_tracked_keys_event_1.NedaClearTrackedKeysEvent; } });
+const observed_event_1 = require("./observed-event");
+Object.defineProperty(exports, "observable", { enumerable: true, get: function () { return observed_event_1.observable; } });
+Object.defineProperty(exports, "observedEvent", { enumerable: true, get: function () { return observed_event_1.observedEvent; } });
+Object.defineProperty(exports, "observer", { enumerable: true, get: function () { return observed_event_1.observer; } });
 //# sourceMappingURL=index.js.map
