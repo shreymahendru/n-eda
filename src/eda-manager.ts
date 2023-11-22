@@ -15,6 +15,7 @@ import { RpcDetails } from "./rpc-details";
 import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
 import { GrpcDetails } from "./grpc-details";
+import { ObserverEdaEventHandler } from "./observer-eda-event-handler";
 // import { ConsumerTracer } from "./event-handler-tracer";
 
 // public
@@ -168,7 +169,7 @@ export class EdaManager implements Disposable
         return this;
     }
 
-    public registerEventHandlers(...eventHandlerClasses: Array<ClassHierarchy<EdaEventHandler<any>>>): this
+    public registerEventHandlers(...eventHandlerClasses: Array<ClassHierarchy<EdaEventHandler<any>> | ClassHierarchy<ObserverEdaEventHandler<any>>>): this
     {
         given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
         given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
