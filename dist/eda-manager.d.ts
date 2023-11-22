@@ -12,6 +12,7 @@ import { RpcDetails } from "./rpc-details";
 import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
 import { GrpcDetails } from "./grpc-details";
+import { ObserverEdaEventHandler } from "./observer-eda-event-handler";
 export declare class EdaManager implements Disposable {
     private readonly _container;
     private readonly _ownsContainer;
@@ -65,7 +66,7 @@ export declare class EdaManager implements Disposable {
     useConsumerName(name: string): this;
     registerTopics(...topics: Array<Topic>): this;
     usePartitionKeyMapper(func: (event: EdaEvent) => string): this;
-    registerEventHandlers(...eventHandlerClasses: Array<ClassHierarchy<EdaEventHandler<any>>>): this;
+    registerEventHandlers(...eventHandlerClasses: Array<ClassHierarchy<EdaEventHandler<any>> | ClassHierarchy<ObserverEdaEventHandler<any>>>): this;
     registerEventBus(eventBus: EventBus | ClassHierarchy<EventBus>): this;
     registerEventSubscriptionManager(eventSubMgr: EventSubMgr | ClassHierarchy<EventSubMgr>, consumerGroupId: string): this;
     cleanUpKeys(): this;
