@@ -1,8 +1,8 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { Serializable, serialize } from "@nivinjoseph/n-util";
-import { EdaEvent } from "../eda-event";
+import { EdaEvent } from "../eda-event.js";
 
-
+@serialize()
 export class NedaDistributedObserverNotifyEvent extends Serializable implements EdaEvent
 {
     private readonly _observerTypeName: string;
@@ -11,22 +11,22 @@ export class NedaDistributedObserverNotifyEvent extends Serializable implements 
     private readonly _observedEvent: EdaEvent;
 
 
-    @serialize
+    @serialize()
     public get observerTypeName(): string { return this._observerTypeName; }
     
-    @serialize
+    @serialize()
     public get observerId(): string { return this._observerId; }
     
-    @serialize
+    @serialize()
     public get observedEventId(): string { return this._observedEventId; }
     
-    @serialize
+    @serialize()
     public get observedEvent(): EdaEvent { return this._observedEvent; }
     
-    @serialize // event though it is computed, we will deliberately serialize it fo it is visible in the json
+    @serialize() // event though it is computed, we will deliberately serialize it fo it is visible in the json
     public get id(): string { return `${this.observerTypeName}.${this.observerId}.${this.observedEventId}`; }
     
-    @serialize // has to be serialized for eda purposes
+    @serialize() // has to be serialized for eda purposes
     public get name(): string { return (<Object>NedaDistributedObserverNotifyEvent).getTypeName(); }
     
     public get partitionKey(): string { return this.observerId; }

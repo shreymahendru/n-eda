@@ -1,9 +1,10 @@
 import { Make, Uuid } from "@nivinjoseph/n-util";
 import * as Assert from "assert";
 import * as MurmurHash from "murmurhash3js";
+import test, { describe } from "node:test";
 
 
-suite.skip("Partitioning tests", () =>
+await describe.skip("Partitioning tests", async () =>
 {
     const numPartitions = 1000;
     
@@ -12,7 +13,7 @@ suite.skip("Partitioning tests", () =>
         return MurmurHash.x86.hash32(partitionKey) % numPartitions;
     };
     
-    test("basics", () =>
+    await test("basics", () =>
     {
         // generate 1000 ids with prefix
         // map each id to partition

@@ -1,21 +1,21 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { Container, Registry, ServiceLocator, ComponentInstaller } from "@nivinjoseph/n-ject";
 import { ApplicationException, ObjectDisposedException } from "@nivinjoseph/n-exception";
-import { EventBus } from "./event-bus";
-import { EventSubMgr } from "./event-sub-mgr";
+import { EventBus } from "./event-bus.js";
+import { EventSubMgr } from "./event-sub-mgr.js";
 import { ClassHierarchy, Disposable } from "@nivinjoseph/n-util";
-import { EventRegistration } from "./event-registration";
-import { Topic } from "./topic";
-import { EdaEvent } from "./eda-event";
+import { EventRegistration } from "./event-registration.js";
+import { Topic } from "./topic.js";
+import { EdaEvent } from "./eda-event.js";
 import * as MurmurHash from "murmurhash3js";
-import { EdaEventHandler } from "./eda-event-handler";
-import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler";
-import { LambdaDetails } from "./lambda-details";
-import { RpcDetails } from "./rpc-details";
-import { RpcEventHandler } from "./redis-implementation/rpc-event-handler";
-import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler";
-import { GrpcDetails } from "./grpc-details";
-import { ObserverEdaEventHandler } from "./observer-eda-event-handler";
+import { EdaEventHandler } from "./eda-event-handler.js";
+import { AwsLambdaEventHandler } from "./redis-implementation/aws-lambda-event-handler.js";
+import { LambdaDetails } from "./lambda-details.js";
+import { RpcDetails } from "./rpc-details.js";
+import { RpcEventHandler } from "./redis-implementation/rpc-event-handler.js";
+import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler.js";
+import { GrpcDetails } from "./grpc-details.js";
+import { ObserverEdaEventHandler } from "./observer-eda-event-handler.js";
 // import { ConsumerTracer } from "./event-handler-tracer";
 
 // public

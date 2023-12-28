@@ -6,8 +6,8 @@ import { ShutdownManager } from "@nivinjoseph/n-svc";
 import { ClassHierarchy, Delay } from "@nivinjoseph/n-util";
 import * as Http from "http";
 import * as Url from "url";
-import { ApplicationScript } from "./application-script";
-import { RpcEventHandler } from "./rpc-event-handler";
+import { ApplicationScript } from "./application-script.js";
+import { RpcEventHandler } from "./rpc-event-handler.js";
 
 
 export class RpcServer
@@ -99,13 +99,15 @@ export class RpcServer
                         .then(() => resolve())
                         .catch((e) =>
                         {
+                            // eslint-disable-next-line @typescript-eslint/no-floating-promises
                             this._logger.logError(e).finally(() => resolve());
                             // resolve();
                         });
                 }
-                catch (error)
+                catch (error: any)
                 {
-                    this._logger.logError(error as any).finally(() => resolve());
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                    this._logger.logError(error).finally(() => resolve());
                     // resolve();
                 }
             });
@@ -182,11 +184,11 @@ export class RpcServer
                 case "/process":
                     {
                         let data = "";
-                        req.on('data', chunk =>
+                        req.on("data", chunk =>
                         {
                             data += chunk;
                         });
-                        req.on('end', () =>
+                        req.on("end", () =>
                         {
                             this._eventHandler.process(JSON.parse(data))
                                 .then((result) =>
@@ -204,6 +206,7 @@ export class RpcServer
                                 })
                                 .catch(error =>
                                 {
+                                    // eslint-disable-next-line @typescript-eslint/no-floating-promises
                                     this._logger.logError(error)
                                         .finally(() =>
                                         {
@@ -250,6 +253,7 @@ export class RpcServer
             {
                 return new Promise((resolve, reject) =>
                 {
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises
                     this._logger.logInfo("CLOSING RPC SERVER...").finally(() =>
                     {
                         // eslint-disable-next-line @typescript-eslint/no-misused-promises

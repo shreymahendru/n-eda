@@ -4,6 +4,7 @@ import { given } from "@nivinjoseph/n-defensive";
 import { Make, Profiler, Uuid } from "@nivinjoseph/n-util";
 import * as Grpc from "@grpc/grpc-js";
 import { ConnectionOptions } from "tls";
+import { describe, test } from "node:test";
 // import * as MessagePack from "msgpack-lite";
 // import * as Snappy from "snappy";
 // import { pack, unpack } from "msgpackr";
@@ -16,7 +17,7 @@ import { ConnectionOptions } from "tls";
  */
 
 
-suite.skip("compression tests", () => 
+await describe.skip("compression tests", async () => 
 {
     const brotliOptions = { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } };
 
@@ -254,7 +255,7 @@ suite.skip("compression tests", () =>
     //     Assert.ok(true);
     // });
     
-    test("grpc", () =>
+    await test("grpc", () =>
     {
         const creds = Grpc.credentials.createSsl();
         const origConnectionOptions = creds._getConnectionOptions.bind(creds);
@@ -270,7 +271,7 @@ suite.skip("compression tests", () =>
         Assert.strictEqual(options!.rejectUnauthorized, false);
     });
     
-    test("JSON with Deflate", async () =>
+    await test("JSON with Deflate", async () =>
     {
         console.log("before", JSON.stringify(data).length);
 
@@ -285,7 +286,7 @@ suite.skip("compression tests", () =>
         // Assert.ok(true);
     });
 
-    test("JSON with Deflate performance", async () =>
+    await test("JSON with Deflate performance", async () =>
     {
         const compressed = new Array<Buffer>();
 
@@ -312,7 +313,7 @@ suite.skip("compression tests", () =>
         Assert.ok(true);
     });
     
-    test("JSON with Brotli", async () =>
+    await test("JSON with Brotli", async () =>
     {
         console.log("before", JSON.stringify(data).length);
 
@@ -327,7 +328,7 @@ suite.skip("compression tests", () =>
         // Assert.ok(true);
     });
 
-    test("JSON with Brotli performance", async () =>
+    await test("JSON with Brotli performance", async () =>
     {
         const compressed = new Array<Buffer>();
 

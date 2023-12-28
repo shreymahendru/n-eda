@@ -3,51 +3,45 @@ import { ComponentInstaller, inject, Registry } from "@nivinjoseph/n-ject";
 import { ConsoleLogger, LogDateTimeZone, Logger } from "@nivinjoseph/n-log";
 import { Delay, Disposable, DisposableWrapper, Duration, Serializable, serialize } from "@nivinjoseph/n-util";
 // import * as Redis from "redis";
-import Redis from "ioredis";
-import { EdaEventHandler, EventBus } from "../../src";
-import { EdaEvent } from "../../src/eda-event";
-import { EdaManager } from "../../src/eda-manager";
-import { RedisEventBus } from "../../src/redis-implementation/redis-event-bus";
-import { RedisEventSubMgr } from "../../src/redis-implementation/redis-event-sub-mgr";
-import { Topic } from "../../src/topic";
-import { event } from "../../src/event";
+import { Redis } from "ioredis";
+import { EdaEventHandler, EventBus, EdaEvent, EdaManager, RedisEventBus, RedisEventSubMgr, Topic, event } from "../../src/index.js";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
 
 
 export class EventHistory implements Disposable
 {
     private readonly _historicalRecords = new Array<string>();
-    
+
     private _startedAt = Date.now();
     private _lastEventAt = Date.now();
     private _isDisposed = false;
-    
+
     public get records(): ReadonlyArray<string> { return this._historicalRecords; }
-    
-    
+
+
     public async recordEvent(event: EdaEvent): Promise<void>
     {
         given(event, "event").ensureHasValue().ensureIsObject();
-        
+
         if (this._isDisposed)
             throw new ObjectDisposedException("EventHistory");
-        
+
         await Delay.milliseconds(10);
-        
+
         this._historicalRecords.push(event.id);
         this._lastEventAt = Date.now();
     }
-    
+
     public startProfiling(): void
     {
         this._startedAt = Date.now();
     }
-    
+
     public endProfiling(): number
     {
         return this._lastEventAt - this._startedAt;
     }
-    
+
     public dispose(): Promise<void>
     {
         this._isDisposed = true;
@@ -60,10 +54,10 @@ class CommonComponentInstaller implements ComponentInstaller
     public install(registry: Registry): void
     {
         given(registry, "registry").ensureHasValue().ensureIsObject();
-        
+
         // const edaRedisClient = Redis.createClient({ return_buffers: true });
         const edaRedisClient = new Redis();
-        
+
         const edaRedisClientDisposable = new DisposableWrapper(async () =>
         {
             await Delay.seconds(5);
@@ -72,7 +66,7 @@ class CommonComponentInstaller implements ComponentInstaller
                 edaRedisClient.quit(() => resolve()).catch(e => console.error(e));
             });
         });
-        
+
         registry
             .registerInstance("Logger", new ConsoleLogger({ logDateTimeZone: LogDateTimeZone.est }))
             .registerInstance("EdaRedisClient", edaRedisClient)
@@ -82,23 +76,24 @@ class CommonComponentInstaller implements ComponentInstaller
 }
 
 
+@serialize()
 export class TestEvent extends Serializable implements EdaEvent
 {
     private readonly _id: string;
-    
-    
-    @serialize
+
+
+    @serialize()
     public get id(): string { return this._id; }
-    
-    @serialize // has to be serialized for eda purposes
+
+    @serialize() // has to be serialized for eda purposes
     public get name(): string { return (<Object>TestEvent).getTypeName(); }
-    
+
     public get partitionKey(): string { return this.id.split("-")[0]; }
-    
+
     public get refId(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
     public get refType(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
-    
-    
+
+
     public constructor(data: { id: string; })
     {
         super(data);
@@ -110,23 +105,24 @@ export class TestEvent extends Serializable implements EdaEvent
     }
 }
 
+@serialize()
 export class AnalyticEvent extends Serializable implements EdaEvent
 {
     private readonly _id: string;
     private readonly _message: string;
 
 
-    @serialize
+    @serialize()
     public get id(): string { return this._id; }
 
-    @serialize // has to be serialized for eda purposes
+    @serialize() // has to be serialized for eda purposes
     public get name(): string { return (<Object>AnalyticEvent).getTypeName(); }
 
     public get partitionKey(): string { return this.id.split("-")[0]; }
-    
-    @serialize
+
+    @serialize()
     public get message(): string { return this._message; }
-    
+
     public get refId(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
     public get refType(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
 
@@ -139,7 +135,7 @@ export class AnalyticEvent extends Serializable implements EdaEvent
 
         given(id, "id").ensureHasValue().ensureIsString();
         this._id = id;
-        
+
         given(message, "message").ensureHasValue().ensureIsString();
         this._message = message;
     }
@@ -160,10 +156,10 @@ class TestEventHandler implements EdaEventHandler<TestEvent>
     {
         given(logger, "logger").ensureHasValue().ensureIsObject();
         this._logger = logger;
-        
+
         given(eventHistory, "eventHistory").ensureHasValue().ensureIsObject();
         this._eventHistory = eventHistory;
-        
+
         given(eventBus, "eventBus").ensureHasValue().ensureIsObject();
         this._eventBus = eventBus;
     }
@@ -172,11 +168,11 @@ class TestEventHandler implements EdaEventHandler<TestEvent>
     public async handle(event: TestEvent): Promise<void>
     {
         given(event, "event").ensureHasValue().ensureIsObject().ensureIsType(TestEvent);
-        
+
         await this._eventHistory.recordEvent(event);
-        
+
         const message = `Event '${event.name}' with id '${event.id}'.`;
-        
+
         await this._eventBus.publish("analytic", new AnalyticEvent({ id: `analytic_${event.id}_${Date.now()}`, message }));
     }
 }
@@ -193,7 +189,7 @@ class AnalyticEventHandler implements EdaEventHandler<AnalyticEvent>
     {
         given(logger, "logger").ensureHasValue().ensureIsObject();
         this._logger = logger;
-        
+
         given(eventHistory, "eventHistory").ensureHasValue().ensureIsObject();
         this._eventHistory = eventHistory;
     }
@@ -202,9 +198,9 @@ class AnalyticEventHandler implements EdaEventHandler<AnalyticEvent>
     public async handle(event: AnalyticEvent): Promise<void>
     {
         given(event, "event").ensureHasValue().ensureIsObject().ensureIsType(AnalyticEvent);
-        
+
         await this._eventHistory.recordEvent(event);
-        
+
         await this._logger.logInfo(event.message);
     }
 }
@@ -230,14 +226,14 @@ export function createEdaManager(): EdaManager
         // .registerEventHandlerTracer(async (eventInfo, exec) =>
         // {
         //     console.log(`Starting tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
-            
+
         //     await exec();
-            
+
         //     console.log(`Finished tracing event ${eventInfo.eventName} with id ${eventInfo.eventId}`);
         // })
         .registerEventBus(RedisEventBus);
-    
+
     edaManager.bootstrap();
-    
+
     return edaManager;
 }

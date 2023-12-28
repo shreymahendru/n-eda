@@ -1,4 +1,4 @@
-import { EdaEvent } from "./eda-event";
+import { EdaEvent } from "./eda-event.js";
 
 // public
 export interface ObserverEdaEventHandler<TEvent extends EdaEvent>

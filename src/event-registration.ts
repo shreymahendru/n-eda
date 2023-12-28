@@ -1,9 +1,9 @@
 import { given } from "@nivinjoseph/n-defensive";
 import { ClassHierarchy } from "@nivinjoseph/n-util";
-import { EdaEventHandler } from "./eda-event-handler";
-import { eventSymbol } from "./event";
-import { observableSymbol, observedEventSymbol, observerSymbol } from "./observed-event";
-import { ObserverEdaEventHandler } from "./observer-eda-event-handler";
+import { EdaEventHandler } from "./eda-event-handler.js";
+import { eventSymbol } from "./event.js";
+import { observableSymbol, observedEventSymbol, observerSymbol } from "./observed-event.js";
+import { ObserverEdaEventHandler } from "./observer-eda-event-handler.js";
 
 // public
 export class EventRegistration
