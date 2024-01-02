@@ -76,16 +76,16 @@ class CommonComponentInstaller implements ComponentInstaller
 }
 
 
-@serialize()
+@serialize
 export class TestEvent extends Serializable implements EdaEvent
 {
     private readonly _id: string;
 
 
-    @serialize()
+    @serialize
     public get id(): string { return this._id; }
 
-    @serialize() // has to be serialized for eda purposes
+    @serialize // has to be serialized for eda purposes
     public get name(): string { return (<Object>TestEvent).getTypeName(); }
 
     public get partitionKey(): string { return this.id.split("-")[0]; }
@@ -105,22 +105,22 @@ export class TestEvent extends Serializable implements EdaEvent
     }
 }
 
-@serialize()
+@serialize
 export class AnalyticEvent extends Serializable implements EdaEvent
 {
     private readonly _id: string;
     private readonly _message: string;
 
 
-    @serialize()
+    @serialize
     public get id(): string { return this._id; }
 
-    @serialize() // has to be serialized for eda purposes
+    @serialize // has to be serialized for eda purposes
     public get name(): string { return (<Object>AnalyticEvent).getTypeName(); }
 
     public get partitionKey(): string { return this.id.split("-")[0]; }
 
-    @serialize()
+    @serialize
     public get message(): string { return this._message; }
 
     public get refId(): string { return "neda"; } // TODO: Should be changed if this event is used for distributed observer
