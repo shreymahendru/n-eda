@@ -4,8 +4,8 @@ import { Container } from "@nivinjoseph/n-ject";
 import { ConsoleLogger, Logger } from "@nivinjoseph/n-log";
 import { ShutdownManager } from "@nivinjoseph/n-svc";
 import { ClassHierarchy, Delay } from "@nivinjoseph/n-util";
-import * as Http from "http";
-import * as Url from "url";
+import Http from "node:http";
+import Url from "node:url";
 import { ApplicationScript } from "./application-script.js";
 import { RpcEventHandler } from "./rpc-event-handler.js";
 
@@ -172,7 +172,7 @@ export class RpcServer
                 res.end("SERVER UNAVAILABLE");
                 return;
             }
-            
+
             const requestPath = Url.parse(req.url!, true).pathname;
 
             switch (requestPath)
@@ -199,7 +199,7 @@ export class RpcServer
                                     //     res.writeHead(500);
                                     //     res.end(JSON.stringify(result));
                                     // }
-                                    
+
                                     res.setHeader("Content-Type", "application/json");
                                     res.writeHead(200);
                                     res.end(JSON.stringify(result));
@@ -240,7 +240,7 @@ export class RpcServer
             await this._logger.logInfo("CLEANING UP. PLEASE WAIT...");
             // return Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 20);
         });
-        
+
         this._shutdownManager = new ShutdownManager(this._logger, [
             async (): Promise<void> =>
             {
@@ -268,9 +268,9 @@ export class RpcServer
                             }
                             await this._logger.logInfo("RPC SERVER CLOSED");
                             resolve();
-                        });    
+                        });
                     });
-                    
+
                 });
             },
             async (): Promise<void> =>
@@ -312,7 +312,7 @@ export class RpcServer
         //         return;
 
         //     this._isShutDown = true;
-            
+
         //     // eslint-disable-next-line @typescript-eslint/no-floating-promises
         //     Delay.seconds(ConfigurationManager.getConfig<string>("env") === "dev" ? 2 : 15).then(() =>
         //     {

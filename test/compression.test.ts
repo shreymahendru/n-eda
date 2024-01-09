@@ -1,10 +1,10 @@
-import * as Assert from "assert";
-import * as Zlib from "zlib";
+import Zlib from "zlib";
 import { given } from "@nivinjoseph/n-defensive";
 import { Make, Profiler, Uuid } from "@nivinjoseph/n-util";
-import * as Grpc from "@grpc/grpc-js";
+import Grpc from "@grpc/grpc-js";
 import { ConnectionOptions } from "tls";
 import { describe, test } from "node:test";
+import assert from "node:assert";
 // import * as MessagePack from "msgpack-lite";
 // import * as Snappy from "snappy";
 // import { pack, unpack } from "msgpackr";
@@ -17,7 +17,7 @@ import { describe, test } from "node:test";
  */
 
 
-await describe.skip("compression tests", async () => 
+await describe.only("compression tests", async () => 
 {
     const brotliOptions = { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } };
 
@@ -255,7 +255,7 @@ await describe.skip("compression tests", async () =>
     //     Assert.ok(true);
     // });
     
-    await test("grpc", () =>
+    await test.only("grpc", () =>
     {
         const creds = Grpc.credentials.createSsl();
         const origConnectionOptions = creds._getConnectionOptions.bind(creds);
@@ -268,10 +268,10 @@ await describe.skip("compression tests", async () =>
         
         const options = creds._getConnectionOptions();
         console.log(options);
-        Assert.strictEqual(options!.rejectUnauthorized, false);
+        assert.strictEqual(options!.rejectUnauthorized, false);
     });
     
-    await test("JSON with Deflate", async () =>
+    await test.only("JSON with Deflate", async () =>
     {
         console.log("before", JSON.stringify(data).length);
 
@@ -281,12 +281,12 @@ await describe.skip("compression tests", async () =>
 
         const decompressed = await deflateDecompress(compressed);
 
-        Assert.deepStrictEqual(data, decompressed);
+        assert.deepStrictEqual(data, decompressed);
 
         // Assert.ok(true);
     });
 
-    await test("JSON with Deflate performance", async () =>
+    await test.only("JSON with Deflate performance", async () =>
     {
         const compressed = new Array<Buffer>();
 
@@ -310,10 +310,10 @@ await describe.skip("compression tests", async () =>
 
         console.table(profiler.traces);
 
-        Assert.ok(true);
+        assert.ok(true);
     });
     
-    await test("JSON with Brotli", async () =>
+    await test.only("JSON with Brotli", async () =>
     {
         console.log("before", JSON.stringify(data).length);
 
@@ -323,12 +323,12 @@ await describe.skip("compression tests", async () =>
 
         const decompressed = await brotliDecompress(compressed);
 
-        Assert.deepStrictEqual(data, decompressed);
+        assert.deepStrictEqual(data, decompressed);
 
         // Assert.ok(true);
     });
 
-    await test("JSON with Brotli performance", async () =>
+    await test.only("JSON with Brotli performance", async () =>
     {
         const compressed = new Array<Buffer>();
 
@@ -352,7 +352,7 @@ await describe.skip("compression tests", async () =>
 
         console.table(profiler.traces);
 
-        Assert.ok(true);
+        assert.ok(true);
     });
 
     // test("Snappy", async () =>

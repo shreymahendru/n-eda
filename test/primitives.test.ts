@@ -1,7 +1,7 @@
 import { Duration, Make } from "@nivinjoseph/n-util";
-import * as Assert from "assert";
 import { Queue } from "../src/redis-implementation/queue.js";
 import test, { describe } from "node:test";
+import assert from "node:assert";
 
 
 await describe("Primitives tests", async () =>
@@ -25,7 +25,7 @@ await describe("Primitives tests", async () =>
         result.push(queue.dequeue());
 
         console.log(JSON.stringify(result));
-        Assert.deepStrictEqual(result, [null, ...items, null]);
+        assert.deepStrictEqual(result, [null, ...items, null]);
     });
 
     await test("Queue performance tests", () =>
@@ -60,7 +60,7 @@ await describe("Primitives tests", async () =>
         console.log(`Queue time => ${end - start}ms`);
 
 
-        Assert.ok(true);
+        assert.ok(true);
     });
 
     await test("Num partition events", () =>
@@ -70,6 +70,6 @@ await describe("Primitives tests", async () =>
 
         const maxValue = Number.MAX_SAFE_INTEGER;
 
-        Assert.ok(((now + fiftyYears) * 1000) < maxValue);
+        assert.ok(((now + fiftyYears) * 1000) < maxValue);
     });
 });

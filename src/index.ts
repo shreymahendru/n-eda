@@ -23,6 +23,8 @@ import { NedaClearTrackedKeysEvent } from "./redis-implementation/neda-clear-tra
 import { observable, observedEvent, observer } from "./observed-event.js";
 import { ObserverEdaEventHandler } from "./observer-eda-event-handler.js";
 
+//@ts-expect-error polyfill to use metadata object
+Symbol.metadata ??= Symbol("Symbol.metadata");
 
 
 export

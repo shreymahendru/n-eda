@@ -1,15 +1,17 @@
-import * as Grpc from "@grpc/grpc-js";
-import * as ProtoLoader from "@grpc/proto-loader";
+// import Grpc from "@grpc/grpc-js";
+import ProtoLoader from "@grpc/proto-loader";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { given } from "@nivinjoseph/n-defensive";
 import { Container } from "@nivinjoseph/n-ject";
 import { ConsoleLogger, Logger } from "@nivinjoseph/n-log";
 import { ShutdownManager } from "@nivinjoseph/n-svc";
 import { ClassHierarchy, Delay } from "@nivinjoseph/n-util";
-import * as Path from "path";
+import Path from "node:path";
 import { GrpcModel } from "../grpc-details.js";
 import { ApplicationScript } from "./application-script.js";
 import { GrpcEventHandler } from "./grpc-event-handler.js";
+import { fileURLToPath } from "node:url";
+import Grpc from "@grpc/grpc-js";
 
 
 export class GrpcServer
@@ -184,9 +186,10 @@ export class GrpcServer
             oneofs: true
         };
 
-        const basePath = __dirname.endsWith(`dist${Path.sep}redis-implementation`)
-            ? Path.resolve(__dirname, "..", "..", "src", "redis-implementation")
-            : __dirname;
+        const dirname = Path.dirname(fileURLToPath(import.meta.url));
+        const basePath = dirname.endsWith(`dist${Path.sep}redis-implementation`)
+            ? Path.resolve(dirname, "..", "..", "src", "redis-implementation")
+            : dirname;
 
         const packageDef = ProtoLoader.loadSync(Path.join(basePath, "grpc-processor.proto"), options);
         const serviceDef = Grpc.loadPackageDefinition(packageDef).grpcprocessor;

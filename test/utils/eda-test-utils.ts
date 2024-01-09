@@ -2,7 +2,6 @@ import { given } from "@nivinjoseph/n-defensive";
 import { ComponentInstaller, inject, Registry } from "@nivinjoseph/n-ject";
 import { ConsoleLogger, LogDateTimeZone, Logger } from "@nivinjoseph/n-log";
 import { Delay, Disposable, DisposableWrapper, Duration, Serializable, serialize } from "@nivinjoseph/n-util";
-// import * as Redis from "redis";
 import { Redis } from "ioredis";
 import { EdaEventHandler, EventBus, EdaEvent, EdaManager, RedisEventBus, RedisEventSubMgr, Topic, event } from "../../src/index.js";
 import { ObjectDisposedException } from "@nivinjoseph/n-exception";
@@ -57,7 +56,6 @@ class CommonComponentInstaller implements ComponentInstaller
 
         // const edaRedisClient = Redis.createClient({ return_buffers: true });
         const edaRedisClient = new Redis();
-
         const edaRedisClientDisposable = new DisposableWrapper(async () =>
         {
             await Delay.seconds(5);

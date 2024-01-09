@@ -3,7 +3,8 @@
         "module": "NodeNext",
         "target": "ES2017",
         "lib": [
-            "ES2023"
+            "ES2023", 
+            "ESNext.Decorators"
         ],
         "strict": true,
         "strictNullChecks": true,

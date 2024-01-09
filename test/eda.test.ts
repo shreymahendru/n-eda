@@ -1,8 +1,8 @@
-import { Delay } from "@nivinjoseph/n-util";
-import * as Assert from "assert";
+import { Delay, TypeHelper } from "@nivinjoseph/n-util";
 import { EdaEvent, EdaManager, EventBus } from "../src/index.js";
 import { createEdaManager, EventHistory, TestEvent } from "./utils/eda-test-utils.js";
 import test, { after, before, describe } from "node:test";
+import assert from "node:assert";
 
 
 await describe("eda tests", async () =>
@@ -61,7 +61,7 @@ await describe("eda tests", async () =>
         history.startProfiling();
         await eventBus.publish("basic", ...testEvents);
 
-        await Delay.seconds(30);
+        await Delay.seconds(10);
 
         // await Delay.seconds(1);
 
@@ -83,7 +83,19 @@ await describe("eda tests", async () =>
 
         // const historyNumbers = historyIds.map(t => Number.parseInt(t.split("-")[1].split("_")[1]));
 
-        Assert.strictEqual(history.records.length, testEvents.length * 2, "number of records don't match");
+        assert.strictEqual(history.records.length, testEvents.length * 2, "number of records don't match");
+
+        for (let i = 0; i < 100; i++)
+        {
+            const eventsForPartition = history.records.where(t => t.split("-").takeFirst() === `test_${i}`);
+            const ordered = eventsForPartition
+                .orderBy(t => TypeHelper.parseNumber(t.split("-").takeLast().split("_").takeLast()));
+
+            assert.deepStrictEqual(eventsForPartition, ordered);
+
+            // const history.records.
+        }
+
         // console.log(historyIds);
         // Assert.deepStrictEqual(historyIds, testEvents.map(t => t.id), "eventIds don't match");
         // Assert.deepStrictEqual(historyNumbers, numbers, "numbers don't match");

@@ -6,7 +6,7 @@ import { Logger } from "@nivinjoseph/n-log";
 import * as otelApi from "@opentelemetry/api";
 import * as semCon from "@opentelemetry/semantic-conventions";
 import { Redis } from "ioredis";
-import * as Zlib from "zlib";
+import Zlib from "zlib";
 import { EdaEvent } from "../eda-event.js";
 import { EdaManager } from "../eda-manager.js";
 import { EventRegistration } from "../event-registration.js";
