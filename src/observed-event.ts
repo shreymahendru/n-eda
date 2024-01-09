@@ -19,7 +19,7 @@ export function observedEvent<
     {
         given(context, "context")
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            .ensure(t => t.kind === "class", "route decorator should only be used on a class");
+            .ensure(t => t.kind === "class", "observedEvent decorator should only be used on a class");
 
         const className = context.name!;
         given(className, className).ensureHasValue().ensureIsString()
@@ -54,7 +54,7 @@ export function observable<
     {
         given(context, "context")
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            .ensure(t => t.kind === "class", "route decorator should only be used on a class");
+            .ensure(t => t.kind === "class", "observable decorator should only be used on a class");
 
         const className = context.name!;
         given(className, className).ensureHasValue().ensureIsString()
@@ -89,7 +89,7 @@ export function observer<
     {
         given(context, "context")
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            .ensure(t => t.kind === "class", "route decorator should only be used on a class");
+            .ensure(t => t.kind === "class", "observer decorator should only be used on a class");
 
         const className = context.name!;
         given(className, className).ensureHasValue().ensureIsString()

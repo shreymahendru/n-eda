@@ -16,7 +16,7 @@ export function event<TEvent extends EdaEvent, This extends EdaEventHandler<TEve
     {
         given(context, "context")
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            .ensure(t => t.kind === "class", "route decorator should only be used on a class");
+            .ensure(t => t.kind === "class", "event decorator should only be used on a class");
 
         const className = context.name!;
         given(className, className).ensureHasValue().ensureIsString()
