@@ -17,7 +17,7 @@ import assert from "node:assert";
  */
 
 
-await describe.only("compression tests", async () => 
+await describe("compression tests", async () => 
 {
     const brotliOptions = { params: { [Zlib.constants.BROTLI_PARAM_MODE]: Zlib.constants.BROTLI_MODE_TEXT } };
 
@@ -255,7 +255,7 @@ await describe.only("compression tests", async () =>
     //     Assert.ok(true);
     // });
     
-    await test.only("grpc", () =>
+    await test("grpc", () =>
     {
         const creds = Grpc.credentials.createSsl();
         const origConnectionOptions = creds._getConnectionOptions.bind(creds);
@@ -271,7 +271,7 @@ await describe.only("compression tests", async () =>
         assert.strictEqual(options!.rejectUnauthorized, false);
     });
     
-    await test.only("JSON with Deflate", async () =>
+    await test("JSON with Deflate", async () =>
     {
         console.log("before", JSON.stringify(data).length);
 
@@ -286,7 +286,7 @@ await describe.only("compression tests", async () =>
         // Assert.ok(true);
     });
 
-    await test.only("JSON with Deflate performance", async () =>
+    await test("JSON with Deflate performance", async () =>
     {
         const compressed = new Array<Buffer>();
 
@@ -313,7 +313,7 @@ await describe.only("compression tests", async () =>
         assert.ok(true);
     });
     
-    await test.only("JSON with Brotli", async () =>
+    await test("JSON with Brotli", async () =>
     {
         console.log("before", JSON.stringify(data).length);
 
@@ -328,7 +328,7 @@ await describe.only("compression tests", async () =>
         // Assert.ok(true);
     });
 
-    await test.only("JSON with Brotli performance", async () =>
+    await test("JSON with Brotli performance", async () =>
     {
         const compressed = new Array<Buffer>();
 
