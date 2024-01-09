@@ -1,4 +1,4 @@
-// import Grpc from "@grpc/grpc-js";
+import Grpc from "@grpc/grpc-js";
 import ProtoLoader from "@grpc/proto-loader";
 import { ConfigurationManager } from "@nivinjoseph/n-config";
 import { given } from "@nivinjoseph/n-defensive";
@@ -11,7 +11,6 @@ import { GrpcModel } from "../grpc-details.js";
 import { ApplicationScript } from "./application-script.js";
 import { GrpcEventHandler } from "./grpc-event-handler.js";
 import { fileURLToPath } from "node:url";
-import Grpc from "@grpc/grpc-js";
 
 
 export class GrpcServer

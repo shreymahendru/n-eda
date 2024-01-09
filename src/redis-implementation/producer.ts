@@ -4,7 +4,7 @@ import { Make } from "@nivinjoseph/n-util";
 import { Exception } from "@nivinjoseph/n-exception";
 import { Logger } from "@nivinjoseph/n-log";
 import { Redis } from "ioredis";
-import * as Zlib from "zlib";
+import Zlib from "zlib";
 import { EdaEvent } from "../eda-event.js";
 // import * as MessagePack from "msgpackr";
 // import * as Snappy from "snappy";

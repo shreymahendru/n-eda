@@ -91,9 +91,7 @@ await describe("eda tests", async () =>
             const ordered = eventsForPartition
                 .orderBy(t => TypeHelper.parseNumber(t.split("-").takeLast().split("_").takeLast()));
 
-            assert.deepStrictEqual(eventsForPartition, ordered);
-
-            // const history.records.
+            assert.deepStrictEqual(eventsForPartition, ordered, "ordering is incorrect");
         }
 
         // console.log(historyIds);
