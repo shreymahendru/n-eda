@@ -2,7 +2,7 @@ import { EdaEvent, EdaEventClass } from "./eda-event.js";
 import { EdaEventHandler, EventHandlerClass } from "./eda-event-handler.js";
 import { event, EventHandlerEventDecorator } from "./event.js";
 import { EventRegistration } from "./event-registration.js";
-import { EventBus } from "./event-bus.js";
+import { EventBus, ObservableWatch } from "./event-bus.js";
 import { EventSubMgr } from "./event-sub-mgr.js";
 import { EdaManager } from "./eda-manager.js";
 import { Topic } from "./topic.js";
@@ -51,5 +51,6 @@ export
     observable, ObserverEventHandlerObservableDecorator,
     observer, ObserverEventHandlerObserverDecorator,
 
-    ObserverEdaEventHandler, ObserverEdaEventHandlerClass
+    ObserverEdaEventHandler, ObserverEdaEventHandlerClass,
+    ObservableWatch
 };
