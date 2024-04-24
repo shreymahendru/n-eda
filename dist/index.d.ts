@@ -2,7 +2,7 @@ import { EdaEvent, EdaEventClass } from "./eda-event.js";
 import { EdaEventHandler, EventHandlerClass } from "./eda-event-handler.js";
 import { event, EventHandlerEventDecorator } from "./event.js";
 import { EventRegistration } from "./event-registration.js";
-import { EventBus } from "./event-bus.js";
+import { EventBus, ObservableWatch } from "./event-bus.js";
 import { EventSubMgr } from "./event-sub-mgr.js";
 import { EdaManager } from "./eda-manager.js";
 import { Topic } from "./topic.js";
@@ -20,5 +20,5 @@ import { GrpcServer } from "./redis-implementation/grpc-server.js";
 import { NedaClearTrackedKeysEvent } from "./redis-implementation/neda-clear-tracked-keys-event.js";
 import { observable, ObserverEventHandlerObservedEventDecorator, observedEvent, ObserverEventHandlerObservableDecorator, observer, ObserverEventHandlerObserverDecorator } from "./observed-event.js";
 import { ObserverEdaEventHandler, ObserverEdaEventHandlerClass } from "./observer-eda-event-handler.js";
-export { EdaEvent, EdaEventClass, EdaEventHandler, EventHandlerClass, event, EventHandlerEventDecorator, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, RedisEventBus, RedisEventSubMgr, LambdaDetails, AwsLambdaEventHandler, ApplicationScript, RpcDetails, RpcEventHandler, RpcServer, GrpcDetails, GrpcEventHandler, GrpcServer, NedaClearTrackedKeysEvent, observedEvent, ObserverEventHandlerObservedEventDecorator, observable, ObserverEventHandlerObservableDecorator, observer, ObserverEventHandlerObserverDecorator, ObserverEdaEventHandler, ObserverEdaEventHandlerClass };
+export { EdaEvent, EdaEventClass, EdaEventHandler, EventHandlerClass, event, EventHandlerEventDecorator, Topic, EventRegistration, EventBus, EventSubMgr, EdaManager, RedisEventBus, RedisEventSubMgr, LambdaDetails, AwsLambdaEventHandler, ApplicationScript, RpcDetails, RpcEventHandler, RpcServer, GrpcDetails, GrpcEventHandler, GrpcServer, NedaClearTrackedKeysEvent, observedEvent, ObserverEventHandlerObservedEventDecorator, observable, ObserverEventHandlerObservableDecorator, observer, ObserverEventHandlerObserverDecorator, ObserverEdaEventHandler, ObserverEdaEventHandlerClass, ObservableWatch };
 //# sourceMappingURL=index.d.ts.map
