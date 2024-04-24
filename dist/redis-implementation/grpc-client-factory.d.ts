@@ -1,5 +1,5 @@
-import { EdaManager } from "../eda-manager";
-import { WorkItem } from "./scheduler";
+import { EdaManager } from "../eda-manager.js";
+import { WorkItem } from "./scheduler.js";
 export declare class GrpcClientFactory {
     private readonly _manager;
     private readonly _logger;
@@ -17,3 +17,4 @@ export interface GrpcClient {
         eventId: string;
     }>;
 }
+//# sourceMappingURL=grpc-client-factory.d.ts.map

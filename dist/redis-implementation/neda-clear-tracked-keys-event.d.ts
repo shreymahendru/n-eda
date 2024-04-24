@@ -1,5 +1,5 @@
 import { Serializable } from "@nivinjoseph/n-util";
-import { EdaEvent } from "../eda-event";
+import { EdaEvent } from "../eda-event.js";
 export declare class NedaClearTrackedKeysEvent extends Serializable implements EdaEvent {
     private readonly _id;
     get id(): string;
@@ -9,3 +9,4 @@ export declare class NedaClearTrackedKeysEvent extends Serializable implements E
     get refType(): string;
     constructor(data: Pick<NedaClearTrackedKeysEvent, "id">);
 }
+//# sourceMappingURL=neda-clear-tracked-keys-event.d.ts.map

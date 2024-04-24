@@ -1,7 +1,7 @@
 import { Logger } from "@nivinjoseph/n-log";
 import { Disposable, Observable } from "@nivinjoseph/n-util";
-import { EdaManager } from "../eda-manager";
-import { WorkItem } from "./scheduler";
+import { EdaManager } from "../eda-manager.js";
+import { WorkItem } from "./scheduler.js";
 export declare abstract class Processor implements Disposable {
     private readonly _manager;
     private readonly _logger;
@@ -23,3 +23,4 @@ export declare abstract class Processor implements Disposable {
     protected abstract processEvent(workItem: WorkItem): Promise<void>;
     private _process;
 }
+//# sourceMappingURL=processor.d.ts.map

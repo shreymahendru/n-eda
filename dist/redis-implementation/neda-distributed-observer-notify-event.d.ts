@@ -1,5 +1,5 @@
 import { Serializable } from "@nivinjoseph/n-util";
-import { EdaEvent } from "../eda-event";
+import { EdaEvent } from "../eda-event.js";
 export declare class NedaDistributedObserverNotifyEvent extends Serializable implements EdaEvent {
     private readonly _observerTypeName;
     private readonly _observerId;
@@ -16,3 +16,4 @@ export declare class NedaDistributedObserverNotifyEvent extends Serializable imp
     get refType(): string;
     constructor(data: Pick<NedaDistributedObserverNotifyEvent, "observerTypeName" | "observerId" | "observedEventId" | "observedEvent">);
 }
+//# sourceMappingURL=neda-distributed-observer-notify-event.d.ts.map

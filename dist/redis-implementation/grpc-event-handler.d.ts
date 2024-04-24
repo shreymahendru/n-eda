@@ -1,7 +1,7 @@
 import { ServiceLocator } from "@nivinjoseph/n-ject";
-import { EdaEvent } from "../eda-event";
-import { EdaManager } from "../eda-manager";
-import { GrpcModel } from "../grpc-details";
+import { EdaEvent } from "../eda-event.js";
+import { EdaManager } from "../eda-manager.js";
+import { GrpcModel } from "../grpc-details.js";
 export declare class GrpcEventHandler {
     private readonly _nedaDistributedObserverNotifyEventName;
     private _manager;
@@ -15,3 +15,4 @@ export declare class GrpcEventHandler {
     private _process;
     private _getErrorMessage;
 }
+//# sourceMappingURL=grpc-event-handler.d.ts.map
