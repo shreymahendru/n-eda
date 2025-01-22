@@ -7,4 +7,4 @@ export interface EdaEventHandler<TEvent extends EdaEvent>
     handle(event: TEvent): Promise<void>;
 }
 
-export type EventHandlerClass<TEvent extends EdaEvent, This extends EdaEventHandler<TEvent>> = ClassDefinition<This>;
+export type EventHandlerClass<TEvent extends EdaEvent, TEventHandler extends EdaEventHandler<TEvent>> = ClassDefinition<TEventHandler>;

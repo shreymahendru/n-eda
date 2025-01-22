@@ -9,7 +9,7 @@ import { EdaEvent } from "./eda-event.js";
 // public
 export class EventRegistration
 {
-    private readonly _eventHandlerType: ClassDefinition<EdaEventHandler<EdaEvent> | ObserverEdaEventHandler<EdaEvent>>;
+    private readonly _eventHandlerType: ClassDefinition<EdaEventHandler<EdaEvent>> | ClassDefinition<ObserverEdaEventHandler<EdaEvent>>;
     private readonly _eventHandlerTypeName: string;
     private readonly _eventType: ClassDefinition<EdaEvent>;
     private readonly _eventTypeName: string;
@@ -21,7 +21,7 @@ export class EventRegistration
     private readonly _observerTypeName: string | null = null;
 
 
-    public get eventHandlerType(): ClassDefinition<EdaEventHandler<EdaEvent> | ObserverEdaEventHandler<EdaEvent>> { return this._eventHandlerType; }
+    public get eventHandlerType(): ClassDefinition<EdaEventHandler<EdaEvent>> | ClassDefinition<ObserverEdaEventHandler<EdaEvent>> { return this._eventHandlerType; }
     public get eventHandlerTypeName(): string { return this._eventHandlerTypeName; }
     public get eventType(): ClassDefinition<EdaEvent> { return this._eventType; }
     public get eventTypeName(): string { return this._eventTypeName; }
@@ -54,7 +54,7 @@ export class EventRegistration
     }
 
 
-    public constructor(eventHandlerType: ClassDefinition<EdaEventHandler<EdaEvent> | ObserverEdaEventHandler<EdaEvent>>)
+    public constructor(eventHandlerType: ClassDefinition<EdaEventHandler<EdaEvent>> | ClassDefinition<ObserverEdaEventHandler<EdaEvent>>)
     {
         const eventHandlerName = eventHandlerType.getTypeName();
         given(eventHandlerType, "eventHandlerType").ensureHasValue().ensureIsFunction()

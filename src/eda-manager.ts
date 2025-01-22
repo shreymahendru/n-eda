@@ -169,7 +169,7 @@ export class EdaManager implements Disposable
         return this;
     }
 
-    public registerEventHandlers(...eventHandlerClasses: Array<ClassDefinition<EdaEventHandler<EdaEvent> | ObserverEdaEventHandler<EdaEvent>>>): this
+    public registerEventHandlers(...eventHandlerClasses: Array<ClassDefinition<EdaEventHandler<EdaEvent>> | ClassDefinition<ObserverEdaEventHandler<EdaEvent>>>): this
     {
         given(eventHandlerClasses, "eventHandlerClasses").ensureHasValue().ensureIsArray();
         given(this, "this").ensure(t => !t._isBootstrapped, "invoking method after bootstrap");
@@ -479,7 +479,7 @@ export class EdaManager implements Disposable
     //         {
     //             const conflicts = keys.where(u => u !== t.eventTypeName && u.startsWith(t.eventTypeName));
     //             if (conflicts.length > 0)
-    //                 throw new ApplicationException(`Handler conflict detected between wildcard '${t.eventTypeName}' and events '${conflicts.join(",")}'.`);    
+    //                 throw new ApplicationException(`Handler conflict detected between wildcard '${t.eventTypeName}' and events '${conflicts.join(",")}'.`);
     //         }
 
     //         this._container.registerScoped(t.eventHandlerTypeName, t.eventHandlerType);
