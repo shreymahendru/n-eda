@@ -1,8 +1,8 @@
-import { Container } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
+import { Container } from "@nivinjoseph/n-ject";
 import { ClassHierarchy } from "@nivinjoseph/n-util";
-import { ApplicationScript } from "./application-script.js";
-import { GrpcEventHandler } from "./grpc-event-handler.js";
+import { GrpcEventHandler } from "./grpc-event-handler";
+import { ApplicationScript } from "./application-script";
 export declare class GrpcServer {
     private readonly _port;
     private readonly _host;
@@ -31,4 +31,3 @@ export declare class GrpcServer {
     private _configureShutDown;
     private _changeStatus;
 }
-//# sourceMappingURL=grpc-server.d.ts.map

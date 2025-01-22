@@ -1,7 +1,7 @@
 import { ServiceLocator } from "@nivinjoseph/n-ject";
-import { EdaEvent } from "../eda-event.js";
-import { EdaManager } from "../eda-manager.js";
-import { RpcModel } from "../rpc-details.js";
+import { EdaEvent } from "../eda-event";
+import { EdaManager } from "../eda-manager";
+import { RpcModel } from "../rpc-details";
 export declare class RpcEventHandler {
     private readonly _nedaDistributedObserverNotifyEventName;
     private _manager;
@@ -18,4 +18,3 @@ export declare class RpcEventHandler {
     private _process;
     private _getErrorMessage;
 }
-//# sourceMappingURL=rpc-event-handler.d.ts.map

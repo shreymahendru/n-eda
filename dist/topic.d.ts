@@ -19,4 +19,3 @@ export declare class Topic {
     configurePartitionAffinity(partitionAffinity: string): Topic;
     disable(): Topic;
 }
-//# sourceMappingURL=topic.d.ts.map

@@ -1,9 +1,9 @@
-import { EdaManager } from "../eda-manager.js";
-import { EventSubMgr } from "../event-sub-mgr.js";
+import { EventSubMgr } from "../event-sub-mgr";
+import { EdaManager } from "../eda-manager";
+import Redis from "ioredis";
 import { ServiceLocator } from "@nivinjoseph/n-ject";
+import { EdaEvent } from "../eda-event";
 import { Logger } from "@nivinjoseph/n-log";
-import { Redis } from "ioredis";
-import { EdaEvent } from "../eda-event.js";
 export declare class RedisEventSubMgr implements EventSubMgr {
     private readonly _client;
     private readonly _logger;
@@ -20,4 +20,3 @@ export declare class RedisEventSubMgr implements EventSubMgr {
     dispose(): Promise<void>;
     protected onEventReceived(scope: ServiceLocator, topic: string, event: EdaEvent): void;
 }
-//# sourceMappingURL=redis-event-sub-mgr.d.ts.map

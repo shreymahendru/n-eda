@@ -1,7 +1,7 @@
 import { Disposable } from "@nivinjoseph/n-util";
-import { Redis } from "ioredis";
-import { EdaManager } from "../eda-manager.js";
-import { Broker } from "./broker.js";
+import Redis from "ioredis";
+import { EdaManager } from "../eda-manager";
+import { Broker } from "./broker";
 export declare class Consumer implements Disposable {
     private readonly _edaPrefix;
     private readonly _nedaClearTrackedKeysEventName;
@@ -46,4 +46,3 @@ export declare class Consumer implements Disposable {
     private _decompressEvents;
     private _removeKeys;
 }
-//# sourceMappingURL=consumer.d.ts.map

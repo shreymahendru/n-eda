@@ -9,4 +9,3 @@ export interface RpcModel {
     eventName: string;
     payload: object;
 }
-//# sourceMappingURL=rpc-details.d.ts.map

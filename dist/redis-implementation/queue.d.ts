@@ -9,4 +9,3 @@ export declare class Queue<T> {
     enqueue(item: T): void;
     dequeue(): T | null;
 }
-//# sourceMappingURL=queue.d.ts.map

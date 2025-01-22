@@ -11,4 +11,3 @@ export interface GrpcModel {
     eventName: string;
     payload: string;
 }
-//# sourceMappingURL=grpc-details.d.ts.map

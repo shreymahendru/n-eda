@@ -6,4 +6,3 @@ export interface LambdaDetails {
         readonly accessKeySecret: string;
     };
 }
-//# sourceMappingURL=lambda-details.d.ts.map

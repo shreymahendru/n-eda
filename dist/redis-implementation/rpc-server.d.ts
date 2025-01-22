@@ -1,8 +1,8 @@
 import { Container } from "@nivinjoseph/n-ject";
 import { Logger } from "@nivinjoseph/n-log";
 import { ClassHierarchy } from "@nivinjoseph/n-util";
-import { ApplicationScript } from "./application-script.js";
-import { RpcEventHandler } from "./rpc-event-handler.js";
+import { ApplicationScript } from "./application-script";
+import { RpcEventHandler } from "./rpc-event-handler";
 export declare class RpcServer {
     private readonly _port;
     private readonly _host;
@@ -28,4 +28,3 @@ export declare class RpcServer {
     private _configureServer;
     private _configureShutDown;
 }
-//# sourceMappingURL=rpc-server.d.ts.map
