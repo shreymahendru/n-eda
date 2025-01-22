@@ -1,6 +1,6 @@
-import { EdaEvent, EdaEventClass } from "./eda-event.js";
-import { EdaEventHandler, EventHandlerClass } from "./eda-event-handler.js";
-import { event, EventHandlerEventDecorator } from "./event.js";
+import { EdaEvent } from "./eda-event.js";
+import { EdaEventHandler } from "./eda-event-handler.js";
+import { event } from "./event.js";
 import { EventRegistration } from "./event-registration.js";
 import { EventBus, ObservableWatch } from "./event-bus.js";
 import { EventSubMgr } from "./event-sub-mgr.js";
@@ -20,8 +20,8 @@ import { GrpcDetails } from "./grpc-details.js";
 import { GrpcEventHandler } from "./redis-implementation/grpc-event-handler.js";
 import { GrpcServer } from "./redis-implementation/grpc-server.js";
 import { NedaClearTrackedKeysEvent } from "./redis-implementation/neda-clear-tracked-keys-event.js";
-import { observable, ObserverEventHandlerObservedEventDecorator, observedEvent, ObserverEventHandlerObservableDecorator, observer, ObserverEventHandlerObserverDecorator } from "./observed-event.js";
-import { ObserverEdaEventHandler, ObserverEdaEventHandlerClass } from "./observer-eda-event-handler.js";
+import { observable, observedEvent, observer } from "./observed-event.js";
+import { ObserverEdaEventHandler } from "./observer-eda-event-handler.js";
 
 //@ts-expect-error polyfill to use metadata object
 Symbol.metadata ??= Symbol("Symbol.metadata");
@@ -29,8 +29,8 @@ Symbol.metadata ??= Symbol("Symbol.metadata");
 
 export
 {
-    EdaEvent, EdaEventClass, EdaEventHandler, EventHandlerClass,
-    event, EventHandlerEventDecorator,
+    EdaEvent, EdaEventHandler,
+    event,
     Topic, EventRegistration, EventBus, EventSubMgr, EdaManager,
 
     // InMemoryEventBus, InMemoryEventSubMgr,
@@ -47,10 +47,10 @@ export
 
     NedaClearTrackedKeysEvent,
 
-    observedEvent, ObserverEventHandlerObservedEventDecorator,
-    observable, ObserverEventHandlerObservableDecorator,
-    observer, ObserverEventHandlerObserverDecorator,
+    observedEvent,
+    observable,
+    observer,
 
-    ObserverEdaEventHandler, ObserverEdaEventHandlerClass,
+    ObserverEdaEventHandler,
     ObservableWatch
 };
